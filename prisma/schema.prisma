@@ -1,0 +1,117 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum StudySourceType {
+  BOOK
+  NOTES
+  SLIDES
+  OTHER
+}
+
+enum SessionStatus {
+  PLANNED
+  DONE
+  SKIPPED
+}
+
+model Student {
+  id           String         @id @default(cuid())
+  email        String         @unique
+  fullName     String?
+  weeklyHours  Int            @default(10)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  subjects     Subject[]
+  exams        Exam[]
+  sources      StudySource[]
+  studySessions StudySession[]
+}
+
+model Subject {
+  id           String      @id @default(cuid())
+  studentId    String
+  name         String
+  color        String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  student      Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  exams        Exam[]
+  sources      StudySource[]
+  studySessions StudySession[]
+
+  @@index([studentId])
+  @@unique([studentId, name])
+}
+
+model Exam {
+  id            String      @id @default(cuid())
+  studentId     String
+  subjectId     String
+  title         String
+  examDate      DateTime
+  targetGrade   String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  student       Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject       Subject     @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([subjectId])
+  @@index([examDate])
+}
+
+model StudySource {
+  id            String          @id @default(cuid())
+  studentId     String
+  subjectId     String
+  title         String
+  type          StudySourceType
+  wordCount     Int             @default(0)
+  tokenEstimate Int             @default(0)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  student       Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject       Subject         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  studySessions StudySession[]
+
+  @@index([studentId])
+  @@index([subjectId])
+}
+
+model StudySession {
+  id            String        @id @default(cuid())
+  studentId     String
+  subjectId     String
+  sourceId      String?
+  scheduledFor  DateTime
+  durationMin   Int
+  status        SessionStatus @default(PLANNED)
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  student       Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject       Subject       @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  source        StudySource?  @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+
+  @@index([studentId])
+  @@index([subjectId])
+  @@index([sourceId])
+  @@index([scheduledFor])
+}
