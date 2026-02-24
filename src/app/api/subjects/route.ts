@@ -1,32 +1,23 @@
-import { NextResponse } from "next/server";
-import { z } from "zod";
-
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/server/db/client";
-
-const studentQuerySchema = z.object({
-  studentId: z.string().min(1, "studentId is required"),
-});
-
-const createSubjectSchema = z.object({
-  studentId: z.string().min(1, "studentId is required"),
-  name: z.string().trim().min(2, "name must be at least 2 characters"),
-  color: z.string().trim().max(20).optional(),
-});
+import { apiError, apiSuccess, getErrorDetails } from "@/server/http/response";
+import {
+  createSubjectSchema,
+  subjectQuerySchema,
+} from "@/server/validation/subject";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const parsed = studentQuerySchema.safeParse({
+  const parsed = subjectQuerySchema.safeParse({
     studentId: searchParams.get("studentId"),
   });
 
   if (!parsed.success) {
-    return NextResponse.json(
-      {
-        error: "Invalid query",
-        issues: parsed.error.flatten().fieldErrors,
-      },
-      { status: 400 },
+    return apiError(
+      "Invalid query",
+      400,
+      undefined,
+      parsed.error.flatten().fieldErrors,
     );
   }
 
@@ -42,20 +33,18 @@ export async function GET(request: Request) {
     },
   });
 
-  return NextResponse.json({ data: subjects }, { status: 200 });
+  return apiSuccess(subjects);
 }
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const parsed = createSubjectSchema.safeParse(body);
+  const parsed = createSubjectSchema.safeParse(await request.json());
 
   if (!parsed.success) {
-    return NextResponse.json(
-      {
-        error: "Invalid payload",
-        issues: parsed.error.flatten().fieldErrors,
-      },
-      { status: 400 },
+    return apiError(
+      "Invalid payload",
+      400,
+      undefined,
+      parsed.error.flatten().fieldErrors,
     );
   }
 
@@ -76,29 +65,15 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json({ data: subject }, { status: 201 });
+    return apiSuccess(subject, 201);
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
     ) {
-      return NextResponse.json(
-        {
-          error: "A subject with this name already exists for the student.",
-        },
-        { status: 409 },
-      );
+      return apiError("A subject with this name already exists for the student.", 409);
     }
 
-    const details =
-      error instanceof Error ? error.message : "Unexpected server error";
-
-    return NextResponse.json(
-      {
-        error: "Failed to create subject",
-        details,
-      },
-      { status: 500 },
-    );
+    return apiError("Failed to create subject", 500, getErrorDetails(error));
   }
 }

@@ -1,11 +1,10 @@
-import { NextResponse } from "next/server";
-
 import { prisma } from "@/server/db/client";
+import { apiError } from "@/server/http/response";
 
 export async function GET() {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    return NextResponse.json(
+    return Response.json(
       {
         status: "ok",
         db: "connected",
@@ -14,17 +13,10 @@ export async function GET() {
       { status: 200 },
     );
   } catch (error) {
-    const details =
-      error instanceof Error ? error.message : "Unknown database error";
-
-    return NextResponse.json(
-      {
-        status: "error",
-        db: "disconnected",
-        details,
-        timestamp: new Date().toISOString(),
-      },
-      { status: 500 },
+    return apiError(
+      "Health check failed",
+      500,
+      error instanceof Error ? error.message : "Unknown database error",
     );
   }
 }

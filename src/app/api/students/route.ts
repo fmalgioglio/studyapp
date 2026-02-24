@@ -1,26 +1,17 @@
-import { NextResponse } from "next/server";
-import { z } from "zod";
-
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/server/db/client";
-
-const createStudentSchema = z.object({
-  email: z.email("Valid email is required").transform((value) => value.toLowerCase()),
-  fullName: z.string().trim().min(2, "fullName must be at least 2 characters").optional(),
-  weeklyHours: z.number().int().min(1).max(80).optional(),
-});
+import { apiError, apiSuccess, getErrorDetails } from "@/server/http/response";
+import { createStudentSchema } from "@/server/validation/student";
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const parsed = createStudentSchema.safeParse(body);
+  const parsed = createStudentSchema.safeParse(await request.json());
 
   if (!parsed.success) {
-    return NextResponse.json(
-      {
-        error: "Invalid payload",
-        issues: parsed.error.flatten().fieldErrors,
-      },
-      { status: 400 },
+    return apiError(
+      "Invalid payload",
+      400,
+      undefined,
+      parsed.error.flatten().fieldErrors,
     );
   }
 
@@ -46,29 +37,15 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json({ data: student }, { status: 200 });
+    return apiSuccess(student);
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
     ) {
-      return NextResponse.json(
-        {
-          error: "A student with this email already exists.",
-        },
-        { status: 409 },
-      );
+      return apiError("A student with this email already exists.", 409);
     }
 
-    const details =
-      error instanceof Error ? error.message : "Unexpected server error";
-
-    return NextResponse.json(
-      {
-        error: "Failed to create student",
-        details,
-      },
-      { status: 500 },
-    );
+    return apiError("Failed to create student", 500, getErrorDetails(error));
   }
 }

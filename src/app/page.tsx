@@ -16,6 +16,11 @@ type Subject = {
   createdAt: string;
 };
 
+type ApiResult<T> = {
+  data?: T;
+  error?: string;
+};
+
 export default function Home() {
   const [healthStatus, setHealthStatus] = useState("not checked");
   const [student, setStudent] = useState<Student | null>(null);
@@ -29,9 +34,18 @@ export default function Home() {
 
   const studentId = useMemo(() => student?.id ?? "", [student]);
 
+  async function requestJson<T>(
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ): Promise<{ ok: boolean; payload: ApiResult<T> }> {
+    const response = await fetch(input, init);
+    const payload = (await response.json()) as ApiResult<T>;
+    return { ok: response.ok, payload };
+  }
+
   async function checkHealth() {
     const response = await fetch("/api/health");
-    const json = await response.json();
+    const json = (await response.json()) as { status: string; db: string };
     setHealthStatus(`${json.status} | db: ${json.db}`);
   }
 
@@ -39,7 +53,7 @@ export default function Home() {
     event.preventDefault();
     setMessage("");
 
-    const response = await fetch("/api/students", {
+    const { ok, payload } = await requestJson<Student>("/api/students", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -49,15 +63,13 @@ export default function Home() {
       }),
     });
 
-    const json = await response.json();
-
-    if (!response.ok) {
-      setMessage(json.error ?? "Failed to create student");
+    if (!ok || !payload.data) {
+      setMessage(payload.error ?? "Failed to create student");
       return;
     }
 
-    setStudent(json.data);
-    setMessage(`Student ready: ${json.data.email}`);
+    setStudent(payload.data);
+    setMessage(`Student ready: ${payload.data.email}`);
   }
 
   async function loadSubjects() {
@@ -66,15 +78,16 @@ export default function Home() {
       return;
     }
 
-    const response = await fetch(`/api/subjects?studentId=${studentId}`);
-    const json = await response.json();
+    const { ok, payload } = await requestJson<Subject[]>(
+      `/api/subjects?studentId=${studentId}`,
+    );
 
-    if (!response.ok) {
-      setMessage(json.error ?? "Failed to load subjects");
+    if (!ok || !payload.data) {
+      setMessage(payload.error ?? "Failed to load subjects");
       return;
     }
 
-    setSubjects(json.data);
+    setSubjects(payload.data);
   }
 
   async function createSubject(event: FormEvent) {
@@ -86,7 +99,7 @@ export default function Home() {
       return;
     }
 
-    const response = await fetch("/api/subjects", {
+    const { ok, payload } = await requestJson<Subject>("/api/subjects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -96,15 +109,13 @@ export default function Home() {
       }),
     });
 
-    const json = await response.json();
-
-    if (!response.ok) {
-      setMessage(json.error ?? "Failed to create subject");
+    if (!ok || !payload.data) {
+      setMessage(payload.error ?? "Failed to create subject");
       return;
     }
 
     setSubjectName("");
-    setMessage(`Subject created: ${json.data.name}`);
+    setMessage(`Subject created: ${payload.data.name}`);
     await loadSubjects();
   }
 
