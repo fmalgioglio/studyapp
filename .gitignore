@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -41,3 +42,13 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# local db/cache artifacts
+prisma/*.db
+prisma/*.db-journal
+*.sqlite
+*.sqlite3
+
+# local-only documentation (keep off GitHub for now)
+README.dev.md
+docs/*.md
