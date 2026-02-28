@@ -90,6 +90,7 @@ $env:AUTH_SECRET="replace-with-a-long-random-secret"
 - `docs/*`: implementation and workflow documentation.
 - `docs/ml-maturity-plan.md`: model roadmap from baseline to advanced ML.
 - `docs/server-test-flow.md`: end-to-end auth/planner test checklist.
+- `docs/interaction-os-skeleton.md`: human-AI operating framework for multi-role collaboration.
 
 ## Roadmap
 

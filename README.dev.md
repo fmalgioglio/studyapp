@@ -66,6 +66,7 @@ Helpers:
 - `src/server/validation/exam.ts`: exam payload schema.
 - `src/server/validation/planning.ts`: estimate payload schema.
 - `src/server/services/planning-estimator.ts`: Monte Carlo + Bayesian calibration logic.
+- `docs/interaction-os-skeleton.md`: project operating skeleton for human-AI collaboration.
 
 ## Working Session Commands
 
