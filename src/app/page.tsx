@@ -1,243 +1,114 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 
-type Student = {
-  id: string;
-  email: string;
-  fullName: string | null;
-  weeklyHours: number;
-};
+import { useSiteTheme } from "@/app/_hooks/use-site-theme";
+import { useUiLanguage } from "@/app/_hooks/use-ui-language";
 
-type Subject = {
-  id: string;
-  name: string;
-  color: string | null;
-  createdAt: string;
-};
+const COPY = {
+  en: {
+    badge: "Season Planning + Gamification",
+    headline1: "Build your exam season with",
+    headline2: "missions, focus, and momentum.",
+    description:
+      "StudyApp turns complex exam calendars into weekly quests, safe daily targets, and rewarding focus runs.",
+    openPlanner: "Open Planner",
+    login: "Login",
+    branding: "Branding and assets",
+  },
+  it: {
+    badge: "Pianificazione Sessione + Gamification",
+    headline1: "Costruisci la sessione esami con",
+    headline2: "missioni, focus e continuita.",
+    description:
+      "StudyApp trasforma calendari complessi in quest settimanali, target giornalieri e sessioni focus gratificanti.",
+    openPlanner: "Apri Planner",
+    login: "Accesso",
+    branding: "Branding e assets",
+  },
+} as const;
 
-type ApiResult<T> = {
-  data?: T;
-  error?: string;
-};
+export default function HomePage() {
+  const { language } = useUiLanguage("en");
+  const { theme } = useSiteTheme("parrot");
+  const t = COPY[language];
 
-export default function Home() {
-  const [healthStatus, setHealthStatus] = useState("not checked");
-  const [student, setStudent] = useState<Student | null>(null);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [email, setEmail] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [weeklyHours, setWeeklyHours] = useState(10);
-  const [subjectName, setSubjectName] = useState("");
-  const [subjectColor, setSubjectColor] = useState("#2563eb");
-  const [message, setMessage] = useState("");
-
-  const studentId = useMemo(() => student?.id ?? "", [student]);
-
-  async function requestJson<T>(
-    input: RequestInfo | URL,
-    init?: RequestInit,
-  ): Promise<{ ok: boolean; payload: ApiResult<T> }> {
-    const response = await fetch(input, init);
-    const payload = (await response.json()) as ApiResult<T>;
-    return { ok: response.ok, payload };
-  }
-
-  async function checkHealth() {
-    const response = await fetch("/api/health");
-    const json = (await response.json()) as { status: string; db: string };
-    setHealthStatus(`${json.status} | db: ${json.db}`);
-  }
-
-  async function createOrUpdateStudent(event: FormEvent) {
-    event.preventDefault();
-    setMessage("");
-
-    const { ok, payload } = await requestJson<Student>("/api/students", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email,
-        fullName: fullName || undefined,
-        weeklyHours,
-      }),
-    });
-
-    if (!ok || !payload.data) {
-      setMessage(payload.error ?? "Failed to create student");
-      return;
-    }
-
-    setStudent(payload.data);
-    setMessage(`Student ready: ${payload.data.email}`);
-  }
-
-  async function loadSubjects() {
-    if (!studentId) {
-      setMessage("Create a student first.");
-      return;
-    }
-
-    const { ok, payload } = await requestJson<Subject[]>(
-      `/api/subjects?studentId=${studentId}`,
-    );
-
-    if (!ok || !payload.data) {
-      setMessage(payload.error ?? "Failed to load subjects");
-      return;
-    }
-
-    setSubjects(payload.data);
-  }
-
-  async function createSubject(event: FormEvent) {
-    event.preventDefault();
-    setMessage("");
-
-    if (!studentId) {
-      setMessage("Create a student first.");
-      return;
-    }
-
-    const { ok, payload } = await requestJson<Subject>("/api/subjects", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        studentId,
-        name: subjectName,
-        color: subjectColor,
-      }),
-    });
-
-    if (!ok || !payload.data) {
-      setMessage(payload.error ?? "Failed to create subject");
-      return;
-    }
-
-    setSubjectName("");
-    setMessage(`Subject created: ${payload.data.name}`);
-    await loadSubjects();
-  }
+  const mascot =
+    theme === "parrot"
+      ? {
+          name: "Aero the Parrot",
+          image: "/mascots/parrot.svg",
+          accent: "from-emerald-100 to-amber-100",
+        }
+      : {
+          name: "Nami the Dolphin",
+          image: "/mascots/dolphin.svg",
+          accent: "from-cyan-100 to-blue-100",
+        };
 
   return (
-    <main className="min-h-screen bg-slate-100 p-6 text-slate-900">
-      <div className="mx-auto max-w-4xl space-y-6">
-        <h1 className="text-3xl font-bold">StudyApp MVP Console</h1>
-
-        <section className="rounded-lg bg-white p-4 shadow">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={checkHealth}
-              className="rounded bg-slate-900 px-3 py-2 text-sm font-semibold text-white"
+    <main className="min-h-[calc(100vh-73px)]">
+      <section className="mx-auto grid w-full max-w-6xl items-center gap-10 px-4 py-12 sm:px-6 md:grid-cols-2">
+        <div className="space-y-6">
+          <span className="inline-flex rounded-full border border-slate-200 bg-white/90 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-700">
+            {t.badge}
+          </span>
+          <h1 className="text-4xl font-black leading-tight tracking-tight text-slate-900 sm:text-5xl">
+            {t.headline1}
+            <br />
+            {t.headline2}
+          </h1>
+          <p className="max-w-xl text-base text-slate-700 sm:text-lg">{t.description}</p>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/planner"
+              className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800"
             >
-              Check API health
-            </button>
-            <span className="text-sm">Status: {healthStatus}</span>
+              {t.openPlanner}
+            </Link>
+            <Link
+              href="/login"
+              className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              {t.login}
+            </Link>
           </div>
-        </section>
+        </div>
 
-        <section className="rounded-lg bg-white p-4 shadow">
-          <h2 className="mb-3 text-xl font-semibold">1) Create Student</h2>
-          <form className="grid gap-3 sm:grid-cols-3" onSubmit={createOrUpdateStudent}>
-            <label className="space-y-1">
-              <span className="text-sm font-medium text-slate-700">Email</span>
-              <input
-                required
-                type="email"
-                placeholder="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                className="w-full rounded border border-slate-300 px-3 py-2"
+        <div className="space-y-4">
+          <div
+            className={`overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br ${mascot.accent} p-5 shadow-[0_10px_40px_rgba(15,23,42,0.09)]`}
+          >
+            <div className="flex items-center gap-4">
+              <Image
+                src={mascot.image}
+                alt={mascot.name}
+                width={88}
+                height={88}
+                className="animate-[floaty_3.4s_ease-in-out_infinite]"
               />
-            </label>
-            <label className="space-y-1">
-              <span className="text-sm font-medium text-slate-700">Full name</span>
-              <input
-                type="text"
-                placeholder="full name"
-                value={fullName}
-                onChange={(event) => setFullName(event.target.value)}
-                className="w-full rounded border border-slate-300 px-3 py-2"
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="text-sm font-medium text-slate-700">Weekly study hours (hours/week)</span>
-              <input
-                type="number"
-                min={1}
-                max={80}
-                value={weeklyHours}
-                onChange={(event) => setWeeklyHours(Number(event.target.value))}
-                className="w-full rounded border border-slate-300 px-3 py-2"
-              />
-            </label>
-            <button
-              type="submit"
-              className="rounded bg-emerald-600 px-3 py-2 text-sm font-semibold text-white sm:col-span-3"
-            >
-              Save student
-            </button>
-          </form>
-          <p className="mt-2 text-xs text-slate-500">
-            Weekly study hours = realistic hours you can study in one week.
-          </p>
-          {student ? (
-            <p className="mt-3 text-sm">
-              Active student: <strong>{student.email}</strong> ({student.id})
-            </p>
-          ) : null}
-        </section>
-
-        <section className="rounded-lg bg-white p-4 shadow">
-          <h2 className="mb-3 text-xl font-semibold">2) Create Subject</h2>
-          <form className="grid gap-3 sm:grid-cols-3" onSubmit={createSubject}>
-            <input
-              required
-              type="text"
-              placeholder="subject name"
-              value={subjectName}
-              onChange={(event) => setSubjectName(event.target.value)}
-              className="rounded border border-slate-300 px-3 py-2"
-            />
-            <input
-              type="text"
-              placeholder="#2563eb"
-              value={subjectColor}
-              onChange={(event) => setSubjectColor(event.target.value)}
-              className="rounded border border-slate-300 px-3 py-2"
-            />
-            <button
-              type="submit"
-              className="rounded bg-blue-600 px-3 py-2 text-sm font-semibold text-white"
-            >
-              Add subject
-            </button>
-          </form>
-          <div className="mt-3">
-            <button
-              type="button"
-              onClick={loadSubjects}
-              className="rounded border border-slate-300 px-3 py-2 text-sm font-semibold"
-            >
-              Refresh subjects
-            </button>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                  Active mascot
+                </p>
+                <p className="text-2xl font-black text-slate-900">{mascot.name}</p>
+                <p className="mt-1 text-sm text-slate-700">
+                  Change mascot with the theme toggle in the top navigation.
+                </p>
+              </div>
+            </div>
           </div>
 
-          <ul className="mt-4 space-y-2">
-            {subjects.map((subject) => (
-              <li key={subject.id} className="rounded border border-slate-200 p-2 text-sm">
-                <strong>{subject.name}</strong>{" "}
-                <span className="text-slate-500">({subject.color ?? "no color"})</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        {message ? (
-          <section className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{message}</section>
-        ) : null}
-      </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700 shadow-sm">
+            <p className="font-semibold text-slate-900">{t.branding}</p>
+            <p className="mt-2">Theme and copy: <code>src/app/page.tsx</code></p>
+            <p>Global theme variables: <code>src/app/globals.css</code></p>
+            <p>Planner shell: <code>src/app/planner/page.tsx</code></p>
+            <p>Subject Hub: <code>src/app/planner/subjects/page.tsx</code></p>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }

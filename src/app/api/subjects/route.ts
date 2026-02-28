@@ -1,42 +1,42 @@
 import { Prisma } from "@/generated/prisma/client";
+import { requireSession } from "@/server/auth/require-session";
 import { prisma } from "@/server/db/client";
 import { apiError, apiSuccess, getErrorDetails } from "@/server/http/response";
-import {
-  createSubjectSchema,
-  subjectQuerySchema,
-} from "@/server/validation/subject";
+import { createSubjectSchema } from "@/server/validation/subject";
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const parsed = subjectQuerySchema.safeParse({
-    studentId: searchParams.get("studentId"),
-  });
+export const dynamic = "force-dynamic";
 
-  if (!parsed.success) {
-    return apiError(
-      "Invalid query",
-      400,
-      undefined,
-      parsed.error.flatten().fieldErrors,
-    );
+export async function GET() {
+  const session = await requireSession();
+  if (!session) {
+    return apiError("Unauthorized", 401);
   }
 
-  const subjects = await prisma.subject.findMany({
-    where: { studentId: parsed.data.studentId },
-    orderBy: { createdAt: "asc" },
-    select: {
-      id: true,
-      name: true,
-      color: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
+  try {
+    const subjects = await prisma.subject.findMany({
+      where: { studentId: session.uid },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        name: true,
+        color: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
 
-  return apiSuccess(subjects);
+    return apiSuccess(subjects);
+  } catch (error) {
+    return apiError("Failed to load subjects", 500, getErrorDetails(error));
+  }
 }
 
 export async function POST(request: Request) {
+  const session = await requireSession();
+  if (!session) {
+    return apiError("Unauthorized", 401);
+  }
+
   const parsed = createSubjectSchema.safeParse(await request.json());
 
   if (!parsed.success) {
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
   try {
     const subject = await prisma.subject.create({
       data: {
-        studentId: parsed.data.studentId,
+        studentId: session.uid,
         name: parsed.data.name,
         color: parsed.data.color,
       },

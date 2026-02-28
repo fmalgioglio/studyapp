@@ -1,0 +1,13 @@
+StudyApp Mascot Assets License
+
+Files:
+- public/mascots/pico.svg
+- public/mascots/parrot.svg
+- public/mascots/dolphin.svg
+
+License: CC0 1.0 Universal (Public Domain Dedication)
+https://creativecommons.org/publicdomain/zero/1.0/
+
+Notes:
+- These mascot SVG assets are original project assets built from basic vector shapes.
+- They are provided for open-source reuse without attribution requirements.

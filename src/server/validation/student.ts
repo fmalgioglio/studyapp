@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 export const createStudentSchema = z.object({
-  email: z.email("Valid email is required").transform((value) => value.toLowerCase()),
   fullName: z
     .string()
     .trim()

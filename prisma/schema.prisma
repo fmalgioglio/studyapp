@@ -29,6 +29,7 @@ enum SessionStatus {
 model Student {
   id           String         @id @default(cuid())
   email        String         @unique
+  passwordHash String?
   fullName     String?
   weeklyHours  Int            @default(10)
   createdAt    DateTime       @default(now())

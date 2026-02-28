@@ -13,9 +13,14 @@ The objective is simple: convert study material (books, notes, topics) into a re
 ## Current MVP Scope
 
 - Health endpoint to verify server and DB connectivity.
-- Student creation/update with weekly study capacity.
-- Subject creation and listing by student.
-- Basic MVP console UI to test end-to-end flows quickly.
+- Cookie-based authentication (register, login, logout, current session).
+- Protected planner area with split feature pages (overview, focus, profile, subjects, exams, estimate).
+- Student profile update with weekly study capacity.
+- Subject creation and listing for authenticated user.
+- Exam creation and listing for authenticated user.
+- Stochastic planning estimate with personalized calibration hooks.
+- Focus lock timer with XP/streak reward loop.
+- Responsive UI flow with dedicated pages instead of a single long console.
 
 ## Tech Stack
 
@@ -54,12 +59,26 @@ npm run dev
 
 Open `http://localhost:3000`.
 
+5. Set auth secret for session cookies (required)
+
+```bash
+# PowerShell
+$env:AUTH_SECRET="replace-with-a-long-random-secret"
+```
+
 ## API Endpoints (MVP)
 
 - `GET /api/health`
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/auth/me`
 - `POST /api/students`
-- `GET /api/subjects?studentId=<id>`
+- `GET /api/subjects`
 - `POST /api/subjects`
+- `GET /api/exams`
+- `POST /api/exams`
+- `POST /api/planning/estimate`
 
 ## Project Structure
 
@@ -69,14 +88,21 @@ Open `http://localhost:3000`.
 - `src/server/validation/*`: request validation schemas.
 - `prisma/schema.prisma`: data model source of truth.
 - `docs/*`: implementation and workflow documentation.
+- `docs/ml-maturity-plan.md`: model roadmap from baseline to advanced ML.
+- `docs/server-test-flow.md`: end-to-end auth/planner test checklist.
 
 ## Roadmap
 
-1. Exams CRUD and deadlines per subject.
-2. Workload estimator (words/tokens to required hours/week).
-3. Readiness dashboard (`on track` vs `at risk`).
-4. AI study assistant for summaries and question generation.
-5. Authentication and multi-user support.
+1. Open-source web foundation (privacy-first, reproducible local setup, stable planner workflow).
+2. Store-ready mobile app layer (shared logic, platform UI shell, offline-safe focus tracking).
+3. Agentic coach layer (adaptive planning agent, proactive nudges, learning loop).
+
+## Privacy And Open-Source Guardrails
+
+- Never commit `.env*` files or machine-local credentials.
+- Keep auth/testing shortcuts behind explicit dev-only environment flags.
+- Keep public docs free of sensitive account details or personal access data.
+- Keep mascot and visual assets under open-source compatible licensing.
 
 ## Contribution
 
