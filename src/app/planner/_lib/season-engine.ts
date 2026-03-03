@@ -13,12 +13,15 @@ type SubjectPace = {
   complexity: number;
 };
 
-export type SeasonProgressInput = Record<
-  string,
-  {
-    pagesCompleted: number;
-  }
->;
+export type SeasonProgressEntry = {
+  pagesCompleted: number;
+  minutesSpent?: number;
+  sessionsCompleted?: number;
+  lastTopic?: string;
+  updatedAt?: string;
+};
+
+export type SeasonProgressInput = Record<string, SeasonProgressEntry>;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -71,6 +74,152 @@ function daysUntil(dateIso: string, now: Date) {
   return Math.max(diff, 1);
 }
 
+export type ExamProgressState =
+  | "not_started"
+  | "warming_up"
+  | "steady"
+  | "almost_ready"
+  | "ready";
+
+export type FocusContributionLevel = "none" | "low" | "medium" | "high";
+
+function resolveUrgency(daysLeft: number): "low" | "medium" | "high" {
+  return daysLeft <= 7 ? "high" : daysLeft <= 18 ? "medium" : "low";
+}
+
+function resolveProgressState(
+  completionPercent: number,
+  sessionsCompleted: number,
+  remainingPages: number,
+): ExamProgressState {
+  if (remainingPages === 0 || completionPercent >= 100) return "ready";
+  if (completionPercent >= 75) return "almost_ready";
+  if (completionPercent >= 30 || sessionsCompleted >= 3) return "steady";
+  if (completionPercent > 0 || sessionsCompleted > 0) return "warming_up";
+  return "not_started";
+}
+
+function resolveFocusContributionLevel(
+  focusContributionPercent: number,
+  minutesSpent: number,
+  sessionsCompleted: number,
+): FocusContributionLevel {
+  if (minutesSpent <= 0 && sessionsCompleted <= 0) return "none";
+  if (focusContributionPercent >= 65 || minutesSpent >= 600 || sessionsCompleted >= 10) return "high";
+  if (focusContributionPercent >= 30 || minutesSpent >= 240 || sessionsCompleted >= 5) return "medium";
+  return "low";
+}
+
+function buildWeeklyMilestones(remainingPages: number) {
+  if (remainingPages === 0) {
+    return [
+      "Week 1: keep recall warm with 2 short review blocks",
+      "Week 2: run light quizzes on weak sections",
+      "Final week: simulation + recovery pacing",
+    ];
+  }
+
+  return [
+    `Week 1: cover around ${Math.max(8, Math.round(remainingPages * 0.35))} pages`,
+    "Week 2: consolidate + active recall on weak chapters",
+    "Final week: simulation tests and high-yield review",
+  ];
+}
+
+export type ExamProgressSnapshot = {
+  examId: string;
+  examTitle: string;
+  examDate: string;
+  subjectId: string;
+  subjectName: string;
+  daysLeft: number;
+  estimatedPages: number;
+  completedPages: number;
+  remainingPages: number;
+  completionPercent: number;
+  recommendedPagesPerDay: number;
+  recommendedMinutesPerDay: number;
+  urgency: "low" | "medium" | "high";
+  progressState: ExamProgressState;
+  focusContributionLevel: FocusContributionLevel;
+  focusContributionPercent: number;
+  minutesSpent: number;
+  sessionsCompleted: number;
+  lastTopic: string;
+  updatedAt: string;
+  weeklyMilestones: string[];
+};
+
+export function buildExamProgressSnapshot(
+  exams: ExamLite[],
+  progress: SeasonProgressInput = {},
+  now = new Date(),
+): ExamProgressSnapshot[] {
+  return exams
+    .map((exam) => {
+      const estimatedPages = inferExamPages(exam);
+      const subjectPace = inferSubjectPace(exam.subject.name);
+      const examProgress = progress[exam.id];
+      const completedPages = Math.round(clamp(examProgress?.pagesCompleted ?? 0, 0, estimatedPages));
+      const daysLeft = daysUntil(exam.examDate, now);
+      const remainingPages = Math.max(0, estimatedPages - completedPages);
+      const completionPercent = Math.round(
+        clamp((completedPages / Math.max(estimatedPages, 1)) * 100, 0, 100),
+      );
+      const minutesSpent = Math.max(0, Math.round(examProgress?.minutesSpent ?? 0));
+      const sessionsCompleted = Math.max(0, Math.round(examProgress?.sessionsCompleted ?? 0));
+      const estimatedMinutes = (estimatedPages / subjectPace.pagesPerHour) * 60;
+      const focusContributionPercent = Math.round(
+        clamp((minutesSpent / Math.max(estimatedMinutes, 1)) * 100, 0, 100),
+      );
+      const progressState = resolveProgressState(completionPercent, sessionsCompleted, remainingPages);
+      const urgency = resolveUrgency(daysLeft);
+      const focusContributionLevel = resolveFocusContributionLevel(
+        focusContributionPercent,
+        minutesSpent,
+        sessionsCompleted,
+      );
+      const pagesPerDay = remainingPages / Math.max(daysLeft, 1);
+      const recommendedPagesPerDay =
+        remainingPages === 0 ? 0 : Math.max(2, Math.round(pagesPerDay * 1.08));
+      const recommendedMinutesPerDay =
+        recommendedPagesPerDay === 0
+          ? 0
+          : Math.max(
+              20,
+              Math.round((recommendedPagesPerDay / subjectPace.pagesPerHour) * 60),
+            );
+
+      return {
+        examId: exam.id,
+        examTitle: exam.title,
+        examDate: exam.examDate,
+        subjectId: exam.subject.id,
+        subjectName: exam.subject.name,
+        daysLeft,
+        estimatedPages,
+        completedPages,
+        remainingPages,
+        completionPercent,
+        recommendedPagesPerDay,
+        recommendedMinutesPerDay,
+        urgency,
+        progressState,
+        focusContributionLevel,
+        focusContributionPercent,
+        minutesSpent,
+        sessionsCompleted,
+        lastTopic: examProgress?.lastTopic?.trim() ?? "",
+        updatedAt: examProgress?.updatedAt ?? "",
+        weeklyMilestones: buildWeeklyMilestones(remainingPages),
+      };
+    })
+    .sort((a, b) => {
+      if (a.daysLeft !== b.daysLeft) return a.daysLeft - b.daysLeft;
+      return new Date(a.examDate).getTime() - new Date(b.examDate).getTime();
+    });
+}
+
 export type SeasonMission = {
   examId: string;
   examTitle: string;
@@ -97,20 +246,7 @@ export type SeasonPlan = {
   riskMessage: string;
   dayRows: SeasonDay[];
   todayMissions: SeasonMission[];
-  examTracks: Array<{
-    examId: string;
-    examTitle: string;
-    subjectName: string;
-    daysLeft: number;
-    estimatedPages: number;
-    completedPages: number;
-    remainingPages: number;
-    completionPercent: number;
-    recommendedPagesPerDay: number;
-    recommendedMinutesPerDay: number;
-    urgency: "low" | "medium" | "high";
-    weeklyMilestones: string[];
-  }>;
+  examTracks: ExamProgressSnapshot[];
   leaderboardPreview: Array<{
     name: string;
     xp: number;
@@ -128,19 +264,7 @@ export function buildSeasonPlan(
   now = new Date(),
 ): SeasonPlan {
   const examLimit = mode === "focused" ? 6 : mode === "balanced" ? 12 : Number.MAX_SAFE_INTEGER;
-  const activeExams = exams
-    .map((exam) => ({
-      exam,
-      daysLeft: daysUntil(exam.examDate, now),
-      estimatedPages: inferExamPages(exam),
-      completedPages: clamp(progress[exam.id]?.pagesCompleted ?? 0, 0, 20000),
-    }))
-    .map((entry) => ({
-      ...entry,
-      remainingPages: Math.max(0, Math.round(entry.estimatedPages - entry.completedPages)),
-    }))
-    .sort((a, b) => a.daysLeft - b.daysLeft)
-    .slice(0, examLimit);
+  const activeExams = buildExamProgressSnapshot(exams, progress, now).slice(0, examLimit);
 
   const weeklyMinutesBudget = Math.round(clamp(weeklyHours * 60, 120, 4200));
   const dailyMinutesBudget = Math.round(weeklyMinutesBudget / 7);
@@ -183,7 +307,7 @@ export function buildSeasonPlan(
   }
 
   const urgencyWeights = activeExams.map((entry) => {
-    const subjectPace = inferSubjectPace(entry.exam.subject.name);
+    const subjectPace = inferSubjectPace(entry.subjectName);
     const pagesPerDay = entry.remainingPages / entry.daysLeft;
     const urgencyScore =
       pagesPerDay * (1 + 10 / Math.max(entry.daysLeft, 3)) * subjectPace.complexity;
@@ -211,13 +335,13 @@ export function buildSeasonPlan(
       const xp = Math.round(missionMinutes * 1.6 + (urgency === "high" ? 20 : 0));
 
       return {
-        examId: entry.exam.id,
-        examTitle: entry.exam.title,
-        subjectName: entry.exam.subject.name,
+        examId: entry.examId,
+        examTitle: entry.examTitle,
+        subjectName: entry.subjectName,
         minutes: missionMinutes,
         pages: missionPages,
         xp,
-        urgency,
+        urgency: entry.urgency,
       };
     });
 
@@ -242,40 +366,7 @@ export function buildSeasonPlan(
         ? "Plan is tight. Prioritize high-urgency missions first."
         : "Plan is overloaded. Use summaries for secondary chapters and increase focus blocks.";
 
-  const dominantSubject = activeExams[0]?.exam.subject.name ?? "General";
-  const examTracks = activeExams.map((entry) => {
-    const subjectPace = inferSubjectPace(entry.exam.subject.name);
-    const pagesPerDay = entry.remainingPages / Math.max(entry.daysLeft, 1);
-    const recommendedPagesPerDay = entry.remainingPages === 0 ? 0 : Math.max(2, Math.round(pagesPerDay * 1.08));
-    const recommendedMinutesPerDay = Math.max(
-      recommendedPagesPerDay === 0 ? 0 : 20,
-      recommendedPagesPerDay === 0 ? 0 : Math.round((recommendedPagesPerDay / subjectPace.pagesPerHour) * 60),
-    );
-    const urgency: "low" | "medium" | "high" =
-      entry.daysLeft <= 7 ? "high" : entry.daysLeft <= 18 ? "medium" : "low";
-    const completionPercent = Math.round(
-      clamp((entry.completedPages / Math.max(entry.estimatedPages, 1)) * 100, 0, 100),
-    );
-
-    return {
-      examId: entry.exam.id,
-      examTitle: entry.exam.title,
-      subjectName: entry.exam.subject.name,
-      daysLeft: entry.daysLeft,
-      estimatedPages: entry.estimatedPages,
-      completedPages: Math.min(entry.completedPages, entry.estimatedPages),
-      remainingPages: entry.remainingPages,
-      completionPercent,
-      recommendedPagesPerDay,
-      recommendedMinutesPerDay,
-      urgency,
-      weeklyMilestones: [
-        `Week 1: cover around ${Math.max(8, Math.round(entry.remainingPages * 0.35))} pages`,
-        `Week 2: consolidate + active recall on weak chapters`,
-        `Final week: simulation tests and high-yield review`,
-      ],
-    };
-  });
+  const dominantSubject = activeExams[0]?.subjectName ?? "General";
 
   return {
     totalExams: activeExams.length,
@@ -285,7 +376,7 @@ export function buildSeasonPlan(
     riskMessage,
     dayRows: weekDays,
     todayMissions: weekDays[0]?.missions ?? [],
-    examTracks,
+    examTracks: activeExams,
     leaderboardPreview: [
       { name: "You", xp: 870, consistency: 82, score: 684, cohort: `${dominantSubject} Cohort` },
       { name: "Luna", xp: 910, consistency: 78, score: 674, cohort: `${dominantSubject} Cohort` },

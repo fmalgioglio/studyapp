@@ -2,31 +2,25 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { useSiteTheme } from "@/app/_hooks/use-site-theme";
 import { useUiLanguage } from "@/app/_hooks/use-ui-language";
 import { useAuthStudent } from "./_hooks/use-auth-student";
-import { requestJson } from "./_lib/client-api";
-import { buildSeasonPlan } from "./_lib/season-engine";
+import { usePlannerData } from "./_hooks/use-planner-data";
+import {
+  buildSeasonPlan,
+  type ExamProgressState,
+  type FocusContributionLevel,
+} from "./_lib/season-engine";
 import { readFocusProgress, subscribeDataRevision } from "./_lib/focus-progress";
-
-type Subject = {
-  id: string;
-  name: string;
-  color: string | null;
-};
-
-type Exam = {
-  id: string;
-  title: string;
-  examDate: string;
-  subject: {
-    id: string;
-    name: string;
-  };
-};
+import {
+  focusContributionClasses,
+  progressStateClasses,
+  urgencyClasses,
+} from "./_lib/status-ui";
 
 type FocusStats = {
   xp: number;
@@ -84,7 +78,28 @@ const COPY = {
     daysLeft: "Days left",
     dailyTarget: "Daily target",
     dailyFocus: "Daily focus",
+    readiness: "Readiness",
+    focusContribution: "Focus contribution",
+    focusMinutes: "Focus minutes",
+    focusSessions: "Focus sessions",
+    statusNotStarted: "Not started",
+    statusWarmingUp: "Warming up",
+    statusSteady: "Steady",
+    statusAlmostReady: "Almost ready",
+    statusReady: "Ready",
+    contributionNone: "None",
+    contributionLow: "Low",
+    contributionMedium: "Medium",
+    contributionHigh: "High",
     milestones: "Milestones",
+    pagesUnit: "pages",
+    minutesUnit: "min",
+    xpLabel: "XP",
+    streakLabel: "Streak",
+    sessionsLabel: "Sessions",
+    scoreLabel: "score",
+    consistencyLabel: "consistency",
+    examLabel: "Exam",
   },
   it: {
     badge: "Planner Sessione",
@@ -133,7 +148,28 @@ const COPY = {
     daysLeft: "Giorni rimanenti",
     dailyTarget: "Target giornaliero",
     dailyFocus: "Focus giornaliero",
+    readiness: "Prontezza",
+    focusContribution: "Contributo focus",
+    focusMinutes: "Minuti focus",
+    focusSessions: "Sessioni focus",
+    statusNotStarted: "Non iniziato",
+    statusWarmingUp: "In avvio",
+    statusSteady: "Costante",
+    statusAlmostReady: "Quasi pronto",
+    statusReady: "Pronto",
+    contributionNone: "Nullo",
+    contributionLow: "Basso",
+    contributionMedium: "Medio",
+    contributionHigh: "Alto",
     milestones: "Milestone",
+    pagesUnit: "pagine",
+    minutesUnit: "min",
+    xpLabel: "XP",
+    streakLabel: "Streak",
+    sessionsLabel: "Sessioni",
+    scoreLabel: "punteggio",
+    consistencyLabel: "costanza",
+    examLabel: "Esame",
   },
 } as const;
 
@@ -175,15 +211,46 @@ function getQuestCompletions() {
   }
 }
 
-function urgencyClasses(level: "low" | "medium" | "high") {
-  if (level === "low") return "bg-emerald-100 text-emerald-900 border-emerald-200";
-  if (level === "medium") return "bg-amber-100 text-amber-900 border-amber-200";
-  return "bg-rose-100 text-rose-900 border-rose-200";
+type PlannerCopy = (typeof COPY)[keyof typeof COPY];
+
+function getProgressStateLabel(state: ExamProgressState, t: PlannerCopy) {
+  if (state === "ready") return t.statusReady;
+  if (state === "almost_ready") return t.statusAlmostReady;
+  if (state === "steady") return t.statusSteady;
+  if (state === "warming_up") return t.statusWarmingUp;
+  return t.statusNotStarted;
+}
+
+function getFocusContributionLabel(level: FocusContributionLevel, t: PlannerCopy) {
+  if (level === "high") return t.contributionHigh;
+  if (level === "medium") return t.contributionMedium;
+  if (level === "low") return t.contributionLow;
+  return t.contributionNone;
 }
 
 function missionKey(examId: string, subjectName: string, pages: number, minutes: number) {
   return `${examId}:${subjectName}:${pages}:${minutes}`;
 }
+
+const WeeklyBoardSection = dynamic(
+  () =>
+    import("./_components/weekly-board-section").then((module) => ({
+      default: module.WeeklyBoardSection,
+    })),
+  {
+    loading: () => (
+      <section className="planner-panel">
+        <div className="planner-skeleton h-7 w-48" />
+        <div className="planner-skeleton mt-2 h-4 w-80" />
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
+          {Array.from({ length: 7 }).map((_, index) => (
+            <div key={index} className="planner-skeleton h-32" />
+          ))}
+        </div>
+      </section>
+    ),
+  },
+);
 
 export default function PlannerOverviewPage() {
   const { student, loading } = useAuthStudent();
@@ -191,9 +258,11 @@ export default function PlannerOverviewPage() {
   const { language } = useUiLanguage("en");
   const { theme } = useSiteTheme("parrot");
   const t = COPY[language] ?? COPY.en;
+  const { subjects, exams, errors, refresh } = usePlannerData({
+    enabled: Boolean(student?.id),
+    subscribeToRevision: false,
+  });
 
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [exams, setExams] = useState<Exam[]>([]);
   const [focusStats] = useState<FocusStats>(getFocusStats);
   const [focusProgress, setFocusProgress] = useState<FocusProgressMap>(readFocusProgress);
   const [questCompletions, setQuestCompletions] = useState<Record<string, boolean>>(getQuestCompletions);
@@ -201,6 +270,7 @@ export default function PlannerOverviewPage() {
   const [manualSelectedExamId, setManualSelectedExamId] = useState<string | null>(null);
   const [simXpReward, setSimXpReward] = useState(0);
   const [message, setMessage] = useState("");
+  const dataErrorMessage = errors.subjects ?? errors.exams ?? "";
   const selectedExamId = manualSelectedExamId ?? searchParams.get("exam");
 
   useEffect(() => {
@@ -208,18 +278,9 @@ export default function PlannerOverviewPage() {
   }, [questCompletions]);
 
   useEffect(() => {
-    return subscribeDataRevision(() => {
+    return subscribeDataRevision((source) => {
+      if (source !== "focus_progress") return;
       setFocusProgress(readFocusProgress());
-      void Promise.all([requestJson<Subject[]>("/api/subjects"), requestJson<Exam[]>("/api/exams")]).then(
-        ([subjectsRes, examsRes]) => {
-          if (subjectsRes.ok && subjectsRes.payload.data) {
-            setSubjects(subjectsRes.payload.data);
-          }
-          if (examsRes.ok && examsRes.payload.data) {
-            setExams(examsRes.payload.data);
-          }
-        },
-      );
     });
   }, []);
 
@@ -227,44 +288,29 @@ export default function PlannerOverviewPage() {
     () => buildSeasonPlan(exams, student?.weeklyHours ?? 10, focusProgress, seasonMode),
     [exams, student?.weeklyHours, focusProgress, seasonMode],
   );
+  const examTrackById = useMemo(
+    () => new Map(seasonPlan.examTracks.map((track) => [track.examId, track])),
+    [seasonPlan.examTracks],
+  );
+  const completionByExamId = useMemo(
+    () =>
+      seasonPlan.examTracks.reduce<Record<string, number>>((acc, track) => {
+        acc[track.examId] = track.completionPercent;
+        return acc;
+      }, {}),
+    [seasonPlan.examTracks],
+  );
   const selectedTrack = useMemo(() => {
     if (!selectedExamId) return seasonPlan.examTracks[0] ?? null;
     return seasonPlan.examTracks.find((track) => track.examId === selectedExamId) ?? null;
   }, [seasonPlan.examTracks, selectedExamId]);
 
-  useEffect(() => {
-    if (!student?.id) return;
-
-    let active = true;
-    async function load() {
-      const [subjectsRes, examsRes] = await Promise.all([
-        requestJson<Subject[]>("/api/subjects"),
-        requestJson<Exam[]>("/api/exams"),
-      ]);
-      if (!active) return;
-      if (subjectsRes.ok && subjectsRes.payload.data) setSubjects(subjectsRes.payload.data);
-      if (examsRes.ok && examsRes.payload.data) setExams(examsRes.payload.data);
-      if (!subjectsRes.ok || !examsRes.ok) {
-        setMessage(subjectsRes.payload.error ?? examsRes.payload.error ?? "Failed to refresh data");
-      }
-    }
-    void load();
-    return () => {
-      active = false;
-    };
-  }, [student?.id]);
-
   async function refreshSeasonData() {
-    if (!student?.id) return;
-    const [subjectsRes, examsRes] = await Promise.all([
-      requestJson<Subject[]>("/api/subjects"),
-      requestJson<Exam[]>("/api/exams"),
-    ]);
-
-    if (subjectsRes.ok && subjectsRes.payload.data) setSubjects(subjectsRes.payload.data);
-    if (examsRes.ok && examsRes.payload.data) setExams(examsRes.payload.data);
-    if (!subjectsRes.ok || !examsRes.ok) {
-      setMessage(subjectsRes.payload.error ?? examsRes.payload.error ?? "Failed to refresh data");
+    const result = await refresh();
+    if (!result.ok) {
+      if (!result.skipped) {
+        setMessage(result.errors.subjects ?? result.errors.exams ?? "Failed to refresh data");
+      }
       return;
     }
     setMessage(language === "en" ? "Season synced." : "Stagione sincronizzata.");
@@ -315,11 +361,11 @@ export default function PlannerOverviewPage() {
   const mascotImage = theme === "parrot" ? "/mascots/parrot.svg" : "/mascots/dolphin.svg";
 
   return (
-    <main className="space-y-6">
-      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-[radial-gradient(circle_at_top_left,#cffafe_0%,#fde68a_45%,#ffffff_100%)] p-6 shadow-sm">
+    <main className="space-y-5 sm:space-y-6">
+      <section className="planner-panel planner-hero overflow-hidden">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="inline-flex rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
+            <p className="planner-chip border-white/80 bg-white/80 text-slate-700">
               {t.badge}
             </p>
             <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-900">{t.title}</h1>
@@ -329,8 +375,8 @@ export default function PlannerOverviewPage() {
             </p>
             <p className="mt-1 text-xs text-slate-500">{t.allExamsShown}</p>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-white/90 p-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t.mode}</p>
+          <div className="planner-card max-w-sm bg-white/90">
+            <p className="planner-eyebrow">{t.mode}</p>
             <div className="mt-2 flex gap-2">
               {(
                 [
@@ -343,11 +389,7 @@ export default function PlannerOverviewPage() {
                   key={option.id}
                   type="button"
                   onClick={() => setSeasonMode(option.id)}
-                  className={`rounded-xl border px-3 py-1.5 text-xs font-semibold ${
-                    seasonMode === option.id
-                      ? "border-slate-900 bg-slate-900 text-white"
-                      : "border-slate-200 bg-white text-slate-700"
-                  }`}
+                  className={`planner-btn ${seasonMode === option.id ? "planner-btn-primary" : "planner-btn-secondary"}`}
                 >
                   {option.label}
                 </button>
@@ -357,24 +399,24 @@ export default function PlannerOverviewPage() {
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-4">
-          <div className="rounded-2xl border border-slate-200 bg-white/90 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t.examsCount}</p>
+          <div className="planner-card bg-white/90">
+            <p className="planner-eyebrow">{t.examsCount}</p>
             <p className="text-2xl font-black text-slate-900">{seasonPlan.totalExams}</p>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-white/90 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t.weekBudget}</p>
+          <div className="planner-card bg-white/90">
+            <p className="planner-eyebrow">{t.weekBudget}</p>
             <p className="text-2xl font-black text-slate-900">{seasonPlan.weeklyMinutesBudget} min</p>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-white/90 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t.weeklyPages}</p>
+          <div className="planner-card bg-white/90">
+            <p className="planner-eyebrow">{t.weeklyPages}</p>
             <p className="text-2xl font-black text-slate-900">{seasonPlan.weeklyPagesTarget}</p>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-white/90 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t.risk}</p>
+          <div className="planner-card bg-white/90">
+            <p className="planner-eyebrow">{t.risk}</p>
             <p className="text-2xl font-black text-slate-900">{riskLabel}</p>
           </div>
         </div>
-        <div className="mt-4 flex items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-3">
+        <div className="planner-card mt-4 flex items-center gap-3 bg-white/90">
           <Image
             src={mascotImage}
             alt={mascotName}
@@ -391,21 +433,21 @@ export default function PlannerOverviewPage() {
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="planner-panel">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-xl font-black text-slate-900">{t.todayQuests}</h2>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={refreshSeasonData}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                className="planner-btn planner-btn-secondary"
               >
                 {t.refresh}
               </button>
               <button
                 type="button"
                 onClick={runSimulation}
-                className="rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
+                className="planner-btn planner-btn-accent"
               >
                 {t.runSimulation}
               </button>
@@ -423,21 +465,31 @@ export default function PlannerOverviewPage() {
                   mission.pages,
                   mission.minutes,
                 );
+                const missionTrack = examTrackById.get(mission.examId);
                 const done = Boolean(questCompletions[key]);
                 return (
                   <article
                     key={key}
-                    className={`rounded-2xl border p-4 ${done ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-slate-50"}`}
+                    className={`planner-card ${done ? "border-emerald-300 bg-emerald-50" : "bg-slate-50"}`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-sm font-bold text-slate-900">{mission.subjectName}</p>
                       <span
-                        className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${urgencyClasses(mission.urgency)}`}
+                        className={`planner-chip ${urgencyClasses(mission.urgency)}`}
                       >
                         {mission.urgency}
                       </span>
                     </div>
                     <p className="mt-1 text-sm text-slate-600">{mission.examTitle}</p>
+                    {examTrackById.get(mission.examId) ? (
+                      <p className="mt-1 text-xs text-slate-600">
+                        {t.readiness}:{" "}
+                        <strong>
+                          {missionTrack ? getProgressStateLabel(missionTrack.progressState, t) : ""}
+                        </strong>
+                        {missionTrack ? ` (${missionTrack.completionPercent}%)` : ""}
+                      </p>
+                    ) : null}
                     <p className="mt-3 text-sm text-slate-700">
                       <strong>{mission.pages} pages</strong> - <strong>{mission.minutes} min</strong>
                     </p>
@@ -446,10 +498,10 @@ export default function PlannerOverviewPage() {
                       type="button"
                       onClick={() => completeQuest(key, mission.xp)}
                       disabled={done}
-                      className={`mt-2 w-full rounded-xl px-3 py-2 text-sm font-semibold ${
+                      className={`planner-btn mt-2 w-full ${
                         done
-                          ? "cursor-not-allowed border border-emerald-300 bg-emerald-100 text-emerald-800"
-                          : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                          ? "border border-emerald-300 bg-emerald-100 text-emerald-800"
+                          : "planner-btn-secondary"
                       }`}
                     >
                       {done ? t.done : t.markDone}
@@ -457,7 +509,7 @@ export default function PlannerOverviewPage() {
                     <button
                       type="button"
                       onClick={() => setManualSelectedExamId(mission.examId)}
-                      className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                      className="planner-btn planner-btn-secondary mt-2 w-full"
                     >
                       {t.timeline}
                     </button>
@@ -469,37 +521,37 @@ export default function PlannerOverviewPage() {
         </div>
 
         <div className="space-y-4">
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <section className="planner-panel">
             <h2 className="text-xl font-black text-slate-900">{t.socialArena}</h2>
             <p className="mt-1 text-sm text-slate-600">{t.rankingMetric}</p>
             <ul className="mt-3 space-y-2">
               {seasonPlan.leaderboardPreview.map((entry) => (
                 <li
                   key={entry.name}
-                  className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
+                  className="planner-card-soft flex items-center justify-between"
                 >
                   <span className="text-sm font-semibold text-slate-800">{entry.name}</span>
                   <span className="text-xs text-slate-600">
-                    {entry.score} score ({entry.xp} XP, {entry.consistency}% consistency)
+                    {entry.score} {t.scoreLabel} ({entry.xp} {t.xpLabel}, {entry.consistency}% {t.consistencyLabel})
                   </span>
                 </li>
               ))}
             </ul>
           </section>
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <section className="planner-panel">
             <h2 className="text-lg font-black text-slate-900">{t.momentum}</h2>
             <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-2">
-                <p className="text-xs uppercase text-slate-500">XP</p>
+              <div className="planner-card-soft p-2">
+                <p className="planner-eyebrow">{t.xpLabel}</p>
                 <p className="text-xl font-black text-slate-900">{focusStats.xp + simXpReward}</p>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-2">
-                <p className="text-xs uppercase text-slate-500">Streak</p>
+              <div className="planner-card-soft p-2">
+                <p className="planner-eyebrow">{t.streakLabel}</p>
                 <p className="text-xl font-black text-slate-900">{focusStats.streak}d</p>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-2">
-                <p className="text-xs uppercase text-slate-500">Sessions</p>
+              <div className="planner-card-soft p-2">
+                <p className="planner-eyebrow">{t.sessionsLabel}</p>
                 <p className="text-xl font-black text-slate-900">{focusStats.sessionsCompleted}</p>
               </div>
             </div>
@@ -507,37 +559,21 @@ export default function PlannerOverviewPage() {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-xl font-black text-slate-900">{t.weeklyBoard}</h2>
-        <p className="mt-1 text-sm text-slate-600">{seasonPlan.riskMessage}</p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
-          {seasonPlan.dayRows.map((day) => (
-            <article key={day.dateIso} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{day.label}</p>
-              <p className="mt-1 text-sm font-bold text-slate-900">
-                {day.totalPages} pages - {day.totalMinutes} min
-              </p>
-              <ul className="mt-2 space-y-1">
-                {day.missions.slice(0, 2).map((mission) => (
-                  <li
-                    key={`${day.dateIso}-${mission.examId}`}
-                    className="rounded-lg bg-white px-2 py-1 text-xs text-slate-700"
-                  >
-                    {mission.subjectName}: {mission.pages}p
-                  </li>
-                ))}
-              </ul>
-            </article>
-          ))}
-        </div>
-      </section>
+      <WeeklyBoardSection
+        title={t.weeklyBoard}
+        riskMessage={seasonPlan.riskMessage}
+        dayRows={seasonPlan.dayRows}
+        completionByExamId={completionByExamId}
+        pagesUnitLabel={t.pagesUnit}
+        minutesUnitLabel={t.minutesUnit}
+      />
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="planner-panel">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-xl font-black text-slate-900">{t.timeline}</h2>
           <Link
             href="/planner/exams"
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="planner-btn planner-btn-secondary"
           >
             {t.openInExams}
           </Link>
@@ -549,55 +585,76 @@ export default function PlannerOverviewPage() {
               key={track.examId}
               type="button"
               onClick={() => setManualSelectedExamId(track.examId)}
-              className={`rounded-xl border px-3 py-2 text-sm font-semibold ${
-                selectedTrack?.examId === track.examId
-                  ? "border-slate-900 bg-slate-900 text-white"
-                  : "border-slate-200 bg-white text-slate-700"
-              }`}
+              className={`planner-btn ${selectedTrack?.examId === track.examId ? "planner-btn-primary" : "planner-btn-secondary"}`}
             >
-              {track.subjectName}
+              {track.subjectName} ({track.completionPercent}%)
             </button>
           ))}
         </div>
 
         {selectedTrack ? (
           <div className="mt-4 grid gap-3 md:grid-cols-4">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Exam</p>
+            <div className="planner-card bg-slate-50">
+              <p className="planner-eyebrow">{t.examLabel}</p>
               <p className="text-sm font-bold text-slate-900">{selectedTrack.examTitle}</p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-500">{t.daysLeft}</p>
+            <div className="planner-card bg-slate-50">
+              <p className="planner-eyebrow">{t.daysLeft}</p>
               <p className="text-xl font-black text-slate-900">{selectedTrack.daysLeft}</p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-500">{t.dailyTarget}</p>
+            <div className="planner-card bg-slate-50">
+              <p className="planner-eyebrow">{t.dailyTarget}</p>
               <p className="text-xl font-black text-slate-900">{selectedTrack.recommendedPagesPerDay}p</p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-500">{t.dailyFocus}</p>
+            <div className="planner-card bg-slate-50">
+              <p className="planner-eyebrow">{t.dailyFocus}</p>
               <p className="text-xl font-black text-slate-900">{selectedTrack.recommendedMinutesPerDay}m</p>
             </div>
+            <div className="planner-card bg-slate-50">
+              <p className="planner-eyebrow">{t.readiness}</p>
+              <p
+                className={`mt-1 inline-flex rounded-full border px-2 py-0.5 text-sm font-semibold ${progressStateClasses(selectedTrack.progressState)}`}
+              >
+                {getProgressStateLabel(selectedTrack.progressState, t)}
+              </p>
+            </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-500">{t.completed}</p>
+            <div className="planner-card bg-slate-50">
+              <p className="planner-eyebrow">{t.completed}</p>
               <p className="text-xl font-black text-slate-900">
                 {selectedTrack.completedPages}p ({selectedTrack.completionPercent}%)
               </p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-500">{t.remaining}</p>
+            <div className="planner-card bg-slate-50">
+              <p className="planner-eyebrow">{t.remaining}</p>
               <p className="text-xl font-black text-slate-900">{selectedTrack.remainingPages}p</p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 md:col-span-2">
-              <p className="text-xs uppercase tracking-wide text-slate-500">{t.latestTopic}</p>
+            <div className="planner-card bg-slate-50">
+              <p className="planner-eyebrow">{t.focusContribution}</p>
+              <p
+                className={`mt-1 inline-flex rounded-full border px-2 py-0.5 text-sm font-semibold ${focusContributionClasses(selectedTrack.focusContributionLevel)}`}
+              >
+                {getFocusContributionLabel(selectedTrack.focusContributionLevel, t)} (
+                {selectedTrack.focusContributionPercent}%)
+              </p>
+            </div>
+            <div className="planner-card bg-slate-50">
+              <p className="planner-eyebrow">{t.focusMinutes}</p>
+              <p className="text-xl font-black text-slate-900">{selectedTrack.minutesSpent}m</p>
+            </div>
+            <div className="planner-card bg-slate-50">
+              <p className="planner-eyebrow">{t.focusSessions}</p>
+              <p className="text-xl font-black text-slate-900">{selectedTrack.sessionsCompleted}</p>
+            </div>
+            <div className="planner-card bg-slate-50 md:col-span-2">
+              <p className="planner-eyebrow">{t.latestTopic}</p>
               <p className="text-sm font-semibold text-slate-900">
-                {focusProgress[selectedTrack.examId]?.lastTopic || t.noTopic}
+                {selectedTrack.lastTopic || t.noTopic}
               </p>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 md:col-span-4">
-              <p className="text-xs uppercase tracking-wide text-slate-500">{t.milestones}</p>
+            <div className="planner-card bg-slate-50 md:col-span-4">
+              <p className="planner-eyebrow">{t.milestones}</p>
               <ul className="mt-2 list-disc pl-5 text-sm text-slate-700">
                 {selectedTrack.weeklyMilestones.map((milestone) => (
                   <li key={milestone}>{milestone}</li>
@@ -613,14 +670,14 @@ export default function PlannerOverviewPage() {
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Link
           href="/planner/exams"
-          className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+          className="planner-card transition hover:-translate-y-1 hover:shadow-md"
         >
           <h3 className="font-bold text-slate-900">{t.manageExams}</h3>
           <p className="mt-1 text-sm text-slate-600">{t.manageExamsDesc}</p>
         </Link>
         <Link
           href="/planner/subjects"
-          className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+          className="planner-card transition hover:-translate-y-1 hover:shadow-md"
         >
           <h3 className="font-bold text-slate-900">{t.subjectHub}</h3>
           <p className="mt-1 text-sm text-slate-600">
@@ -629,14 +686,14 @@ export default function PlannerOverviewPage() {
         </Link>
         <Link
           href="/planner/estimate"
-          className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+          className="planner-card transition hover:-translate-y-1 hover:shadow-md"
         >
           <h3 className="font-bold text-slate-900">{t.estimator}</h3>
           <p className="mt-1 text-sm text-slate-600">{t.estimatorDesc}</p>
         </Link>
         <Link
           href="/planner/focus"
-          className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+          className="planner-card transition hover:-translate-y-1 hover:shadow-md"
         >
           <h3 className="font-bold text-slate-900">{t.focusArena}</h3>
           <p className="mt-1 text-sm text-slate-600">{t.focusArenaDesc}</p>
@@ -644,14 +701,19 @@ export default function PlannerOverviewPage() {
       </section>
 
       {loading ? (
-        <section className="rounded-2xl border border-slate-200 bg-white p-3 text-sm text-slate-700">
-          {t.loadingProfile}
+        <section className="planner-panel space-y-3 py-3">
+          <p className="text-sm text-slate-700">{t.loadingProfile}</p>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <div className="planner-skeleton h-16" />
+            <div className="planner-skeleton h-16" />
+            <div className="planner-skeleton h-16" />
+          </div>
         </section>
       ) : null}
 
-      {message ? (
-        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          {message}
+      {message || dataErrorMessage ? (
+        <section className="planner-alert" role="status" aria-live="polite">
+          {message || dataErrorMessage}
         </section>
       ) : null}
     </main>

@@ -2,9 +2,9 @@
 
 import { FormEvent, useMemo, useState } from "react";
 
+import { useAuthStudent } from "../_hooks/use-auth-student";
 import { useUiLanguage } from "../_hooks/use-ui-language";
 import { requestJson } from "../_lib/client-api";
-import { useAuthStudent } from "../_hooks/use-auth-student";
 
 type PaceProfile = "conservative" | "balanced" | "fast";
 
@@ -84,17 +84,77 @@ const COPY = {
     optional: "Optional context",
     openOptional: "Open optional settings",
     closeOptional: "Hide optional settings",
+    planReady: "Plan generated.",
+    addSample: "Calibration sample added.",
+    missingAccount: "Missing student context.",
+    failEstimate: "Failed to estimate.",
+    pagesPerDay: "Pages/day",
+    minutesPerDay: "Minutes/day",
+    advanced: "Advanced details",
+    activeTier: "Active tier",
+    projectedCoverage: "projected coverage",
+    gap: "gap",
+    bookTitleLabel: "Book title",
+    bookTitlePlaceholder: "Manuale di diritto privato",
+    examDateLabel: "Exam date",
+    knownPagesLabel: "Known pages (optional)",
+    paceProfileLabel: "Pace profile",
+    paceConservative: "Conservative",
+    paceBalanced: "Balanced",
+    paceFast: "Fast",
+    optionalSubjectLabel: "Subject (optional)",
+    optionalNotesLabel: "Notes (optional)",
+    quickCalibration: "Quick calibration samples",
+    pagesPerDayUnit: "pages/day",
+    minutesPerDayUnit: "min/day",
+    daysSuffix: "day(s)",
+    subjectInference: "Subject inference",
+    studyWindow: "Study window",
+    calibration: "Calibration",
+    confidence: "confidence",
+    researchModel: "Research model",
+    baseline: "baseline",
   },
   it: {
     title: "Stimatore Rapido",
     subtitle: "Prima target semplice. Statistiche avanzate solo se servono.",
     run: "Genera piano",
     target: "Target di oggi",
-    finishChance: "Probabilità completamento",
-    tier: "Tier di intensità",
+    finishChance: "Probabilita completamento",
+    tier: "Tier di intensita",
     optional: "Contesto opzionale",
     openOptional: "Apri impostazioni opzionali",
     closeOptional: "Nascondi impostazioni opzionali",
+    planReady: "Piano generato.",
+    addSample: "Campione di calibrazione aggiunto.",
+    missingAccount: "Contesto studente mancante.",
+    failEstimate: "Stima non riuscita.",
+    pagesPerDay: "Pagine/giorno",
+    minutesPerDay: "Minuti/giorno",
+    advanced: "Dettagli avanzati",
+    activeTier: "Tier attivo",
+    projectedCoverage: "copertura prevista",
+    gap: "gap",
+    bookTitleLabel: "Titolo libro",
+    bookTitlePlaceholder: "Manuale di diritto privato",
+    examDateLabel: "Data esame",
+    knownPagesLabel: "Pagine note (opzionale)",
+    paceProfileLabel: "Profilo ritmo",
+    paceConservative: "Conservativo",
+    paceBalanced: "Bilanciato",
+    paceFast: "Veloce",
+    optionalSubjectLabel: "Materia (opzionale)",
+    optionalNotesLabel: "Note (opzionale)",
+    quickCalibration: "Campioni rapidi calibrazione",
+    pagesPerDayUnit: "pagine/giorno",
+    minutesPerDayUnit: "min/giorno",
+    daysSuffix: "giorni",
+    subjectInference: "Inferenza materia",
+    studyWindow: "Finestra studio",
+    calibration: "Calibrazione",
+    confidence: "confidenza",
+    researchModel: "Modello di ricerca",
+    baseline: "baseline",
   },
 } as const;
 
@@ -127,7 +187,8 @@ function feasibilityClasses(status: "on_track" | "tight" | "rescue") {
 export default function PlannerEstimatePage() {
   const { student } = useAuthStudent();
   const { language } = useUiLanguage("en");
-  const t = COPY[language];
+  const t = COPY[language] ?? COPY.en;
+
   const [bookTitle, setBookTitle] = useState("");
   const [planSubject, setPlanSubject] = useState("");
   const [planExamDate, setPlanExamDate] = useState(DEFAULT_EXAM_DATE);
@@ -150,7 +211,7 @@ export default function PlannerEstimatePage() {
     setMessage("");
 
     if (!student) {
-      setMessage("Missing student context.");
+      setMessage(t.missingAccount);
       return;
     }
 
@@ -170,7 +231,7 @@ export default function PlannerEstimatePage() {
     });
 
     if (!ok || !payload.data) {
-      setMessage(payload.error ?? "Failed to estimate.");
+      setMessage(payload.error ?? t.failEstimate);
       return;
     }
 
@@ -178,80 +239,74 @@ export default function PlannerEstimatePage() {
     setSelectedTier(
       payload.data.studyModes.find((mode) => mode.completionProbability >= 0.8)?.tier ?? 2,
     );
-    setMessage("Plan generated.");
+    setMessage(t.planReady);
   }
 
   function addCalibrationPreset(session: CalibrationSession) {
     setCalibrationSessions((current) => [...current, session]);
-    setMessage("Calibration sample added.");
+    setMessage(t.addSample);
   }
 
   return (
-    <main className="space-y-6">
-      <section className="rounded-3xl border border-slate-200 bg-[radial-gradient(circle_at_top_left,#dbeafe_0%,#fef9c3_48%,#ffffff_100%)] p-6 shadow-sm">
+    <main className="space-y-5 sm:space-y-6">
+      <section className="planner-panel planner-hero">
         <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">{t.title}</h1>
         <p className="mt-1 text-sm text-slate-600">{t.subtitle}</p>
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="planner-panel">
         <form className="grid gap-3 md:grid-cols-2" onSubmit={runEstimate}>
-          <label className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Book title
-            </span>
+          <label className="planner-field">
+            <span className="planner-eyebrow mb-1 block">{t.bookTitleLabel}</span>
             <input
               required
               type="text"
               value={bookTitle}
               onChange={(event) => setBookTitle(event.target.value)}
-              placeholder="Manuale di diritto privato"
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900"
+              placeholder={t.bookTitlePlaceholder}
+              className="planner-input"
             />
           </label>
 
-          <label className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Exam date
-            </span>
+          <label className="planner-field">
+            <span className="planner-eyebrow mb-1 block">{t.examDateLabel}</span>
             <input
               required
               type="date"
               value={planExamDate}
               onChange={(event) => setPlanExamDate(event.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900"
+              className="planner-input"
             />
           </label>
 
-          <label className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Known pages (optional)
-            </span>
+          <label className="planner-field">
+            <span className="planner-eyebrow mb-1 block">{t.knownPagesLabel}</span>
             <input
               type="number"
               min={1}
               value={knownPages}
               onChange={(event) => setKnownPages(event.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900"
+              className="planner-input"
             />
           </label>
 
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Pace profile
-            </span>
+          <div className="planner-field">
+            <span className="planner-eyebrow mb-1 block">{t.paceProfileLabel}</span>
             <div className="grid grid-cols-3 gap-2">
               {(["conservative", "balanced", "fast"] as const).map((profile) => (
                 <button
                   key={profile}
                   type="button"
                   onClick={() => setPaceProfile(profile)}
-                  className={`rounded-xl border px-2 py-2 text-sm font-semibold ${
-                    paceProfile === profile
-                      ? "border-sky-400 bg-sky-100 text-sky-900"
-                      : "border-slate-200 bg-white text-slate-700"
+                  className={`planner-btn min-h-0 px-2 py-2 text-sm ${
+                    paceProfile === profile ? "planner-btn-primary" : "planner-btn-secondary"
                   }`}
                 >
-                  {profile}
+                  {profile === "conservative"
+                    ? t.paceConservative
+                    : profile === "balanced"
+                      ? t.paceBalanced
+                      : t.paceFast}
                 </button>
               ))}
             </div>
@@ -261,7 +316,9 @@ export default function PlannerEstimatePage() {
             <button
               type="button"
               onClick={() => setShowOptional((current) => !current)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700"
+              className="planner-btn planner-btn-secondary"
+              aria-expanded={showOptional}
+              aria-controls="estimate-optional-settings"
             >
               {showOptional ? t.closeOptional : t.openOptional}
             </button>
@@ -269,41 +326,35 @@ export default function PlannerEstimatePage() {
 
           {showOptional ? (
             <>
-              <label className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Subject ({t.optional})
-                </span>
+              <label id="estimate-optional-settings" className="planner-field">
+                <span className="planner-eyebrow mb-1 block">{t.optionalSubjectLabel}</span>
                 <input
                   type="text"
                   value={planSubject}
                   onChange={(event) => setPlanSubject(event.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900"
+                  className="planner-input"
                 />
               </label>
 
-              <label className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Notes ({t.optional})
-                </span>
+              <label className="planner-field">
+                <span className="planner-eyebrow mb-1 block">{t.optionalNotesLabel}</span>
                 <input
                   type="text"
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900"
+                  className="planner-input"
                 />
               </label>
 
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 md:col-span-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Quick calibration samples
-                </p>
+              <div className="planner-card md:col-span-2">
+                <p className="planner-eyebrow">{t.quickCalibration}</p>
                 <div className="mt-2 grid gap-2 sm:grid-cols-3">
                   <button
                     type="button"
                     onClick={() =>
                       addCalibrationPreset({ minutes: 25, pagesCompleted: 5, retentionScore: 72 })
                     }
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700"
+                    className="planner-btn planner-btn-secondary"
                   >
                     25m / 5p / 72%
                   </button>
@@ -312,7 +363,7 @@ export default function PlannerEstimatePage() {
                     onClick={() =>
                       addCalibrationPreset({ minutes: 40, pagesCompleted: 8, retentionScore: 76 })
                     }
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700"
+                    className="planner-btn planner-btn-secondary"
                   >
                     40m / 8p / 76%
                   </button>
@@ -321,7 +372,7 @@ export default function PlannerEstimatePage() {
                     onClick={() =>
                       addCalibrationPreset({ minutes: 50, pagesCompleted: 10, retentionScore: 80 })
                     }
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700"
+                    className="planner-btn planner-btn-secondary"
                   >
                     50m / 10p / 80%
                   </button>
@@ -330,10 +381,7 @@ export default function PlannerEstimatePage() {
             </>
           ) : null}
 
-          <button
-            type="submit"
-            className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white md:col-span-2"
-          >
+          <button type="submit" className="planner-btn planner-btn-accent w-full md:col-span-2">
             {t.run}
           </button>
         </form>
@@ -341,24 +389,26 @@ export default function PlannerEstimatePage() {
 
       {estimate ? (
         <section className="space-y-4">
-          <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t.target}</p>
+          <article className="planner-panel">
+            <p className="planner-eyebrow">{t.target}</p>
             <div className="mt-2 grid gap-3 md:grid-cols-3">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs uppercase text-slate-500">Pages/day</p>
+              <div className="planner-card bg-slate-50">
+                <p className="planner-eyebrow">{t.pagesPerDay}</p>
                 <p className="text-3xl font-black text-slate-900">
                   {estimate.prescription.safePagesPerDay}
                 </p>
               </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs uppercase text-slate-500">Minutes/day</p>
+              <div className="planner-card bg-slate-50">
+                <p className="planner-eyebrow">{t.minutesPerDay}</p>
                 <p className="text-3xl font-black text-slate-900">
                   {estimate.prescription.safeMinutesPerDay}
                 </p>
               </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs uppercase text-slate-500">{t.finishChance}</p>
-                <p className="text-3xl font-black text-slate-900">{pct(estimate.completionProbability)}</p>
+              <div className="planner-card bg-slate-50">
+                <p className="planner-eyebrow">{t.finishChance}</p>
+                <p className="text-3xl font-black text-slate-900">
+                  {pct(estimate.completionProbability)}
+                </p>
               </div>
             </div>
 
@@ -369,7 +419,7 @@ export default function PlannerEstimatePage() {
             </div>
           </article>
 
-          <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <article className="planner-panel">
             <h2 className="text-lg font-black text-slate-900">{t.tier}</h2>
             <div className="mt-3 grid gap-3 md:grid-cols-2">
               {estimate.studyModes.map((mode) => (
@@ -382,47 +432,47 @@ export default function PlannerEstimatePage() {
                   }`}
                 >
                   <p className="text-xs font-semibold uppercase tracking-wide">
-                    Tier {mode.tier} · {mode.windowLabel}
+                    Tier {mode.tier} - {mode.windowLabel}
                   </p>
                   <h3 className="mt-1 text-lg font-black">{mode.label}</h3>
                   <p className="mt-1 text-sm">{mode.guidance}</p>
                   <p className="mt-2 text-sm font-semibold">
-                    {mode.likelyPagesPerDay} pages/day · {mode.minutesPerDay} min/day
+                    {mode.likelyPagesPerDay} {t.pagesPerDayUnit} - {mode.minutesPerDay} {t.minutesPerDayUnit}
                   </p>
                   <p className="text-xs">
-                    {pct(mode.completionProbability)} · +{mode.rewardPoints} XP
+                    {pct(mode.completionProbability)} - +{mode.rewardPoints} XP
                   </p>
                 </button>
               ))}
             </div>
 
             {selectedMode ? (
-              <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-                Active tier: <strong>{selectedMode.label}</strong> · projected coverage{" "}
-                <strong>{selectedMode.projectedTotalPages}</strong> pages · gap{" "}
+              <div className="planner-card mt-3 bg-slate-50 text-sm text-slate-700">
+                {t.activeTier}: <strong>{selectedMode.label}</strong> - {t.projectedCoverage}{" "}
+                <strong>{selectedMode.projectedTotalPages}</strong> pages - {t.gap}{" "}
                 <strong>{selectedMode.pageGapToTarget}</strong> pages.
               </div>
             ) : null}
           </article>
 
-          <details className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <details className="planner-panel">
             <summary className="cursor-pointer text-sm font-semibold text-slate-700">
-              Advanced details
+              {t.advanced}
             </summary>
             <div className="mt-3 space-y-3 text-sm text-slate-700">
               <p>
-                Subject inference: <strong>{estimate.inferredSubject}</strong>
+                {t.subjectInference}: <strong>{estimate.inferredSubject}</strong>
               </p>
               <p>
-                Study window: <strong>{estimate.studyDays}</strong> day(s), book size{" "}
+                {t.studyWindow}: <strong>{estimate.studyDays}</strong> {t.daysSuffix}, book size{" "}
                 <strong>{estimate.estimatedPages}</strong> pages.
               </p>
               <p>
-                Calibration: <strong>{estimate.calibration.modelSource}</strong> · confidence{" "}
+                {t.calibration}: <strong>{estimate.calibration.modelSource}</strong> - {t.confidence}{" "}
                 <strong>{estimate.calibration.confidenceScore}/100</strong>.
               </p>
               <p>
-                Research model: <strong>{estimate.researchModel.version}</strong> · baseline{" "}
+                {t.researchModel}: <strong>{estimate.researchModel.version}</strong> - {t.baseline}{" "}
                 {estimate.researchModel.baselineReadingWpm}+/-{estimate.researchModel.baselineReadingSd} wpm.
               </p>
               <ul className="list-disc pl-5">
@@ -441,11 +491,10 @@ export default function PlannerEstimatePage() {
       ) : null}
 
       {message ? (
-        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+        <section className="planner-alert" role="status" aria-live="polite">
           {message}
         </section>
       ) : null}
     </main>
   );
 }
-

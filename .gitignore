@@ -52,3 +52,5 @@ prisma/*.db-journal
 # local-only documentation (keep off GitHub for now)
 README.dev.md
 docs/*.md
+docs/**/*.md
+AGENTS.md

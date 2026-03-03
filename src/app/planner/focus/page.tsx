@@ -8,8 +8,18 @@ import {
   recordFocusProgress,
   subscribeDataRevision,
 } from "@/app/planner/_lib/focus-progress";
-import { inferSubjectPace } from "@/app/planner/_lib/season-engine";
-import { requestJson } from "../_lib/client-api";
+import {
+  buildExamProgressSnapshot,
+  inferSubjectPace,
+  type ExamProgressState,
+  type FocusContributionLevel,
+} from "@/app/planner/_lib/season-engine";
+import {
+  focusContributionClasses,
+  progressStateClasses,
+} from "@/app/planner/_lib/status-ui";
+import { calculateFocusSessionXp } from "@/app/planner/_lib/focus-xp";
+import { useFocusExamsData } from "../_hooks/use-focus-exams-data";
 
 const FOCUS_PRESETS = [
   { minutes: 25, label: "Sprint", subtitle: "Quick momentum" },
@@ -29,16 +39,6 @@ type FocusStats = {
   streak: number;
   sessionsCompleted: number;
   lastCompletionDate: string;
-};
-
-type Exam = {
-  id: string;
-  title: string;
-  examDate: string;
-  subject: {
-    id: string;
-    name: string;
-  };
 };
 
 type FocusProgressMap = Record<
@@ -91,9 +91,23 @@ const COPY = {
     progressLogged: "progress logged to exam timeline",
     autoEstimate: "auto-estimated",
     loadingExams: "Loading exams...",
+    syncingExams: "Syncing exams...",
     examLabel: "Exam",
     daysLeft: "days left",
     recorded: "Recorded",
+    readiness: "Readiness",
+    focusContribution: "Focus contribution",
+    completion: "Completion",
+    progressStrip: "Exam progress strip",
+    statusNotStarted: "Not started",
+    statusWarmingUp: "Warming up",
+    statusSteady: "Steady",
+    statusAlmostReady: "Almost ready",
+    statusReady: "Ready",
+    contributionNone: "None",
+    contributionLow: "Low",
+    contributionMedium: "Medium",
+    contributionHigh: "High",
   },
   it: {
     title: "Sessioni Focus",
@@ -133,9 +147,23 @@ const COPY = {
     progressLogged: "progresso registrato nella timeline esame",
     autoEstimate: "stima automatica",
     loadingExams: "Caricamento esami...",
+    syncingExams: "Sincronizzazione esami...",
     examLabel: "Esame",
     daysLeft: "giorni rimanenti",
     recorded: "Registrato",
+    readiness: "Prontezza",
+    focusContribution: "Contributo focus",
+    completion: "Completamento",
+    progressStrip: "Barra progresso esami",
+    statusNotStarted: "Non iniziato",
+    statusWarmingUp: "In avvio",
+    statusSteady: "Costante",
+    statusAlmostReady: "Quasi pronto",
+    statusReady: "Pronto",
+    contributionNone: "Nullo",
+    contributionLow: "Basso",
+    contributionMedium: "Medio",
+    contributionHigh: "Alto",
   },
 } as const;
 
@@ -186,20 +214,34 @@ function getYesterdayIso() {
   return new Date(Date.now() - dayMs).toISOString().slice(0, 10);
 }
 
-function daysUntil(dateIso: string) {
-  const diff = Math.ceil((new Date(dateIso).getTime() - Date.now()) / (24 * 60 * 60 * 1000));
-  return Math.max(diff, 0);
-}
-
 function estimatePagesFromMinutes(subjectName: string, minutes: number) {
   const pace = inferSubjectPace(subjectName);
   const pages = (minutes / 60) * pace.pagesPerHour;
   return Math.max(1, Math.round(pages));
 }
 
+type FocusCopy = (typeof COPY)[keyof typeof COPY];
+
+function progressStateLabel(state: ExamProgressState, t: FocusCopy) {
+  if (state === "ready") return t.statusReady;
+  if (state === "almost_ready") return t.statusAlmostReady;
+  if (state === "steady") return t.statusSteady;
+  if (state === "warming_up") return t.statusWarmingUp;
+  return t.statusNotStarted;
+}
+
+function focusContributionLabel(level: FocusContributionLevel, t: FocusCopy) {
+  if (level === "high") return t.contributionHigh;
+  if (level === "medium") return t.contributionMedium;
+  if (level === "low") return t.contributionLow;
+  return t.contributionNone;
+}
+
 export default function PlannerFocusPage() {
   const { language } = useUiLanguage("en");
   const t = COPY[language] ?? COPY.en;
+  const { exams, loading: loadingExams, syncing: syncingExams, error: examsError } =
+    useFocusExamsData();
   const [focusMinutes, setFocusMinutes] = useState(25);
   const [focusSecondsLeft, setFocusSecondsLeft] = useState(25 * 60);
   const [focusRunning, setFocusRunning] = useState(false);
@@ -207,41 +249,49 @@ export default function PlannerFocusPage() {
   const [message, setMessage] = useState("");
   const [rewardLine, setRewardLine] = useState("");
   const [stats, setStats] = useState<FocusStats>(getInitialFocusStats);
-  const [exams, setExams] = useState<Exam[]>([]);
-  const [loadingExams, setLoadingExams] = useState(true);
   const [selectedExamId, setSelectedExamId] = useState("");
   const [focusTopic, setFocusTopic] = useState("");
   const [pagesCompletedInput, setPagesCompletedInput] = useState("");
   const [focusProgress, setFocusProgress] = useState<FocusProgressMap>(readFocusProgress);
+  const dataErrorMessage = examsError;
 
   const minutesLeft = Math.floor(focusSecondsLeft / 60);
   const secondsLeft = focusSecondsLeft % 60;
   const { xp, streak, sessionsCompleted } = stats;
+  const examTracks = useMemo(
+    () => buildExamProgressSnapshot(exams, focusProgress),
+    [exams, focusProgress],
+  );
+  const resolvedSelectedExamId = useMemo(() => {
+    if (selectedExamId && examTracks.some((track) => track.examId === selectedExamId)) {
+      return selectedExamId;
+    }
+    return examTracks[0]?.examId ?? "";
+  }, [examTracks, selectedExamId]);
 
   const selectedExam = useMemo(
-    () => exams.find((exam) => exam.id === selectedExamId) ?? null,
-    [exams, selectedExamId],
+    () => examTracks.find((track) => track.examId === resolvedSelectedExamId) ?? null,
+    [examTracks, resolvedSelectedExamId],
   );
-  const selectedExamProgress = selectedExamId ? focusProgress[selectedExamId] : undefined;
-  const selectedExamDaysLeft = selectedExam ? daysUntil(selectedExam.examDate) : null;
+  const selectedExamDaysLeft = selectedExam ? selectedExam.daysLeft : null;
 
   const mascotMood = useMemo(() => {
     if (focusRunning) return t.moodFocused;
     if (
       selectedExamDaysLeft !== null &&
       selectedExamDaysLeft <= 5 &&
-      (selectedExamProgress?.pagesCompleted ?? 0) < 40
+      (selectedExam?.completionPercent ?? 0) < 35
     ) {
       return t.moodAlert;
     }
-    if (streak >= 3 || (selectedExamProgress?.sessionsCompleted ?? 0) >= 3) return t.moodTrack;
+    if (streak >= 3 || (selectedExam?.sessionsCompleted ?? 0) >= 3) return t.moodTrack;
     if (sessionsCompleted >= 1) return t.moodWarm;
     return t.moodReady;
   }, [
     focusRunning,
+    selectedExam?.completionPercent,
+    selectedExam?.sessionsCompleted,
     selectedExamDaysLeft,
-    selectedExamProgress?.pagesCompleted,
-    selectedExamProgress?.sessionsCompleted,
     sessionsCompleted,
     streak,
     t.moodAlert,
@@ -264,30 +314,8 @@ export default function PlannerFocusPage() {
   }, [stats]);
 
   useEffect(() => {
-    let active = true;
-
-    async function loadExams() {
-      const { ok, payload } = await requestJson<Exam[]>("/api/exams");
-      if (!active) return;
-      if (ok && payload.data) {
-        const loadedExams = payload.data;
-        setExams(loadedExams);
-        setSelectedExamId((current) => current || loadedExams[0]?.id || "");
-      } else {
-        setMessage(payload.error ?? "Failed to load exams");
-      }
-      setLoadingExams(false);
-    }
-
-    void loadExams();
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    return subscribeDataRevision(() => {
+    return subscribeDataRevision((source) => {
+      if (source !== "focus_progress") return;
       setFocusProgress(readFocusProgress());
     });
   }, []);
@@ -301,9 +329,10 @@ export default function PlannerFocusPage() {
         return;
       }
 
-      const completionBonus = Math.round(focusMinutes * 2);
-      const streakBonus = Math.min(stats.streak * 3, 30);
-      const gainedXp = completionBonus + streakBonus;
+      const { totalXp: gainedXp } = calculateFocusSessionXp(
+        focusMinutes,
+        stats.streak,
+      );
       const today = getTodayIso();
       const yesterday = getYesterdayIso();
 
@@ -328,9 +357,9 @@ export default function PlannerFocusPage() {
         const hasManualPages = Number.isFinite(manualPages) && manualPages > 0;
         const loggedPages = hasManualPages
           ? Math.round(manualPages)
-          : estimatePagesFromMinutes(selectedExam.subject.name, focusMinutes);
-        const topic = focusTopic.trim() || selectedExam.title;
-        recordFocusProgress(selectedExam.id, loggedPages, focusMinutes, topic);
+          : estimatePagesFromMinutes(selectedExam.subjectName, focusMinutes);
+        const topic = focusTopic.trim() || selectedExam.examTitle;
+        recordFocusProgress(selectedExam.examId, loggedPages, focusMinutes, topic);
         setMessage(
           `${t.completed}: +${gainedXp} XP. ${loggedPages}p ${t.progressLogged} (${hasManualPages ? t.recorded : t.autoEstimate}).`,
         );
@@ -367,7 +396,7 @@ export default function PlannerFocusPage() {
 
   function startSession() {
     if (focusRunning) return;
-    if (!selectedExamId) {
+    if (!resolvedSelectedExamId) {
       setMessage(t.selectExamFirst);
       return;
     }
@@ -393,8 +422,8 @@ export default function PlannerFocusPage() {
     }));
 
     if (selectedExam) {
-      const simulatedPages = estimatePagesFromMinutes(selectedExam.subject.name, 120);
-      recordFocusProgress(selectedExam.id, simulatedPages, 120, "Simulation run");
+      const simulatedPages = estimatePagesFromMinutes(selectedExam.subjectName, 120);
+      recordFocusProgress(selectedExam.examId, simulatedPages, 120, "Simulation run");
       setMessage(
         `${t.simulation}: +${gainedXp} XP, ${simulatedPages}p ${t.progressLogged}.`,
       );
@@ -405,63 +434,75 @@ export default function PlannerFocusPage() {
   }
 
   return (
-    <main className="space-y-6">
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <main className="space-y-5 sm:space-y-6">
+      <section className="planner-panel planner-hero">
         <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">{t.title}</h1>
         <p className="mt-1 text-sm text-slate-600">{t.subtitle}</p>
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t.xp}</p>
+        <div className="planner-card">
+          <p className="planner-eyebrow">{t.xp}</p>
           <p className="text-2xl font-extrabold text-slate-900">{xp}</p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t.streak}</p>
+        <div className="planner-card">
+          <p className="planner-eyebrow">{t.streak}</p>
           <p className="text-2xl font-extrabold text-slate-900">{streak}d</p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t.sessions}</p>
+        <div className="planner-card">
+          <p className="planner-eyebrow">{t.sessions}</p>
           <p className="text-2xl font-extrabold text-slate-900">{sessionsCompleted}</p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t.mood}</p>
+        <div className="planner-card">
+          <p className="planner-eyebrow">{t.mood}</p>
           <p className="text-2xl font-extrabold text-slate-900">{mascotMood}</p>
           <p className="mt-1 text-xs text-slate-600">{moodHint}</p>
         </div>
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="planner-panel">
         {loadingExams ? (
-          <p className="text-sm text-slate-600">{t.loadingExams}</p>
-        ) : exams.length === 0 ? (
+          <div className="space-y-2">
+            <p className="text-sm text-slate-600">{t.loadingExams}</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="planner-skeleton h-12" />
+              <div className="planner-skeleton h-12" />
+            </div>
+          </div>
+        ) : examTracks.length === 0 ? (
           <p className="text-sm text-slate-600">{t.noExam}</p>
         ) : (
-          <div className="grid gap-3 md:grid-cols-3">
-            <label className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <div className="space-y-3">
+            {syncingExams ? (
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {t.syncingExams}
+              </p>
+            ) : null}
+            <div className="grid gap-3 md:grid-cols-3">
+            <label className="planner-field">
+              <span className="planner-eyebrow mb-1 block">
                 {t.targetExam}
               </span>
               <select
-                value={selectedExamId}
+                value={resolvedSelectedExamId}
                 onChange={(event) => setSelectedExamId(event.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900"
+                className="planner-input"
               >
-                {exams.map((exam) => (
-                  <option key={exam.id} value={exam.id}>
-                    {exam.title} - {exam.subject.name}
+                {examTracks.map((track) => (
+                  <option key={track.examId} value={track.examId}>
+                    {track.examTitle} - {track.subjectName} ({track.completionPercent}%)
                   </option>
                 ))}
               </select>
               {selectedExam ? (
                 <p className="mt-2 text-xs text-slate-600">
-                  {t.examLabel}: {selectedExam.title} - {daysUntil(selectedExam.examDate)} {t.daysLeft}
+                  {t.examLabel}: {selectedExam.examTitle} - {selectedExam.daysLeft} {t.daysLeft}
                 </p>
               ) : null}
             </label>
 
-            <label className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <label className="planner-field">
+              <span className="planner-eyebrow mb-1 block">
                 {t.topic}
               </span>
               <input
@@ -469,12 +510,12 @@ export default function PlannerFocusPage() {
                 value={focusTopic}
                 onChange={(event) => setFocusTopic(event.target.value)}
                 placeholder={t.topicPlaceholder}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900"
+                className="planner-input"
               />
             </label>
 
-            <label className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <label className="planner-field">
+              <span className="planner-eyebrow mb-1 block">
                 {t.pagesInput}
               </span>
               <input
@@ -482,16 +523,56 @@ export default function PlannerFocusPage() {
                 min={1}
                 value={pagesCompletedInput}
                 onChange={(event) => setPagesCompletedInput(event.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900"
+                className="planner-input"
               />
             </label>
+            </div>
+
+            {selectedExam ? (
+              <div className="grid gap-2 sm:grid-cols-3">
+                <div className="planner-card-soft bg-white px-3 py-2 text-xs text-slate-700">
+                  <span className="planner-eyebrow">{t.readiness}</span>
+                  <p className={`mt-1 inline-flex rounded-full border px-2 py-0.5 font-semibold ${progressStateClasses(selectedExam.progressState)}`}>
+                    {progressStateLabel(selectedExam.progressState, t)}
+                  </p>
+                </div>
+                <div className="planner-card-soft bg-white px-3 py-2 text-xs text-slate-700">
+                  <span className="planner-eyebrow">{t.focusContribution}</span>
+                  <p className={`mt-1 inline-flex rounded-full border px-2 py-0.5 font-semibold ${focusContributionClasses(selectedExam.focusContributionLevel)}`}>
+                    {focusContributionLabel(selectedExam.focusContributionLevel, t)} ({selectedExam.focusContributionPercent}%)
+                  </p>
+                </div>
+                <div className="planner-card-soft bg-white px-3 py-2 text-xs text-slate-700">
+                  <span className="planner-eyebrow">{t.completion}</span>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">
+                    {selectedExam.completedPages}/{selectedExam.estimatedPages}p
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            <div>
+              <p className="planner-eyebrow">{t.progressStrip}</p>
+              <div className="mt-2 flex flex-wrap gap-1">
+                {examTracks.map((track) => (
+                  <button
+                    key={track.examId}
+                    type="button"
+                    onClick={() => setSelectedExamId(track.examId)}
+                    className={`planner-chip rounded-lg border px-2 py-1 text-xs font-semibold ${progressStateClasses(track.progressState)}`}
+                  >
+                    {track.subjectName}: {track.completionPercent}%
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-sky-50 to-cyan-50 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t.timer}</p>
+      <section className="planner-panel">
+        <div className="planner-card bg-gradient-to-br from-sky-50 to-cyan-50">
+          <p className="planner-eyebrow">{t.timer}</p>
           <p className="mt-1 text-5xl font-extrabold tracking-tight text-slate-900">
             {String(minutesLeft).padStart(2, "0")}:{String(secondsLeft).padStart(2, "0")}
           </p>
@@ -504,10 +585,10 @@ export default function PlannerFocusPage() {
               type="button"
               onClick={() => selectPreset(preset.minutes)}
               disabled={focusRunning}
-              className={`rounded-2xl border p-4 text-left ${
+              className={`planner-card text-left ${
                 focusMinutes === preset.minutes
                   ? "border-sky-300 bg-sky-50"
-                  : "border-slate-200 bg-white hover:bg-slate-50"
+                  : "bg-white hover:bg-slate-50"
               } ${focusRunning ? "cursor-not-allowed opacity-60" : ""}`}
             >
               <p className="text-sm font-bold text-slate-900">{preset.minutes} min</p>
@@ -521,49 +602,53 @@ export default function PlannerFocusPage() {
           <button
             type="button"
             onClick={startSession}
-            className="rounded-2xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-500"
+            className="planner-btn planner-btn-accent"
           >
             {t.start}
           </button>
           <button
             type="button"
             onClick={pauseSession}
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            className="planner-btn planner-btn-secondary"
           >
             {t.pause}
           </button>
           <button
             type="button"
             onClick={() => finishFocusSession(false)}
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            className="planner-btn planner-btn-secondary"
           >
             {t.stop}
           </button>
           <button
             type="button"
             onClick={runDevFullSimulation}
-            className="rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm font-semibold text-indigo-700 hover:bg-indigo-100"
+            className="planner-btn border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
           >
             {t.simulation}
           </button>
         </div>
       </section>
 
-      {message ? (
-        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          {message}
+      {message || dataErrorMessage ? (
+        <section className="planner-alert" role="status" aria-live="polite">
+          {message || dataErrorMessage}
         </section>
       ) : null}
 
       {rewardLine ? (
-        <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+        <section
+          className="planner-card border-emerald-200 bg-emerald-50 text-sm text-emerald-900"
+          role="status"
+          aria-live="polite"
+        >
           {rewardLine}
         </section>
       ) : null}
 
       {focusLocked ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 text-center shadow-2xl">
+          <div className="planner-panel w-full max-w-md bg-white text-center shadow-2xl">
             <h2 className="text-xl font-bold text-slate-900">{t.lockTitle}</h2>
             <p className="mt-1 text-sm text-slate-600">{t.lockSubtitle}</p>
             <p className="mt-4 text-5xl font-extrabold tracking-tight text-sky-700">
@@ -573,14 +658,14 @@ export default function PlannerFocusPage() {
               <button
                 type="button"
                 onClick={pauseSession}
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                className="planner-btn planner-btn-secondary"
               >
                 {t.pause}
               </button>
               <button
                 type="button"
                 onClick={() => finishFocusSession(false)}
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                className="planner-btn planner-btn-secondary"
               >
                 {t.exitLock}
               </button>

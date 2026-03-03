@@ -37,9 +37,10 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <div className="min-h-screen">
-          <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/90 backdrop-blur">
-            <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
-              <Link href="/" className="text-lg font-bold tracking-tight text-slate-900">
+          <header className="site-header sticky top-0 z-40">
+            <div className="site-header-inner">
+              <Link href="/" className="site-brand">
+                <span className="site-brand-dot" aria-hidden />
                 StudyApp
               </Link>
               <SiteNav isAuthenticated={Boolean(session)} />

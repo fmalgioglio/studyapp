@@ -2,9 +2,20 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 
 import { useSiteTheme } from "@/app/_hooks/use-site-theme";
 import { useUiLanguage } from "@/app/_hooks/use-ui-language";
+
+const HomeBrandingCard = dynamic(
+  () =>
+    import("@/app/_components/home-branding-card").then((module) => ({
+      default: module.HomeBrandingCard,
+    })),
+  {
+    loading: () => <div className="home-card home-meta-card planner-skeleton h-28" />,
+  },
+);
 
 const COPY = {
   en: {
@@ -48,28 +59,28 @@ export default function HomePage() {
         };
 
   return (
-    <main className="min-h-[calc(100vh-73px)]">
-      <section className="mx-auto grid w-full max-w-6xl items-center gap-10 px-4 py-12 sm:px-6 md:grid-cols-2">
+    <main className="home-shell">
+      <section className="home-grid">
         <div className="space-y-6">
-          <span className="inline-flex rounded-full border border-slate-200 bg-white/90 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-700">
+          <span className="home-badge">
             {t.badge}
           </span>
-          <h1 className="text-4xl font-black leading-tight tracking-tight text-slate-900 sm:text-5xl">
+          <h1 className="home-h1">
             {t.headline1}
             <br />
             {t.headline2}
           </h1>
-          <p className="max-w-xl text-base text-slate-700 sm:text-lg">{t.description}</p>
-          <div className="flex flex-wrap gap-3">
+          <p className="home-body">{t.description}</p>
+          <div className="home-actions">
             <Link
               href="/planner"
-              className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800"
+              className="home-btn home-btn-primary"
             >
               {t.openPlanner}
             </Link>
             <Link
               href="/login"
-              className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              className="home-btn home-btn-secondary"
             >
               {t.login}
             </Link>
@@ -78,7 +89,7 @@ export default function HomePage() {
 
         <div className="space-y-4">
           <div
-            className={`overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br ${mascot.accent} p-5 shadow-[0_10px_40px_rgba(15,23,42,0.09)]`}
+            className={`home-card home-mascot-card overflow-hidden bg-gradient-to-br ${mascot.accent}`}
           >
             <div className="flex items-center gap-4">
               <Image
@@ -100,13 +111,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700 shadow-sm">
-            <p className="font-semibold text-slate-900">{t.branding}</p>
-            <p className="mt-2">Theme and copy: <code>src/app/page.tsx</code></p>
-            <p>Global theme variables: <code>src/app/globals.css</code></p>
-            <p>Planner shell: <code>src/app/planner/page.tsx</code></p>
-            <p>Subject Hub: <code>src/app/planner/subjects/page.tsx</code></p>
-          </div>
+          <HomeBrandingCard title={t.branding} />
         </div>
       </section>
     </main>

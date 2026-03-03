@@ -1,28 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { useUiLanguage } from "@/app/_hooks/use-ui-language";
-import { notifyDataRevision, subscribeDataRevision } from "@/app/planner/_lib/focus-progress";
+import { usePlannerData } from "@/app/planner/_hooks/use-planner-data";
+import {
+  notifyDataRevision,
+  readFocusProgress,
+  subscribeDataRevision,
+  type FocusProgressMap,
+} from "@/app/planner/_lib/focus-progress";
+import {
+  buildExamProgressSnapshot,
+  type ExamProgressState,
+} from "@/app/planner/_lib/season-engine";
+import { progressStateClasses } from "@/app/planner/_lib/status-ui";
 import { requestJson } from "../_lib/client-api";
 import { useAuthStudent } from "../_hooks/use-auth-student";
 
-type Subject = {
+type CreatedSubject = {
   id: string;
   name: string;
-  color: string | null;
-  createdAt: string;
-};
-
-type Exam = {
-  id: string;
-  examDate: string;
-  title: string;
-  subject: {
-    id: string;
-    name: string;
-  };
 };
 
 type SubjectHint = {
@@ -54,6 +53,9 @@ const COPY = {
     workloadGuide: "Workload guide",
     linkedExams: "Exams linked",
     closestDeadline: "Closest deadline",
+    readyExams: "Ready exams",
+    avgProgress: "Average progress",
+    focusMinutes: "Focus minutes",
     openTimeline: "Open timeline",
     workloadMode: "Workload mode",
     summaryCoverage: "Summary coverage %",
@@ -66,6 +68,11 @@ const COPY = {
     examsPerSubject: "Exam timelines",
     openExams: "Open Exams",
     loadExamsError: "Failed to load exams",
+    statusNotStarted: "Not started",
+    statusWarmingUp: "Warming up",
+    statusSteady: "Steady",
+    statusAlmostReady: "Almost ready",
+    statusReady: "Ready",
     light: "Light",
     standard: "Standard",
     deep: "Deep",
@@ -88,6 +95,9 @@ const COPY = {
     workloadGuide: "Guida carico",
     linkedExams: "Esami collegati",
     closestDeadline: "Scadenza piu vicina",
+    readyExams: "Esami pronti",
+    avgProgress: "Progresso medio",
+    focusMinutes: "Minuti focus",
     openTimeline: "Apri timeline",
     workloadMode: "Modalita carico",
     summaryCoverage: "Copertura riassunti %",
@@ -100,6 +110,11 @@ const COPY = {
     examsPerSubject: "Timeline esami",
     openExams: "Apri Esami",
     loadExamsError: "Impossibile caricare gli esami",
+    statusNotStarted: "Non iniziato",
+    statusWarmingUp: "In avvio",
+    statusSteady: "Costante",
+    statusAlmostReady: "Quasi pronto",
+    statusReady: "Pronto",
     light: "Light",
     standard: "Standard",
     deep: "Deep",
@@ -114,17 +129,25 @@ const COPY = {
 
 const SUBJECT_HINTS_STORAGE_KEY = "studyapp_subject_hints";
 
-function daysUntil(examDate: string) {
-  const diff = Math.ceil((new Date(examDate).getTime() - Date.now()) / (24 * 60 * 60 * 1000));
-  return Math.max(diff, 0);
+type SubjectsCopy = (typeof COPY)[keyof typeof COPY];
+
+function progressStateLabel(state: ExamProgressState, t: SubjectsCopy) {
+  if (state === "ready") return t.statusReady;
+  if (state === "almost_ready") return t.statusAlmostReady;
+  if (state === "steady") return t.statusSteady;
+  if (state === "warming_up") return t.statusWarmingUp;
+  return t.statusNotStarted;
 }
 
 export default function PlannerSubjectsPage() {
   const { student, loading } = useAuthStudent();
   const { language } = useUiLanguage("en");
   const t = COPY[language] ?? COPY.en;
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [exams, setExams] = useState<Exam[]>([]);
+  const { subjects, exams, errors, refresh } = usePlannerData({
+    enabled: Boolean(student?.id),
+    subscribeToRevision: false,
+  });
+  const [focusProgress, setFocusProgress] = useState<FocusProgressMap>(readFocusProgress);
   const [subjectHints, setSubjectHints] = useState<Record<string, SubjectHint>>(() => {
     if (typeof window === "undefined") return {};
     const raw = localStorage.getItem(SUBJECT_HINTS_STORAGE_KEY);
@@ -138,60 +161,22 @@ export default function PlannerSubjectsPage() {
   const [subjectName, setSubjectName] = useState("");
   const [subjectColor, setSubjectColor] = useState("");
   const [message, setMessage] = useState("");
-
-  async function loadSubjects() {
-    const { ok, payload } = await requestJson<Subject[]>("/api/subjects");
-    if (!ok || !payload.data) {
-      setMessage(payload.error ?? "Failed to load subjects");
-      return false;
-    }
-    setSubjects(payload.data);
-    return true;
-  }
-
-  useEffect(() => {
-    if (!student?.id) return;
-
-    let active = true;
-    void Promise.all([requestJson<Subject[]>("/api/subjects"), requestJson<Exam[]>("/api/exams")]).then(
-      ([subjectsRes, examsRes]) => {
-        if (!active) return;
-        if (!subjectsRes.ok || !subjectsRes.payload.data) {
-          setMessage(subjectsRes.payload.error ?? "Failed to load subjects");
-          return;
-        }
-        setSubjects(subjectsRes.payload.data);
-        if (examsRes.ok && examsRes.payload.data) {
-          setExams(examsRes.payload.data);
-        } else {
-          setMessage(examsRes.payload.error ?? t.loadExamsError);
-        }
-      },
-    );
-
-    return () => {
-      active = false;
-    };
-  }, [student?.id, t.loadExamsError]);
-
-  useEffect(() => {
-    return subscribeDataRevision(() => {
-      void Promise.all([requestJson<Subject[]>("/api/subjects"), requestJson<Exam[]>("/api/exams")]).then(
-        ([subjectsRes, examsRes]) => {
-          if (subjectsRes.ok && subjectsRes.payload.data) {
-            setSubjects(subjectsRes.payload.data);
-          }
-          if (examsRes.ok && examsRes.payload.data) {
-            setExams(examsRes.payload.data);
-          }
-        },
-      );
-    });
-  }, []);
+  const dataErrorMessage = errors.subjects ?? errors.exams ?? "";
+  const examTracks = useMemo(
+    () => buildExamProgressSnapshot(exams, focusProgress),
+    [exams, focusProgress],
+  );
 
   useEffect(() => {
     localStorage.setItem(SUBJECT_HINTS_STORAGE_KEY, JSON.stringify(subjectHints));
   }, [subjectHints]);
+
+  useEffect(() => {
+    return subscribeDataRevision((source) => {
+      if (source !== "focus_progress") return;
+      setFocusProgress(readFocusProgress());
+    });
+  }, []);
 
   async function createSubjectByValues(name: string, color?: string) {
     if (!student?.id) {
@@ -199,7 +184,7 @@ export default function PlannerSubjectsPage() {
       return;
     }
 
-    const { ok, payload } = await requestJson<Subject>("/api/subjects", {
+    const { ok, payload } = await requestJson<CreatedSubject>("/api/subjects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, color }),
@@ -211,7 +196,11 @@ export default function PlannerSubjectsPage() {
     }
 
     setMessage(`${t.subjectCreated}: ${payload.data.name}`);
-    await loadSubjects();
+    const refreshResult = await refresh();
+    if (!refreshResult.ok && !refreshResult.skipped) {
+      setMessage(refreshResult.errors.subjects ?? refreshResult.errors.exams ?? "Failed to load subjects");
+      return;
+    }
     notifyDataRevision();
   }
 
@@ -236,29 +225,29 @@ export default function PlannerSubjectsPage() {
   }
 
   return (
-    <main className="space-y-6">
-      <section className="rounded-3xl border border-slate-200 bg-[radial-gradient(circle_at_top_left,#fef9c3_0%,#ecfeff_48%,#ffffff_100%)] p-6 shadow-sm">
+    <main className="space-y-5 sm:space-y-6">
+      <section className="planner-panel planner-hero">
         <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">{t.title}</h1>
         <p className="mt-1 text-sm text-slate-600">{t.subtitle}</p>
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="planner-panel">
         <h2 className="text-lg font-bold text-slate-900">{t.workloadGuide}</h2>
         <div className="mt-3 grid gap-3 md:grid-cols-3">
-          <article className="rounded-2xl border border-emerald-300 bg-emerald-50 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">{t.light}</p>
+          <article className="planner-card border-emerald-300 bg-emerald-50">
+            <p className="planner-eyebrow text-emerald-700">{t.light}</p>
             <p className="mt-1 text-sm text-emerald-900">
               {t.lightGuide}
             </p>
           </article>
-          <article className="rounded-2xl border border-sky-300 bg-sky-50 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">{t.standard}</p>
+          <article className="planner-card border-sky-300 bg-sky-50">
+            <p className="planner-eyebrow text-sky-700">{t.standard}</p>
             <p className="mt-1 text-sm text-sky-900">
               {t.standardGuide}
             </p>
           </article>
-          <article className="rounded-2xl border border-violet-300 bg-violet-50 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">{t.deep}</p>
+          <article className="planner-card border-violet-300 bg-violet-50">
+            <p className="planner-eyebrow text-violet-700">{t.deep}</p>
             <p className="mt-1 text-sm text-violet-900">
               {t.deepGuide}
             </p>
@@ -266,20 +255,26 @@ export default function PlannerSubjectsPage() {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="planner-panel">
         {loading ? (
-          <p className="text-sm text-slate-600">{t.loading}</p>
+          <div className="space-y-2">
+            <p className="text-sm text-slate-600">{t.loading}</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="planner-skeleton h-12" />
+              <div className="planner-skeleton h-12" />
+            </div>
+          </div>
         ) : (
           <div className="space-y-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t.presets}</p>
+              <p className="planner-eyebrow">{t.presets}</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {SUBJECT_PRESETS.map((preset) => (
                   <button
                     key={preset.name}
                     type="button"
                     onClick={() => createSubjectByValues(preset.name, preset.color)}
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+                    className="planner-btn planner-btn-secondary"
                   >
                     + {preset.name}
                   </button>
@@ -288,8 +283,8 @@ export default function PlannerSubjectsPage() {
             </div>
 
             <form className="grid gap-3 md:grid-cols-3" onSubmit={createSubject}>
-              <label className="space-y-1 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <label className="planner-field space-y-1">
+                <span className="planner-eyebrow mb-1 block">
                   {t.name}
                 </span>
                 <input
@@ -297,19 +292,19 @@ export default function PlannerSubjectsPage() {
                   type="text"
                   value={subjectName}
                   onChange={(event) => setSubjectName(event.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900"
+                  className="planner-input"
                   placeholder="Biology"
                 />
               </label>
 
-              <label className="space-y-1 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <label className="planner-field space-y-1">
+                <span className="planner-eyebrow mb-1 block">
                   {t.color}
                 </span>
                 <select
                   value={subjectColor}
                   onChange={(event) => setSubjectColor(event.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900"
+                  className="planner-input"
                 >
                   <option value="">No color</option>
                   <option value="#2563eb">Blue</option>
@@ -322,7 +317,7 @@ export default function PlannerSubjectsPage() {
 
               <button
                 type="submit"
-                className="rounded-2xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-500"
+                className="planner-btn planner-btn-accent"
               >
                 {t.add}
               </button>
@@ -331,28 +326,38 @@ export default function PlannerSubjectsPage() {
         )}
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="planner-panel">
         <h2 className="text-lg font-bold text-slate-900">{t.analytics}</h2>
         {subjects.length === 0 ? (
           <p className="mt-3 text-sm text-slate-600">{t.noSubjects}</p>
         ) : (
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             {subjects.map((subject) => {
-              const linkedExams = exams.filter((exam) => exam.subject.id === subject.id);
+              const linkedTracks = examTracks.filter((track) => track.subjectId === subject.id);
               const nearestDays =
-                linkedExams.length === 0
+                linkedTracks.length === 0
                   ? null
-                  : Math.min(...linkedExams.map((exam) => daysUntil(exam.examDate)));
-              const nearestExam = linkedExams
-                .slice()
-                .sort((a, b) => new Date(a.examDate).getTime() - new Date(b.examDate).getTime())[0];
+                  : Math.min(...linkedTracks.map((track) => track.daysLeft));
+              const nearestExam = linkedTracks[0];
+              const readyExams = linkedTracks.filter((track) => track.progressState === "ready").length;
+              const avgProgress =
+                linkedTracks.length === 0
+                  ? 0
+                  : Math.round(
+                      linkedTracks.reduce((acc, track) => acc + track.completionPercent, 0) /
+                        linkedTracks.length,
+                    );
+              const totalFocusMinutes = linkedTracks.reduce(
+                (acc, track) => acc + track.minutesSpent,
+                0,
+              );
               const hint = subjectHints[subject.id] ?? {
                 workloadMode: "standard",
                 summaryCoverage: 30,
               };
 
               return (
-                <article key={subject.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <article key={subject.id} className="planner-card bg-slate-50">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-lg font-bold text-slate-900">{subject.name}</p>
                     <span
@@ -363,7 +368,7 @@ export default function PlannerSubjectsPage() {
 
                   <div className="mt-2 text-sm text-slate-700">
                     <p>
-                      {t.linkedExams}: <strong>{linkedExams.length}</strong>
+                      {t.linkedExams}: <strong>{linkedTracks.length}</strong>
                     </p>
                     <p>
                       {t.closestDeadline}:{" "}
@@ -371,46 +376,51 @@ export default function PlannerSubjectsPage() {
                         {nearestDays === null ? t.noDeadline : `${nearestDays} ${t.daySuffix}`}
                       </strong>
                     </p>
+                    <p>
+                      {t.readyExams}: <strong>{readyExams}</strong>
+                    </p>
+                    <p>
+                      {t.avgProgress}: <strong>{avgProgress}%</strong>
+                    </p>
+                    <p>
+                      {t.focusMinutes}: <strong>{totalFocusMinutes}m</strong>
+                    </p>
                   </div>
 
                   <div className="mt-2 flex flex-wrap gap-2">
                     {nearestExam ? (
                       <Link
-                        href={`/planner?exam=${nearestExam.id}`}
-                        className="inline-block rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        href={`/planner?exam=${nearestExam.examId}`}
+                        className="planner-btn planner-btn-secondary min-h-0 py-1.5"
                       >
                         {t.openTimeline}
                       </Link>
                     ) : null}
                     <Link
                       href="/planner/exams"
-                      className="inline-block rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                      className="planner-btn planner-btn-secondary min-h-0 py-1.5"
                     >
                       {t.openExams}
                     </Link>
                   </div>
 
-                  <div className="mt-2 rounded-xl border border-slate-200 bg-white p-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <div className="planner-card-soft mt-2 bg-white p-2">
+                    <p className="planner-eyebrow">
                       {t.examsPerSubject}
                     </p>
-                    {linkedExams.length === 0 ? (
+                    {linkedTracks.length === 0 ? (
                       <p className="mt-1 text-xs text-slate-600">{t.noDeadline}</p>
                     ) : (
                       <div className="mt-1 flex flex-wrap gap-1">
-                        {linkedExams
-                          .slice()
-                          .sort(
-                            (a, b) =>
-                              new Date(a.examDate).getTime() - new Date(b.examDate).getTime(),
-                          )
-                          .map((exam) => (
+                        {linkedTracks.map((track) => (
                             <Link
-                              key={exam.id}
-                              href={`/planner?exam=${exam.id}`}
-                              className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                              key={track.examId}
+                              href={`/planner?exam=${track.examId}`}
+                              className={`planner-chip min-h-0 rounded-lg border px-2 py-1 text-xs ${progressStateClasses(track.progressState)}`}
                             >
-                              {exam.title}
+                              {track.examTitle} ({track.completionPercent}%)
+                              {" - "}
+                              {progressStateLabel(track.progressState, t)}
                             </Link>
                           ))}
                       </div>
@@ -418,7 +428,7 @@ export default function PlannerSubjectsPage() {
                   </div>
 
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                    <label className="rounded-xl border border-slate-200 bg-white p-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <label className="planner-card-soft bg-white p-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                       {t.workloadMode}
                       <select
                         value={hint.workloadMode}
@@ -427,7 +437,7 @@ export default function PlannerSubjectsPage() {
                             workloadMode: event.target.value as SubjectHint["workloadMode"],
                           })
                         }
-                        className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm normal-case text-slate-800"
+                        className="planner-input mt-1 normal-case text-sm text-slate-800"
                       >
                         <option value="light">{t.light}</option>
                         <option value="standard">{t.standard}</option>
@@ -435,7 +445,7 @@ export default function PlannerSubjectsPage() {
                       </select>
                     </label>
 
-                    <label className="rounded-xl border border-slate-200 bg-white p-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <label className="planner-card-soft bg-white p-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                       {t.summaryCoverage}
                       <input
                         type="number"
@@ -447,7 +457,7 @@ export default function PlannerSubjectsPage() {
                             summaryCoverage: Number(event.target.value),
                           })
                         }
-                        className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm normal-case text-slate-800"
+                        className="planner-input mt-1 normal-case text-sm text-slate-800"
                       />
                     </label>
                   </div>
@@ -458,9 +468,9 @@ export default function PlannerSubjectsPage() {
         )}
       </section>
 
-      {message ? (
-        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          {message}
+      {message || dataErrorMessage ? (
+        <section className="planner-alert" role="status" aria-live="polite">
+          {message || dataErrorMessage}
         </section>
       ) : null}
     </main>

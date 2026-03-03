@@ -13,6 +13,12 @@ export type FocusProgressMap = Record<string, FocusProgressEntry>;
 const FOCUS_PROGRESS_KEY = "studyapp_focus_exam_progress_v1";
 const DATA_REVISION_KEY = "studyapp_data_revision_v1";
 const DATA_REVISION_EVENT = "studyapp:data-revision";
+export type DataRevisionSource = "dataset" | "focus_progress";
+
+type DataRevisionPayload = {
+  revision: string;
+  source: DataRevisionSource;
+};
 
 function safeParse(raw: string | null): FocusProgressMap {
   if (!raw) return {};
@@ -34,11 +40,30 @@ export function writeFocusProgress(progress: FocusProgressMap) {
   localStorage.setItem(FOCUS_PROGRESS_KEY, JSON.stringify(progress));
 }
 
-export function notifyDataRevision() {
+function parseRevisionPayload(raw: string | null): DataRevisionPayload | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<DataRevisionPayload>;
+    if (parsed?.source === "dataset" || parsed?.source === "focus_progress") {
+      return {
+        revision: String(parsed.revision ?? new Date().toISOString()),
+        source: parsed.source,
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function notifyDataRevision(source: DataRevisionSource = "dataset") {
   if (typeof window === "undefined") return;
-  const revision = new Date().toISOString();
-  localStorage.setItem(DATA_REVISION_KEY, revision);
-  window.dispatchEvent(new CustomEvent(DATA_REVISION_EVENT, { detail: revision }));
+  const payload: DataRevisionPayload = {
+    revision: new Date().toISOString(),
+    source,
+  };
+  localStorage.setItem(DATA_REVISION_KEY, JSON.stringify(payload));
+  window.dispatchEvent(new CustomEvent(DATA_REVISION_EVENT, { detail: payload }));
 }
 
 export function recordFocusProgress(
@@ -61,20 +86,28 @@ export function recordFocusProgress(
   };
 
   writeFocusProgress(current);
-  notifyDataRevision();
+  notifyDataRevision("focus_progress");
 }
 
-export function subscribeDataRevision(listener: () => void) {
+export function subscribeDataRevision(listener: (source: DataRevisionSource) => void) {
   if (typeof window === "undefined") return () => {};
 
   const onStorage = (event: StorageEvent) => {
-    if (event.key === DATA_REVISION_KEY || event.key === FOCUS_PROGRESS_KEY) {
-      listener();
+    if (event.key === FOCUS_PROGRESS_KEY) {
+      listener("focus_progress");
+      return;
+    }
+    if (event.key === DATA_REVISION_KEY) {
+      const payload = parseRevisionPayload(event.newValue);
+      listener(payload?.source ?? "dataset");
     }
   };
 
-  const onCustom = () => {
-    listener();
+  const onCustom = (event: Event) => {
+    const customEvent = event as CustomEvent<DataRevisionPayload>;
+    const source =
+      customEvent.detail?.source === "focus_progress" ? "focus_progress" : "dataset";
+    listener(source);
   };
 
   window.addEventListener("storage", onStorage);
@@ -85,4 +118,3 @@ export function subscribeDataRevision(listener: () => void) {
     window.removeEventListener(DATA_REVISION_EVENT, onCustom);
   };
 }
-

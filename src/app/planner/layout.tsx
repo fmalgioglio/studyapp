@@ -2,6 +2,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 
 import { SESSION_COOKIE_NAME, verifySessionToken } from "@/server/auth/session";
+import { PlannerTabsNav } from "./_components/planner-tabs-nav";
 import { LogoutButton } from "./_components/logout-button";
 
 const plannerLinks = [
@@ -24,7 +25,7 @@ export default async function PlannerLayout({
 
   if (!session) {
     return (
-      <div className="min-h-[calc(100vh-73px)] bg-[linear-gradient(180deg,#f8fbff_0%,#eef2ff_100%)]">
+      <div className="min-h-[calc(100vh-73px)]">
         <div className="mx-auto flex w-full max-w-xl items-center justify-center px-4 py-12 sm:px-6">
           <div className="w-full rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-sm">
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">
@@ -54,21 +55,13 @@ export default async function PlannerLayout({
   }
 
   return (
-    <div className="min-h-[calc(100vh-73px)] bg-[radial-gradient(circle_at_top_left,#dbeafe_0%,#f0f9ff_38%,#eef2ff_100%)]">
+    <div className="min-h-[calc(100vh-73px)]">
       <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white/90 p-3 shadow-sm">
-          <nav className="flex flex-wrap gap-2">
-            {plannerLinks.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-          <LogoutButton />
+        <div className="planner-panel mb-4 bg-white/90">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <PlannerTabsNav links={plannerLinks} />
+            <LogoutButton />
+          </div>
         </div>
         {children}
       </div>

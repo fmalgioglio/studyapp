@@ -4,7 +4,7 @@ import { FormEvent, useState } from "react";
 
 import { notifyDataRevision } from "@/app/planner/_lib/focus-progress";
 import { requestJson } from "../_lib/client-api";
-import { useAuthStudent } from "../_hooks/use-auth-student";
+import { syncAuthStudentCache, useAuthStudent } from "../_hooks/use-auth-student";
 
 type Student = {
   id: string;
@@ -46,49 +46,56 @@ export default function PlannerStudentsPage() {
     }
 
     setMessage("Profile updated.");
+    syncAuthStudentCache(payload.data);
     setFullNameDraft(payload.data.fullName ?? "");
     setWeeklyHoursDraft(payload.data.weeklyHours);
     notifyDataRevision();
   }
 
   return (
-    <main className="space-y-6">
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <main className="space-y-5 sm:space-y-6">
+      <section className="planner-panel planner-hero">
         <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Profile</h1>
         <p className="mt-1 text-sm text-slate-600">
           Configure your personal study capacity and account details.
         </p>
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="planner-panel">
         {loading ? (
-          <p className="text-sm text-slate-600">Loading profile...</p>
+          <div className="space-y-2">
+            <p className="text-sm text-slate-600">Loading profile...</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="planner-skeleton h-12" />
+              <div className="planner-skeleton h-12" />
+            </div>
+          </div>
         ) : (
           <form className="grid gap-3 md:grid-cols-3" onSubmit={saveProfile}>
-            <label className="space-y-1 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <label className="planner-field space-y-1">
+              <span className="planner-eyebrow mb-1 block">
                 Email
               </span>
               <input
                 type="email"
                 value={student?.email ?? ""}
                 disabled
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                className="planner-input"
               />
             </label>
-            <label className="space-y-1 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <label className="planner-field space-y-1">
+              <span className="planner-eyebrow mb-1 block">
                 Full name
               </span>
                 <input
                   type="text"
                   value={fullNameDraft ?? student?.fullName ?? ""}
                   onChange={(event) => setFullNameDraft(event.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  className="planner-input"
                 />
               </label>
-            <label className="space-y-1 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <label className="planner-field space-y-1">
+              <span className="planner-eyebrow mb-1 block">
                 Weekly hours
               </span>
                 <input
@@ -97,12 +104,12 @@ export default function PlannerStudentsPage() {
                   max={80}
                   value={weeklyHoursDraft ?? student?.weeklyHours ?? 10}
                   onChange={(event) => setWeeklyHoursDraft(Number(event.target.value))}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  className="planner-input"
                 />
               </label>
             <button
               type="submit"
-              className="rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 md:col-span-3"
+              className="planner-btn planner-btn-accent w-full md:col-span-3"
             >
               Save profile
             </button>
@@ -111,7 +118,7 @@ export default function PlannerStudentsPage() {
       </section>
 
       {message ? (
-        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+        <section className="planner-alert">
           {message}
         </section>
       ) : null}

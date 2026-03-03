@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 import { useSiteTheme } from "@/app/_hooks/use-site-theme";
 import { useUiLanguage } from "@/app/_hooks/use-ui-language";
@@ -31,40 +32,71 @@ const COPY = {
 export function SiteNav({ isAuthenticated }: { isAuthenticated: boolean }) {
   const { language, setLanguage } = useUiLanguage("en");
   const { theme, setTheme } = useSiteTheme("parrot");
+  const pathname = usePathname();
   const t = COPY[language] ?? COPY.en;
 
+  const isHome = pathname === "/";
+  const isProfile = pathname?.startsWith("/planner/students") ?? false;
+  const isPlanner =
+    pathname === "/planner" ||
+    ((pathname?.startsWith("/planner/") ?? false) && !isProfile);
+  const isLogin = pathname === "/login";
+  const isSignup = pathname === "/signup";
+  const linkClass = (isActive: boolean, extra = "") =>
+    `site-nav-link ${extra} ${isActive ? "site-nav-link-active" : ""}`.trim();
+
   return (
-    <nav className="flex flex-wrap items-center justify-end gap-2 text-sm font-medium">
-      <Link href="/" className="rounded-lg px-3 py-1.5 text-slate-700 hover:bg-slate-100">
+    <nav
+      aria-label={language === "it" ? "Navigazione principale" : "Primary navigation"}
+      className="site-nav-shell text-sm font-medium"
+    >
+      <Link
+        href="/"
+        aria-current={isHome ? "page" : undefined}
+        className={linkClass(isHome)}
+      >
         {t.home}
       </Link>
-      <Link href="/planner" className="rounded-lg px-3 py-1.5 text-slate-700 hover:bg-slate-100">
+      <Link
+        href="/planner"
+        aria-current={isPlanner ? "page" : undefined}
+        className={linkClass(isPlanner)}
+      >
         {t.planner}
       </Link>
       {isAuthenticated ? (
-        <Link href="/planner/students" className="rounded-lg px-3 py-1.5 text-slate-700 hover:bg-slate-100">
+        <Link
+          href="/planner/students"
+          aria-current={isProfile ? "page" : undefined}
+          className={linkClass(isProfile)}
+        >
           {t.profile}
         </Link>
       ) : null}
       {!isAuthenticated ? (
         <>
-          <Link href="/login" className="rounded-lg bg-slate-900 px-3 py-1.5 text-white hover:bg-slate-800">
+          <Link
+            href="/login"
+            aria-current={isLogin ? "page" : undefined}
+            className={linkClass(isLogin, "site-nav-cta-primary")}
+          >
             {t.login}
           </Link>
           <Link
             href="/signup"
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-700 hover:bg-slate-100"
+            aria-current={isSignup ? "page" : undefined}
+            className={linkClass(isSignup, "site-nav-cta-secondary")}
           >
             {t.signup}
           </Link>
         </>
       ) : null}
-      <div className="ml-1 inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1">
+      <div className="site-toggle-group">
         <button
           type="button"
           onClick={() => setLanguage("en")}
-          className={`rounded px-2 py-0.5 text-xs font-semibold ${
-            language === "en" ? "bg-slate-900 text-white" : "text-slate-700"
+          className={`site-toggle-btn ${
+            language === "en" ? "site-toggle-btn-active" : ""
           }`}
         >
           EN
@@ -72,20 +104,20 @@ export function SiteNav({ isAuthenticated }: { isAuthenticated: boolean }) {
         <button
           type="button"
           onClick={() => setLanguage("it")}
-          className={`rounded px-2 py-0.5 text-xs font-semibold ${
-            language === "it" ? "bg-slate-900 text-white" : "text-slate-700"
+          className={`site-toggle-btn ${
+            language === "it" ? "site-toggle-btn-active" : ""
           }`}
         >
           IT
         </button>
       </div>
-      <div className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1">
-        <span className="text-xs text-slate-500">{t.theme}</span>
+      <div className="site-toggle-group">
+        <span className="site-toggle-label">{t.theme}</span>
         <button
           type="button"
           onClick={() => setTheme("parrot")}
-          className={`rounded px-2 py-0.5 text-xs font-semibold ${
-            theme === "parrot" ? "bg-emerald-600 text-white" : "text-slate-700"
+          className={`site-toggle-btn ${
+            theme === "parrot" ? "site-toggle-btn-active" : ""
           }`}
         >
           {t.parrot}
@@ -93,8 +125,8 @@ export function SiteNav({ isAuthenticated }: { isAuthenticated: boolean }) {
         <button
           type="button"
           onClick={() => setTheme("dolphin")}
-          className={`rounded px-2 py-0.5 text-xs font-semibold ${
-            theme === "dolphin" ? "bg-cyan-600 text-white" : "text-slate-700"
+          className={`site-toggle-btn ${
+            theme === "dolphin" ? "site-toggle-btn-active" : ""
           }`}
         >
           {t.dolphin}
