@@ -38,6 +38,8 @@ type CreatedSubject = PlannerSubject;
 type WorkloadReadiness = "known" | "unknown";
 type MaterialType = "book" | "notes" | "mixed";
 
+const MS_PER_DAY = 86_400_000;
+
 const COPY = {
   en: {
     title: "Exams",
@@ -77,6 +79,9 @@ const COPY = {
     notesSummary: "Notes summary (optional)",
     materialDetails: "Other material details (optional)",
     addExam: "Add exam",
+    editWorkload: "Edit workload",
+    saveWorkload: "Save workload",
+    cancelEdit: "Cancel",
     list: "Exam list",
     none: "No exams yet.",
     refresh: "Refresh",
@@ -113,6 +118,8 @@ const COPY = {
     sourceGoogle: "Google Books",
     sourceOpenLibrary: "Open Library",
     sourceLocal: "Local catalog",
+    daysLeft: "days left",
+    noPages: "—",
   },
   it: {
     title: "Esami",
@@ -152,6 +159,9 @@ const COPY = {
     notesSummary: "Riassunto appunti (opzionale)",
     materialDetails: "Altri dettagli materiali (opzionale)",
     addExam: "Aggiungi esame",
+    editWorkload: "Modifica carico",
+    saveWorkload: "Salva carico",
+    cancelEdit: "Annulla",
     list: "Lista esami",
     none: "Nessun esame.",
     refresh: "Aggiorna",
@@ -188,6 +198,8 @@ const COPY = {
     sourceGoogle: "Google Books",
     sourceOpenLibrary: "Open Library",
     sourceLocal: "Catalogo locale",
+    daysLeft: "giorni rimasti",
+    noPages: "—",
   },
 } as const;
 
@@ -228,6 +240,13 @@ function normalizePositivePageCount(value: number | undefined) {
   return value;
 }
 
+function truncateText(value: string, maxLength: number) {
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return `${value.slice(0, maxLength)}…`;
+}
+
 export default function PlannerExamsPage() {
   const { student, loading } = useAuthStudent();
   const { language } = useUiLanguage("en");
@@ -254,9 +273,20 @@ export default function PlannerExamsPage() {
   const [selectedBook, setSelectedBook] = useState<BookSearchItem | null>(null);
   const [notesSummary, setNotesSummary] = useState("");
   const [materialDetails, setMaterialDetails] = useState("");
+  const [editingExamId, setEditingExamId] = useState<string | null>(null);
+  const [editWorkloadReadiness, setEditWorkloadReadiness] = useState<WorkloadReadiness>("known");
+  const [editMaterialType, setEditMaterialType] = useState<MaterialType>("book");
+  const [editTotalPages, setEditTotalPages] = useState("");
+  const [editBookLookupQuery, setEditBookLookupQuery] = useState("");
+  const [editSelectedBook, setEditSelectedBook] = useState<BookSearchItem | null>(null);
+  const [editNotesSummary, setEditNotesSummary] = useState("");
+  const [editMaterialDetails, setEditMaterialDetails] = useState("");
+  const [editPagesTouched, setEditPagesTouched] = useState(false);
+  const [editSubmitting, setEditSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [pagesTouched, setPagesTouched] = useState(false);
+  const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
 
   const dataErrorMessage = errors.subjects ?? errors.exams ?? "";
   const selectedSubjectId = subjectMode === "existing" ? subjectId || subjects[0]?.id || "" : "";
@@ -292,9 +322,97 @@ export default function PlannerExamsPage() {
 
   async function handleRefresh() {
     const result = await refresh();
+    if (result.ok) {
+      setCurrentTimeMs(Date.now());
+    }
     if (!result.ok && !result.skipped) {
       setMessage(result.errors.exams ?? result.errors.subjects ?? t.loadExamsError);
     }
+  }
+
+  function openEditWorkload(examId: string) {
+    const exam = examById.get(examId);
+    if (!exam) return;
+    const workloadPayload = exam.workloadPayload;
+    setEditingExamId(examId);
+    setEditWorkloadReadiness((exam.workloadReadiness as WorkloadReadiness) ?? "unknown");
+    setEditMaterialType((exam.materialType as MaterialType) ?? "book");
+    setEditTotalPages(workloadPayload?.totalPages ? String(workloadPayload.totalPages) : "");
+    setEditBookLookupQuery(workloadPayload?.bookTitle ?? "");
+    setEditSelectedBook(null);
+    setEditNotesSummary(workloadPayload?.notesSummary ?? "");
+    setEditMaterialDetails(workloadPayload?.materialDetails ?? "");
+    setEditPagesTouched(false);
+  }
+
+  function closeEditWorkload() {
+    setEditingExamId(null);
+    setEditBookLookupQuery("");
+    setEditSelectedBook(null);
+    setEditNotesSummary("");
+    setEditMaterialDetails("");
+    setEditTotalPages("");
+    setEditPagesTouched(false);
+    setEditSubmitting(false);
+  }
+
+  async function saveEditWorkload(examId: string) {
+    setEditSubmitting(true);
+    const workloadPayload: Record<string, unknown> = {};
+    const normalizedPages = editTotalPages ? Number(editTotalPages) : undefined;
+    if (normalizedPages && normalizedPages > 0) {
+      workloadPayload.totalPages = normalizedPages;
+    }
+    if (editMaterialType === "book" || editMaterialType === "mixed") {
+      const bookTitle = editSelectedBook?.title || editBookLookupQuery.trim();
+      if (bookTitle) {
+        workloadPayload.bookTitle = bookTitle;
+      }
+      if (editSelectedBook?.verified_page_count) {
+        workloadPayload.verifiedPageCount = editSelectedBook.verified_page_count;
+      }
+      if (editSelectedBook?.source) {
+        workloadPayload.bookSource = editSelectedBook.source;
+      }
+      if (typeof editSelectedBook?.confidence_score === "number") {
+        workloadPayload.matchConfidenceScore = editSelectedBook.confidence_score;
+      }
+      if (editSelectedBook?.authors?.length) {
+        workloadPayload.bookAuthors = editSelectedBook.authors;
+      }
+    }
+    if (editNotesSummary.trim()) {
+      workloadPayload.notesSummary = editNotesSummary.trim();
+    }
+    if (editMaterialDetails.trim()) {
+      workloadPayload.materialDetails = editMaterialDetails.trim();
+    }
+
+    const { ok, payload } = await requestJson<PlannerExam>(`/api/exams?id=${examId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        workloadReadiness: editWorkloadReadiness,
+        materialType: editMaterialType,
+        workloadPayload,
+      }),
+    });
+    setEditSubmitting(false);
+
+    if (!ok) {
+      setMessage(payload.error ?? t.createError);
+      return;
+    }
+
+    closeEditWorkload();
+    setMessage(`${t.saveWorkload} ✓`);
+    const refreshResult = await refresh({ force: true });
+    if (!refreshResult.ok && !refreshResult.skipped) {
+      setMessage(refreshResult.errors.exams ?? t.loadExamsError);
+      return;
+    }
+    setCurrentTimeMs(Date.now());
+    notifyDataRevision();
   }
 
   async function createExam(event: FormEvent) {
@@ -404,6 +522,7 @@ export default function PlannerExamsPage() {
       setMessage(refreshResult.errors.exams ?? refreshResult.errors.subjects ?? t.loadExamsError);
       return;
     }
+    setCurrentTimeMs(Date.now());
     notifyDataRevision();
   }
 
@@ -423,6 +542,7 @@ export default function PlannerExamsPage() {
       setMessage(refreshResult.errors.exams ?? refreshResult.errors.subjects ?? t.loadExamsError);
       return;
     }
+    setCurrentTimeMs(Date.now());
     notifyDataRevision();
   }
 
@@ -700,86 +820,247 @@ export default function PlannerExamsPage() {
             {examTracks.map((track) => {
               const examMeta = examById.get(track.examId);
               const workloadPayload = examMeta?.workloadPayload ?? null;
-              const displayTotalPages =
-                normalizePositivePageCount(workloadPayload?.totalPages) ??
-                normalizePositivePageCount(workloadPayload?.verifiedPageCount) ??
-                track.estimatedPages;
-              const displayCompletedPages = Math.min(track.completedPages, displayTotalPages);
+              const hasRealPages =
+                normalizePositivePageCount(workloadPayload?.totalPages) != null ||
+                normalizePositivePageCount(workloadPayload?.verifiedPageCount) != null;
+              const displayTotalPages = hasRealPages
+                ? normalizePositivePageCount(workloadPayload?.totalPages) ??
+                  normalizePositivePageCount(workloadPayload?.verifiedPageCount)
+                : undefined;
+              const displayCompletedPages =
+                displayTotalPages != null
+                  ? Math.min(track.completedPages, displayTotalPages)
+                  : track.completedPages;
+              const displayPageLabel =
+                displayTotalPages != null
+                  ? `${displayCompletedPages}/${displayTotalPages}p`
+                  : displayCompletedPages > 0
+                    ? `${displayCompletedPages}p done`
+                    : t.noPages;
+              const daysLeft = Math.max(
+                0,
+                Math.ceil(
+                  (new Date(track.examDate).getTime() - (currentTimeMs ?? 0)) / MS_PER_DAY,
+                ),
+              );
+              const materialTypeLabel =
+                examMeta?.materialType === "notes"
+                  ? t.materialNotes
+                  : examMeta?.materialType === "mixed"
+                    ? t.materialMixed
+                    : t.materialBook;
+              const notesSummaryPreview = workloadPayload?.notesSummary
+                ? truncateText(workloadPayload.notesSummary, 60)
+                : null;
               return (
-                <li
-                  key={track.examId}
-                  className="planner-card flex flex-wrap items-center justify-between gap-3 bg-slate-50"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold text-slate-900">{track.examTitle}</p>
-                      <span className="planner-chip bg-white text-slate-700">
-                        {examMeta?.workloadReadiness === "known"
-                          ? t.workloadKnownChip
-                          : t.workloadUnknownChip}
-                      </span>
-                      {examMeta?.workloadReadiness === "unknown" ? (
-                        <span className="planner-chip border-amber-200 bg-amber-50 text-amber-900">
-                          {t.provisional}
+                <li key={track.examId} className="planner-card bg-slate-50">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold text-slate-900">{track.examTitle}</p>
+                        <span className="planner-chip bg-white text-slate-700">
+                          {examMeta?.workloadReadiness === "known"
+                            ? t.workloadKnownChip
+                            : t.workloadUnknownChip}
                         </span>
-                      ) : null}
-                    </div>
-                    <p className="text-sm text-slate-600">
-                      {track.subjectName} -{" "}
-                      {new Date(track.examDate).toLocaleDateString(
-                        language === "it" ? "it-IT" : "en-US",
-                      )}
-                    </p>
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                      <span className={`rounded-full border px-2 py-0.5 font-semibold ${progressStateClasses(track.progressState)}`}>
-                        {t.readiness}: {progressStateLabel(track.progressState, t)}
-                      </span>
-                      <span className={`rounded-full border px-2 py-0.5 font-semibold ${focusContributionClasses(track.focusContributionLevel)}`}>
-                        {t.focusContribution}: {focusContributionLabel(track.focusContributionLevel, t)} ({track.focusContributionPercent}%)
-                      </span>
-                      <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 font-semibold text-slate-700">
-                        {displayCompletedPages}/{displayTotalPages}p
-                      </span>
-                      <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 font-semibold text-slate-700">
-                        {t.focusSignals}: {track.sessionsCompleted} / {t.focusMinutes}: {track.minutesSpent}m
-                      </span>
-                    </div>
-                    {workloadPayload ? (
-                      <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-600">
-                        {workloadPayload.bookTitle ? (
-                          <span className="rounded-full border border-slate-200 bg-white px-2 py-1">
-                            {workloadPayload.bookTitle}
-                          </span>
-                        ) : null}
-                        {typeof workloadPayload.totalPages === "number" ? (
-                          <span className="rounded-full border border-slate-200 bg-white px-2 py-1">
-                            {workloadPayload.totalPages}p
-                          </span>
-                        ) : null}
-                        {typeof workloadPayload.verifiedPageCount === "number" ? (
-                          <span className="rounded-full border border-slate-200 bg-white px-2 py-1">
-                            {t.verifiedPages}: {workloadPayload.verifiedPageCount}
+                        <span className="planner-chip bg-white text-slate-700">
+                          {materialTypeLabel}
+                        </span>
+                        {examMeta?.workloadReadiness === "unknown" ? (
+                          <span className="planner-chip border-amber-200 bg-amber-50 text-amber-900">
+                            {t.provisional}
                           </span>
                         ) : null}
                       </div>
-                    ) : null}
+                      <p className="text-sm text-slate-600">
+                        {track.subjectName} -{" "}
+                        {new Date(track.examDate).toLocaleDateString(
+                          language === "it" ? "it-IT" : "en-US",
+                        )}
+                        <span
+                          className="ml-2 inline-flex rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-semibold text-slate-700"
+                          title={`${daysLeft} ${t.daysLeft}`}
+                        >
+                          {daysLeft}d
+                        </span>
+                      </p>
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                        <span className={`rounded-full border px-2 py-0.5 font-semibold ${progressStateClasses(track.progressState)}`}>
+                          {t.readiness}: {progressStateLabel(track.progressState, t)}
+                        </span>
+                        <span className={`rounded-full border px-2 py-0.5 font-semibold ${focusContributionClasses(track.focusContributionLevel)}`}>
+                          {t.focusContribution}: {focusContributionLabel(track.focusContributionLevel, t)} ({track.focusContributionPercent}%)
+                        </span>
+                        <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 font-semibold text-slate-700">
+                          {displayPageLabel}
+                        </span>
+                        <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 font-semibold text-slate-700">
+                          {t.focusSignals}: {track.sessionsCompleted} / {t.focusMinutes}: {track.minutesSpent}m
+                        </span>
+                      </div>
+                      {workloadPayload ? (
+                        <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-600">
+                          {workloadPayload.bookTitle ? (
+                            <span className="rounded-full border border-slate-200 bg-white px-2 py-1">
+                              {workloadPayload.bookTitle}
+                            </span>
+                          ) : null}
+                          {typeof workloadPayload.totalPages === "number" ? (
+                            <span className="rounded-full border border-slate-200 bg-white px-2 py-1">
+                              {workloadPayload.totalPages}p
+                            </span>
+                          ) : null}
+                          {notesSummaryPreview ? (
+                            <span className="max-w-full truncate rounded-full border border-slate-200 bg-white px-2 py-1">
+                              {notesSummaryPreview}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openEditWorkload(track.examId)}
+                        className="planner-btn planner-btn-secondary min-h-0 py-1.5"
+                      >
+                        {t.editWorkload}
+                      </button>
+                      <Link
+                        href={`/planner?exam=${track.examId}`}
+                        className="planner-btn planner-btn-secondary min-h-0 py-1.5"
+                      >
+                        {t.openTimeline}
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => void deleteExam(track.examId)}
+                        className="planner-btn planner-btn-danger min-h-0 py-1.5"
+                        aria-label={`${t.delete} ${track.examTitle}`}
+                      >
+                        {t.delete} x
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Link
-                      href={`/planner?exam=${track.examId}`}
-                      className="planner-btn planner-btn-secondary min-h-0 py-1.5"
-                    >
-                      {t.openTimeline}
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => void deleteExam(track.examId)}
-                      className="planner-btn planner-btn-danger min-h-0 py-1.5"
-                      aria-label={`${t.delete} ${track.examTitle}`}
-                    >
-                      {t.delete} x
-                    </button>
-                  </div>
+                  {editingExamId === track.examId ? (
+                    <div className="mt-3 w-full space-y-3 border-t border-slate-200 pt-3">
+                      <p className="planner-eyebrow">{t.editWorkload}</p>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <label className="planner-field">
+                          <span className="planner-eyebrow mb-1 block">{t.workloadStatus}</span>
+                          <select
+                            value={editWorkloadReadiness}
+                            onChange={(event) =>
+                              setEditWorkloadReadiness(event.target.value as WorkloadReadiness)
+                            }
+                            className="planner-input"
+                          >
+                            <option value="known">{t.workloadKnown}</option>
+                            <option value="unknown">{t.workloadUnknown}</option>
+                          </select>
+                        </label>
+                        <label className="planner-field">
+                          <span className="planner-eyebrow mb-1 block">{t.materialType}</span>
+                          <select
+                            value={editMaterialType}
+                            onChange={(event) =>
+                              setEditMaterialType(event.target.value as MaterialType)
+                            }
+                            className="planner-input"
+                          >
+                            <option value="book">{t.materialBook}</option>
+                            <option value="notes">{t.materialNotes}</option>
+                            <option value="mixed">{t.materialMixed}</option>
+                          </select>
+                        </label>
+                      </div>
+                      {(editMaterialType === "book" || editMaterialType === "mixed") ? (
+                        <BookSearchTypeahead
+                          idPrefix={`edit-book-${track.examId}`}
+                          label={t.bookLookupLabel}
+                          query={editBookLookupQuery}
+                          subjectHint={examMeta?.subject.name ?? ""}
+                          placeholder={t.bookLookupHint}
+                          helpText={t.bookLookupHelp}
+                          onQueryChange={(value) => {
+                            setEditBookLookupQuery(value);
+                            setEditSelectedBook(null);
+                          }}
+                          onSelect={(item) => {
+                            setEditSelectedBook(item);
+                            setEditBookLookupQuery(item.title);
+                            if (!editPagesTouched && item.verified_page_count) {
+                              setEditTotalPages(String(item.verified_page_count));
+                            }
+                          }}
+                        />
+                      ) : null}
+                      {editSelectedBook ? (
+                        <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-slate-700">
+                          <p className="font-semibold text-slate-900">
+                            {t.selectedBook}: {editSelectedBook.title}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-600">
+                            {t.verifiedPages}: <strong>{editSelectedBook.verified_page_count ?? "—"}</strong>
+                            {" | "}
+                            {t.confidence}: <strong>{pct(editSelectedBook.confidence_score)}</strong>
+                            {" | "}
+                            {t.sourceLabel}: <strong>{sourceLabel(editSelectedBook.source, t)}</strong>
+                          </p>
+                        </div>
+                      ) : null}
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <label className="planner-field">
+                          <span className="planner-eyebrow mb-1 block">{t.totalPages}</span>
+                          <input
+                            type="number"
+                            min={1}
+                            value={editTotalPages}
+                            onChange={(event) => {
+                              setEditPagesTouched(true);
+                              setEditTotalPages(event.target.value);
+                            }}
+                            className="planner-input"
+                          />
+                        </label>
+                        <label className="planner-field">
+                          <span className="planner-eyebrow mb-1 block">{t.materialDetails}</span>
+                          <input
+                            type="text"
+                            value={editMaterialDetails}
+                            onChange={(event) => setEditMaterialDetails(event.target.value)}
+                            className="planner-input"
+                          />
+                        </label>
+                      </div>
+                      <label className="planner-field block">
+                        <span className="planner-eyebrow mb-1 block">{t.notesSummary}</span>
+                        <input
+                          type="text"
+                          value={editNotesSummary}
+                          onChange={(event) => setEditNotesSummary(event.target.value)}
+                          className="planner-input"
+                        />
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void saveEditWorkload(track.examId)}
+                          disabled={editSubmitting}
+                          className="planner-btn planner-btn-accent"
+                        >
+                          {t.saveWorkload}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={closeEditWorkload}
+                          className="planner-btn planner-btn-secondary"
+                        >
+                          {t.cancelEdit}
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
                 </li>
               );
             })}
