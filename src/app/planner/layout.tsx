@@ -60,7 +60,10 @@ export default async function PlannerLayout({
             <PlannerTabsNav links={plannerLinks} />
             <LogoutButton />
           </div>
-          <div className="mt-3 flex items-center justify-end gap-2 border-t border-slate-100 pt-2.5">
+          <nav
+            aria-label="Account"
+            className="mt-3 flex items-center justify-end gap-2 border-t border-slate-100 pt-2.5"
+          >
             <span className="text-xs font-medium text-slate-500">Account</span>
             <Link
               href="/planner/students"
@@ -68,7 +71,7 @@ export default async function PlannerLayout({
             >
               Profile
             </Link>
-          </div>
+          </nav>
         </div>
         {children}
       </div>
