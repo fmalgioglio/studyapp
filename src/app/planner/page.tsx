@@ -32,21 +32,21 @@ const QUEST_COMPLETIONS_STORAGE_KEY = "studyapp_quest_completions";
 
 const COPY = {
   en: {
-    badge: "Season Planner",
-    title: "Mission-driven exam season",
+    badge: "Season Board",
+    title: "Your exam season, kept clear.",
     subtitle:
-      "Plan all exams in one weekly board, complete quests, and keep momentum with rewarding loops.",
-    todayQuests: "Today quests",
+      "Keep workload, weekly pressure, and readiness in one calm planning surface built for real study routines.",
+    todayQuests: "Today priorities",
     weeklyBoard: "Weekly board",
     riskLow: "On Track",
     riskMedium: "Tight",
     riskHigh: "Critical",
     refresh: "Refresh season",
-    noMissions: "Add exams to generate your first mission board.",
-    markDone: "Mark done",
+    noMissions: "Add exams to generate your first daily priorities.",
+    markDone: "Mark reviewed",
     done: "Done",
     breakReminder: "Great push. Take a short break and hydrate before the next block.",
-    mode: "Plan mode",
+    mode: "Board view",
     focused: "Focused",
     balanced: "Balanced",
     full: "Full session",
@@ -69,15 +69,19 @@ const COPY = {
     latestTopic: "Latest focus topic",
     examsCount: "Exams",
     weekBudget: "Week budget",
-    weeklyPages: "Weekly pages",
+    weeklyPages: "Planned scope",
     risk: "Risk",
+    readinessAvg: "Readiness avg",
+    focusAvg: "Focus support",
+    scopeCoverage: "Verified scope",
+    streakLog: "Consistency",
     loadingProfile: "Loading profile...",
     manageExams: "Manage Exams",
     manageExamsDesc: "Add all exams in your session.",
     subjectHub: "Subject Hub",
-    subjectHubDesc: "Structure subjects for better algorithm fit",
-    focusArena: "Focus Arena",
-    focusArenaDesc: "Fixed blocks and reward reactions.",
+    subjectHubDesc: "Tune per-exam pace and summary usage.",
+    focusArena: "Focus Sessions",
+    focusArenaDesc: "Run guided study blocks tied to one exam.",
     daysLeft: "Days left",
     dailyTarget: "Daily target",
     dailyFocus: "Daily focus",
@@ -94,29 +98,31 @@ const COPY = {
     contributionLow: "Low",
     contributionMedium: "Medium",
     contributionHigh: "High",
+    scopeWorkload: "Verified workload",
+    scopeApproximate: "Approximate scope",
+    scopeInferred: "Estimated scope",
     pagesUnit: "pages",
     minutesUnit: "min",
-    xpLabel: "XP",
     streakLabel: "Streak",
     sessionsLabel: "Sessions",
     examLabel: "Exam",
   },
   it: {
-    badge: "Planner Sessione",
-    title: "Sessione esami a missioni",
+    badge: "Board Sessione",
+    title: "La tua sessione esami, piu chiara.",
     subtitle:
-      "Pianifica tutti gli esami in una board settimanale, completa quest e mantieni il ritmo.",
-    todayQuests: "Missioni di oggi",
+      "Tieni insieme carico, pressione settimanale e prontezza in una superficie piu seria e leggibile.",
+    todayQuests: "Priorita di oggi",
     weeklyBoard: "Board settimanale",
     riskLow: "In carreggiata",
     riskMedium: "Tirato",
     riskHigh: "Critico",
     refresh: "Aggiorna stagione",
-    noMissions: "Aggiungi esami per generare la prima board.",
-    markDone: "Completa",
+    noMissions: "Aggiungi esami per generare le priorita di oggi.",
+    markDone: "Segna visto",
     done: "Completata",
     breakReminder: "Ottimo ritmo. Fai una piccola pausa prima del prossimo blocco.",
-    mode: "Modalita piano",
+    mode: "Vista board",
     focused: "Focalizzata",
     balanced: "Bilanciata",
     full: "Sessione completa",
@@ -139,15 +145,19 @@ const COPY = {
     latestTopic: "Ultimo topic focus",
     examsCount: "Esami",
     weekBudget: "Budget settimanale",
-    weeklyPages: "Pagine settimanali",
+    weeklyPages: "Perimetro pianificato",
     risk: "Rischio",
+    readinessAvg: "Prontezza media",
+    focusAvg: "Supporto focus",
+    scopeCoverage: "Perimetro verificato",
+    streakLog: "Costanza",
     loadingProfile: "Caricamento profilo...",
     manageExams: "Gestisci Esami",
     manageExamsDesc: "Aggiungi tutti gli esami della sessione.",
     subjectHub: "Hub Materie",
-    subjectHubDesc: "Struttura le materie per migliorare l'algoritmo",
-    focusArena: "Arena Focus",
-    focusArenaDesc: "Blocchi fissi e ricompense.",
+    subjectHubDesc: "Regola ritmo e riassunti per singolo esame.",
+    focusArena: "Sessioni Focus",
+    focusArenaDesc: "Avvia blocchi guidati collegati a un esame.",
     daysLeft: "Giorni rimanenti",
     dailyTarget: "Target giornaliero",
     dailyFocus: "Focus giornaliero",
@@ -164,9 +174,11 @@ const COPY = {
     contributionLow: "Basso",
     contributionMedium: "Medio",
     contributionHigh: "Alto",
+    scopeWorkload: "Carico verificato",
+    scopeApproximate: "Perimetro approssimato",
+    scopeInferred: "Perimetro stimato",
     pagesUnit: "pagine",
     minutesUnit: "min",
-    xpLabel: "XP",
     streakLabel: "Streak",
     sessionsLabel: "Sessioni",
     examLabel: "Esame",
@@ -246,6 +258,22 @@ function getFocusContributionLabel(level: FocusContributionLevel, t: PlannerCopy
   return t.contributionNone;
 }
 
+function getScopeSourceLabel(
+  source: ExamTrack["estimatedPagesSource"],
+  t: PlannerCopy,
+) {
+  if (source === "workload") return t.scopeWorkload;
+  if (source === "approximate") return t.scopeApproximate;
+  return t.scopeInferred;
+}
+
+function metricRingStyle(value: number, color: string) {
+  const normalizedValue = Math.max(0, Math.min(100, Math.round(value)));
+  return {
+    background: `conic-gradient(${color} 0 ${normalizedValue}%, #e2e8f0 ${normalizedValue}% 100%)`,
+  };
+}
+
 function formatExamDate(dateIso: string, language: PlannerLanguage) {
   const locale = language === "it" ? "it-IT" : "en-US";
   return new Intl.DateTimeFormat(locale, {
@@ -319,6 +347,37 @@ const WeeklyBoardSection = dynamic(
     ),
   },
 );
+
+function MetricRing({
+  label,
+  value,
+  hint,
+  color,
+}: {
+  label: string;
+  value: number;
+  hint: string;
+  color: string;
+}) {
+  return (
+    <article className="planner-card bg-white/90">
+      <div className="flex items-center gap-3">
+        <div
+          className="flex h-16 w-16 items-center justify-center rounded-full p-1"
+          style={metricRingStyle(value, color)}
+        >
+          <div className="flex h-full w-full items-center justify-center rounded-full bg-white text-base font-black text-slate-900">
+            {Math.round(value)}%
+          </div>
+        </div>
+        <div>
+          <p className="planner-eyebrow">{label}</p>
+          <p className="mt-1 text-sm text-slate-600">{hint}</p>
+        </div>
+      </div>
+    </article>
+  );
+}
 
 export default function PlannerOverviewPage() {
   const { student, loading } = useAuthStudent();
@@ -420,6 +479,25 @@ export default function PlannerOverviewPage() {
       : seasonPlan.riskLevel === "medium"
         ? t.riskMedium
         : t.riskHigh;
+  const averageCompletion =
+    seasonPlan.examTracks.length > 0
+      ? seasonPlan.examTracks.reduce((acc, track) => acc + track.completionPercent, 0) /
+        seasonPlan.examTracks.length
+      : 0;
+  const averageFocusContribution =
+    seasonPlan.examTracks.length > 0
+      ? seasonPlan.examTracks.reduce(
+          (acc, track) => acc + track.focusContributionPercent,
+          0,
+        ) / seasonPlan.examTracks.length
+      : 0;
+  const verifiedScopeCoverage =
+    seasonPlan.examTracks.length > 0
+      ? (seasonPlan.examTracks.filter((track) => track.estimatedPagesSource !== "inferred")
+          .length /
+          seasonPlan.examTracks.length) *
+        100
+      : 0;
 
   return (
     <main className="space-y-5 sm:space-y-6">
@@ -456,7 +534,7 @@ export default function PlannerOverviewPage() {
           </div>
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-4">
+        <div className="mt-4 grid gap-3 xl:grid-cols-[1.1fr_1.1fr_1fr_1fr]">
           <div className="planner-card bg-white/90">
             <p className="planner-eyebrow">{t.examsCount}</p>
             <p className="text-2xl font-black text-slate-900">{seasonPlan.totalExams}</p>
@@ -474,25 +552,41 @@ export default function PlannerOverviewPage() {
             <p className="text-2xl font-black text-slate-900">{riskLabel}</p>
           </div>
         </div>
-        <div className="planner-card mt-4 bg-white/90">
-          <p className="planner-eyebrow">{language === "en" ? "Streak log" : "Registro streak"}</p>
-          <p className="mt-1 text-sm text-slate-700">
-            {language === "en"
-              ? "Steady progress summary for today and this season."
-              : "Riepilogo progressi stabile per oggi e per la stagione."}
-          </p>
-          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-            <div className="rounded-xl bg-slate-50 p-2">
-              <p className="planner-eyebrow">{t.streakLabel}</p>
-              <p className="text-lg font-semibold text-slate-900">{focusStats.streak}d</p>
-            </div>
-            <div className="rounded-xl bg-slate-50 p-2">
-              <p className="planner-eyebrow">{t.sessionsLabel}</p>
-              <p className="text-lg font-semibold text-slate-900">{focusStats.sessionsCompleted}</p>
-            </div>
-            <div className="rounded-xl bg-slate-50 p-2">
-              <p className="planner-eyebrow">{t.xpLabel}</p>
-              <p className="text-lg font-semibold text-slate-900">{focusStats.xp}</p>
+        <div className="mt-4 grid gap-3 lg:grid-cols-[1.05fr_1.05fr_1.05fr_1.15fr]">
+          <MetricRing
+            label={t.readinessAvg}
+            value={averageCompletion}
+            hint={language === "en" ? "Across all active exams." : "Su tutti gli esami attivi."}
+            color="#0f766e"
+          />
+          <MetricRing
+            label={t.focusAvg}
+            value={averageFocusContribution}
+            hint={language === "en" ? "How much focus logs support the plan." : "Quanto il focus sostiene il piano."}
+            color="#2563eb"
+          />
+          <MetricRing
+            label={t.scopeCoverage}
+            value={verifiedScopeCoverage}
+            hint={language === "en" ? "Exams using real workload inputs." : "Esami con carico reale impostato."}
+            color="#7c3aed"
+          />
+          <div className="planner-card bg-white/90">
+            <p className="planner-eyebrow">{t.streakLog}</p>
+            <p className="mt-1 text-sm text-slate-700">
+              {language === "en"
+                ? "Use focus sessions to keep the season moving without overloading your week."
+                : "Usa le sessioni focus per far avanzare la sessione senza appesantire la settimana."}
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-center">
+              <div className="rounded-xl bg-slate-50 p-2">
+                <p className="planner-eyebrow">{t.streakLabel}</p>
+                <p className="text-lg font-semibold text-slate-900">{focusStats.streak}d</p>
+              </div>
+              <div className="rounded-xl bg-slate-50 p-2">
+                <p className="planner-eyebrow">{t.sessionsLabel}</p>
+                <p className="text-lg font-semibold text-slate-900">{focusStats.sessionsCompleted}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -555,7 +649,6 @@ export default function PlannerOverviewPage() {
                     <p className="text-xs text-slate-500">
                       {mission.pages} {t.pagesUnit}
                     </p>
-                    <p className="text-xs text-indigo-700">Reward: +{mission.xp} XP</p>
                     <button
                       type="button"
                       onClick={() => completeQuest(key, mission.xp)}
@@ -699,6 +792,9 @@ export default function PlannerOverviewPage() {
                           className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${focusContributionClasses(selectedTrack.focusContributionLevel)}`}
                         >
                           {t.focusContribution}: {selectedTrack.focusContributionPercent}%
+                        </span>
+                        <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm font-semibold text-slate-700">
+                          {getScopeSourceLabel(selectedTrack.estimatedPagesSource, t)}
                         </span>
                       </div>
                     </div>

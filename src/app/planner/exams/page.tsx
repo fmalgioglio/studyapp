@@ -26,6 +26,10 @@ import {
   type ExamProgressState,
   type FocusContributionLevel,
 } from "@/app/planner/_lib/season-engine";
+import type {
+  ExamWorkloadApproximateScopeUnit,
+  ExamWorkloadMaterialShape,
+} from "@/lib/exam-workload-contract";
 import {
   focusContributionClasses,
   progressStateClasses,
@@ -38,6 +42,7 @@ type CreatedSubject = PlannerSubject;
 
 type WorkloadReadiness = "known" | "unknown";
 type MaterialType = "book" | "notes" | "mixed";
+type BookCoverageMode = "full_book" | "page_range";
 
 const MS_PER_DAY = 86_400_000;
 
@@ -91,6 +96,34 @@ const COPY = {
     sourceLabel: "Source",
     notesSummary: "Notes summary (optional)",
     materialDetails: "Material scope (optional)",
+    scopePlanner: "Scope planner",
+    scopePlannerHint: "Use these fields to describe what part of the material is actually in scope.",
+    bookCoverageLabel: "Book coverage",
+    coverageFull: "Full book / main text",
+    coverageRange: "Specific page range",
+    pageStart: "Page start",
+    pageEnd: "Page end",
+    materialShapeLabel: "Notes / support material",
+    materialShapeHint: "Useful for notes-only and mixed exams.",
+    shapeMiniHandout: "Mini handout",
+    shapeHandoutSet: "Handout set",
+    shapeSlides: "Slides",
+    shapePersonalNotes: "Personal notes",
+    shapeMixed: "Mixed pack",
+    shapeOfflineApproximate: "Rough offline estimate",
+    approximateScopeLabel: "Approximate support scope",
+    approximateScopeValue: "Amount",
+    approximateScopeUnit: "Unit",
+    unitPages: "Pages",
+    unitSlides: "Slides",
+    unitHandouts: "Handouts",
+    unitItems: "Items",
+    mixedRecommendation:
+      "For mixed exams, keep the main text range precise and add an approximate size for notes or slides.",
+    notesRecommendation:
+      "For notes-heavy exams, describe the material type and estimate the size of the pack you need to cover.",
+    bookRecommendation:
+      "If only part of the book matters, use a page range so the planner reflects the real exam scope.",
     addExam: "Add exam",
     editWorkload: "Edit workload",
     saveWorkload: "Save workload",
@@ -125,6 +158,9 @@ const COPY = {
     contributionLow: "Low",
     contributionMedium: "Medium",
     contributionHigh: "High",
+    scopeWorkload: "Verified scope",
+    scopeApproximate: "Approximate scope",
+    scopeInferred: "Estimated scope",
     workloadKnownChip: "Workload known",
     workloadUnknownChip: "Workload unknown",
     provisional: "Provisional",
@@ -183,6 +219,34 @@ const COPY = {
     sourceLabel: "Fonte",
     notesSummary: "Riassunto appunti (opzionale)",
     materialDetails: "Perimetro materiale (opzionale)",
+    scopePlanner: "Planner del perimetro",
+    scopePlannerHint: "Usa questi campi per descrivere quale parte del materiale entra davvero nell'esame.",
+    bookCoverageLabel: "Copertura libro",
+    coverageFull: "Libro intero / testo principale",
+    coverageRange: "Intervallo di pagine",
+    pageStart: "Pagina iniziale",
+    pageEnd: "Pagina finale",
+    materialShapeLabel: "Appunti / materiale di supporto",
+    materialShapeHint: "Utile per esami con appunti o materiale misto.",
+    shapeMiniHandout: "Dispensa breve",
+    shapeHandoutSet: "Set dispense",
+    shapeSlides: "Slide",
+    shapePersonalNotes: "Appunti personali",
+    shapeMixed: "Pacchetto misto",
+    shapeOfflineApproximate: "Stima offline",
+    approximateScopeLabel: "Perimetro supporto approssimato",
+    approximateScopeValue: "Quantita",
+    approximateScopeUnit: "Unita",
+    unitPages: "Pagine",
+    unitSlides: "Slide",
+    unitHandouts: "Dispense",
+    unitItems: "Elementi",
+    mixedRecommendation:
+      "Per gli esami misti, mantieni preciso il range del testo principale e aggiungi una stima di appunti o slide.",
+    notesRecommendation:
+      "Per gli esami basati su appunti, descrivi il tipo di materiale e stima la dimensione del pacchetto da coprire.",
+    bookRecommendation:
+      "Se conta solo una parte del libro, usa un intervallo di pagine per riflettere il perimetro reale.",
     addExam: "Aggiungi esame",
     editWorkload: "Modifica carico",
     saveWorkload: "Salva carico",
@@ -217,6 +281,9 @@ const COPY = {
     contributionLow: "Basso",
     contributionMedium: "Medio",
     contributionHigh: "Alto",
+    scopeWorkload: "Perimetro verificato",
+    scopeApproximate: "Perimetro approssimato",
+    scopeInferred: "Perimetro stimato",
     workloadKnownChip: "Carico noto",
     workloadUnknownChip: "Carico sconosciuto",
     provisional: "Provvisorio",
@@ -275,6 +342,37 @@ function normalizePositivePageCount(value: number | undefined) {
   return value;
 }
 
+function defaultMaterialShape(materialType: MaterialType): ExamWorkloadMaterialShape {
+  if (materialType === "mixed") return "mixed";
+  return "personal_notes";
+}
+
+function materialShapeOptions(t: ExamsCopy) {
+  return [
+    { value: "mini_handout", label: t.shapeMiniHandout },
+    { value: "handout_set", label: t.shapeHandoutSet },
+    { value: "slides", label: t.shapeSlides },
+    { value: "personal_notes", label: t.shapePersonalNotes },
+    { value: "mixed", label: t.shapeMixed },
+    { value: "offline_approximate", label: t.shapeOfflineApproximate },
+  ] satisfies Array<{ value: ExamWorkloadMaterialShape; label: string }>;
+}
+
+function approximateScopeUnitOptions(t: ExamsCopy) {
+  return [
+    { value: "pages", label: t.unitPages },
+    { value: "slides", label: t.unitSlides },
+    { value: "handouts", label: t.unitHandouts },
+    { value: "items", label: t.unitItems },
+  ] satisfies Array<{ value: ExamWorkloadApproximateScopeUnit; label: string }>;
+}
+
+function workloadRecommendation(materialType: MaterialType, t: ExamsCopy) {
+  if (materialType === "mixed") return t.mixedRecommendation;
+  if (materialType === "notes") return t.notesRecommendation;
+  return t.bookRecommendation;
+}
+
 function truncateText(value: string, maxLength: number) {
   if (value.length <= maxLength) {
     return value;
@@ -303,6 +401,15 @@ export default function PlannerExamsPage() {
   const [targetGrade, setTargetGrade] = useState("");
   const [workloadReadiness, setWorkloadReadiness] = useState<WorkloadReadiness>("known");
   const [materialType, setMaterialType] = useState<MaterialType>("book");
+  const [bookCoverageMode, setBookCoverageMode] = useState<BookCoverageMode>("full_book");
+  const [bookPageStart, setBookPageStart] = useState("");
+  const [bookPageEnd, setBookPageEnd] = useState("");
+  const [materialShape, setMaterialShape] = useState<ExamWorkloadMaterialShape>(
+    defaultMaterialShape("book"),
+  );
+  const [approximateScopeValue, setApproximateScopeValue] = useState("");
+  const [approximateScopeUnit, setApproximateScopeUnit] =
+    useState<ExamWorkloadApproximateScopeUnit>("pages");
   const [totalPages, setTotalPages] = useState("");
   const [bookLookupQuery, setBookLookupQuery] = useState("");
   const [selectedBook, setSelectedBook] = useState<BookSearchItem | null>(null);
@@ -311,6 +418,16 @@ export default function PlannerExamsPage() {
   const [editingExamId, setEditingExamId] = useState<string | null>(null);
   const [editWorkloadReadiness, setEditWorkloadReadiness] = useState<WorkloadReadiness>("known");
   const [editMaterialType, setEditMaterialType] = useState<MaterialType>("book");
+  const [editBookCoverageMode, setEditBookCoverageMode] =
+    useState<BookCoverageMode>("full_book");
+  const [editBookPageStart, setEditBookPageStart] = useState("");
+  const [editBookPageEnd, setEditBookPageEnd] = useState("");
+  const [editMaterialShape, setEditMaterialShape] = useState<ExamWorkloadMaterialShape>(
+    defaultMaterialShape("book"),
+  );
+  const [editApproximateScopeValue, setEditApproximateScopeValue] = useState("");
+  const [editApproximateScopeUnit, setEditApproximateScopeUnit] =
+    useState<ExamWorkloadApproximateScopeUnit>("pages");
   const [editTotalPages, setEditTotalPages] = useState("");
   const [editBookLookupQuery, setEditBookLookupQuery] = useState("");
   const [editSelectedBook, setEditSelectedBook] = useState<BookSearchItem | null>(null);
@@ -374,6 +491,21 @@ export default function PlannerExamsPage() {
     setEditingExamId(examId);
     setEditWorkloadReadiness((exam.workloadReadiness as WorkloadReadiness) ?? "unknown");
     setEditMaterialType((exam.materialType as MaterialType) ?? "book");
+    setEditBookCoverageMode(
+      workloadPayload?.bookCoverageMode === "page_range" ? "page_range" : "full_book",
+    );
+    setEditBookPageStart(workloadPayload?.bookPageStart ? String(workloadPayload.bookPageStart) : "");
+    setEditBookPageEnd(workloadPayload?.bookPageEnd ? String(workloadPayload.bookPageEnd) : "");
+    setEditMaterialShape(
+      workloadPayload?.materialShape ??
+        defaultMaterialShape((exam.materialType as MaterialType) ?? "book"),
+    );
+    setEditApproximateScopeValue(
+      workloadPayload?.approximateScopeValue
+        ? String(workloadPayload.approximateScopeValue)
+        : "",
+    );
+    setEditApproximateScopeUnit(workloadPayload?.approximateScopeUnit ?? "pages");
     setEditTotalPages(workloadPayload?.totalPages ? String(workloadPayload.totalPages) : "");
     setEditBookLookupQuery(workloadPayload?.bookTitle ?? "");
     setEditSelectedBook(null);
@@ -384,6 +516,12 @@ export default function PlannerExamsPage() {
 
   function closeEditWorkload() {
     setEditingExamId(null);
+    setEditBookCoverageMode("full_book");
+    setEditBookPageStart("");
+    setEditBookPageEnd("");
+    setEditMaterialShape(defaultMaterialShape("book"));
+    setEditApproximateScopeValue("");
+    setEditApproximateScopeUnit("pages");
     setEditBookLookupQuery("");
     setEditSelectedBook(null);
     setEditNotesSummary("");
@@ -399,6 +537,18 @@ export default function PlannerExamsPage() {
     const normalizedPages = editTotalPages ? Number(editTotalPages) : undefined;
     if (normalizedPages && normalizedPages > 0) {
       workloadPayload.totalPages = normalizedPages;
+    }
+    if (
+      (editMaterialType === "book" || editMaterialType === "mixed") &&
+      editBookCoverageMode === "page_range"
+    ) {
+      const pageStart = editBookPageStart ? Number(editBookPageStart) : undefined;
+      const pageEnd = editBookPageEnd ? Number(editBookPageEnd) : undefined;
+      if (pageStart && pageEnd && pageEnd >= pageStart) {
+        workloadPayload.bookCoverageMode = "page_range";
+        workloadPayload.bookPageStart = pageStart;
+        workloadPayload.bookPageEnd = pageEnd;
+      }
     }
     if (editMaterialType === "book" || editMaterialType === "mixed") {
       const bookTitle = editSelectedBook?.title || editBookLookupQuery.trim();
@@ -416,6 +566,17 @@ export default function PlannerExamsPage() {
       }
       if (editSelectedBook?.authors?.length) {
         workloadPayload.bookAuthors = editSelectedBook.authors;
+      }
+    }
+    if (editMaterialType === "notes" || editMaterialType === "mixed") {
+      workloadPayload.materialShape = editMaterialShape;
+      const approximateValue = editApproximateScopeValue
+        ? Number(editApproximateScopeValue)
+        : undefined;
+      if (approximateValue && approximateValue > 0) {
+        workloadPayload.approximateScopeValue = approximateValue;
+        workloadPayload.approximateScopeUnit = editApproximateScopeUnit;
+        workloadPayload.isApproximate = true;
       }
     }
     if (editNotesSummary.trim()) {
@@ -491,6 +652,15 @@ export default function PlannerExamsPage() {
     if (normalizedTotalPages) {
       workloadPayload.totalPages = normalizedTotalPages;
     }
+    if ((materialType === "book" || materialType === "mixed") && bookCoverageMode === "page_range") {
+      const pageStart = bookPageStart ? Number(bookPageStart) : undefined;
+      const pageEnd = bookPageEnd ? Number(bookPageEnd) : undefined;
+      if (pageStart && pageEnd && pageEnd >= pageStart) {
+        workloadPayload.bookCoverageMode = "page_range";
+        workloadPayload.bookPageStart = pageStart;
+        workloadPayload.bookPageEnd = pageEnd;
+      }
+    }
     if (materialType === "book" || materialType === "mixed") {
       const bookTitle = selectedBook?.title || bookLookupQuery.trim();
       if (bookTitle) workloadPayload.bookTitle = bookTitle;
@@ -508,6 +678,15 @@ export default function PlannerExamsPage() {
       }
       if (selectedBook?.inferred_subject) {
         workloadPayload.inferredSubject = selectedBook.inferred_subject;
+      }
+    }
+    if (materialType === "notes" || materialType === "mixed") {
+      workloadPayload.materialShape = materialShape;
+      const approximateValue = approximateScopeValue ? Number(approximateScopeValue) : undefined;
+      if (approximateValue && approximateValue > 0) {
+        workloadPayload.approximateScopeValue = approximateValue;
+        workloadPayload.approximateScopeUnit = approximateScopeUnit;
+        workloadPayload.isApproximate = true;
       }
     }
     if (notesSummary.trim()) {
@@ -547,6 +726,12 @@ export default function PlannerExamsPage() {
     setTargetGrade("");
     setWorkloadReadiness("known");
     setMaterialType("book");
+    setBookCoverageMode("full_book");
+    setBookPageStart("");
+    setBookPageEnd("");
+    setMaterialShape(defaultMaterialShape("book"));
+    setApproximateScopeValue("");
+    setApproximateScopeUnit("pages");
     setTotalPages("");
     setBookLookupQuery("");
     setSelectedBook(null);
@@ -735,7 +920,13 @@ export default function PlannerExamsPage() {
                   <span className="planner-eyebrow mb-1 block">{t.materialType}</span>
                   <select
                     value={materialType}
-                    onChange={(event) => setMaterialType(event.target.value as MaterialType)}
+                    onChange={(event) => {
+                      const nextType = event.target.value as MaterialType;
+                      setMaterialType(nextType);
+                      if (nextType !== "book") {
+                        setMaterialShape(defaultMaterialShape(nextType));
+                      }
+                    }}
                     className="planner-input"
                   >
                     <option value="book">{t.materialBook}</option>
@@ -760,8 +951,16 @@ export default function PlannerExamsPage() {
                   ].map((item) => {
                     const isActive = materialType === item.type;
                     return (
-                      <div
+                      <button
                         key={item.type}
+                        type="button"
+                        onClick={() => {
+                          const nextType = item.type as MaterialType;
+                          setMaterialType(nextType);
+                          if (nextType !== "book") {
+                            setMaterialShape(defaultMaterialShape(nextType));
+                          }
+                        }}
                         className={`rounded-xl border px-3 py-2 ${
                           isActive
                             ? "border-slate-400 bg-white text-slate-900 shadow-sm"
@@ -769,7 +968,7 @@ export default function PlannerExamsPage() {
                         }`}
                       >
                         <p className="text-xs font-semibold">{item.title}</p>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -782,6 +981,7 @@ export default function PlannerExamsPage() {
                     <span className="font-semibold text-slate-700">{t.notebookFocusTitle}: </span>
                     {t.notebookFocusBody} <span className="font-semibold">{activeNotebook.title}</span>.
                   </p>
+                  <p className="mt-2 text-xs text-slate-600">{workloadRecommendation(materialType, t)}</p>
                 </div>
               </div>
 
@@ -825,6 +1025,105 @@ export default function PlannerExamsPage() {
                   </p>
                 </div>
               ) : null}
+
+              <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                  {t.scopePlanner}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">{t.scopePlannerHint}</p>
+
+                {(materialType === "book" || materialType === "mixed") ? (
+                  <div className="mt-3 grid gap-3 md:grid-cols-3">
+                    <label className="planner-field md:col-span-3">
+                      <span className="planner-eyebrow mb-1 block">{t.bookCoverageLabel}</span>
+                      <select
+                        value={bookCoverageMode}
+                        onChange={(event) =>
+                          setBookCoverageMode(event.target.value as BookCoverageMode)
+                        }
+                        className="planner-input"
+                      >
+                        <option value="full_book">{t.coverageFull}</option>
+                        <option value="page_range">{t.coverageRange}</option>
+                      </select>
+                    </label>
+                    {bookCoverageMode === "page_range" ? (
+                      <>
+                        <label className="planner-field">
+                          <span className="planner-eyebrow mb-1 block">{t.pageStart}</span>
+                          <input
+                            type="number"
+                            min={1}
+                            value={bookPageStart}
+                            onChange={(event) => setBookPageStart(event.target.value)}
+                            className="planner-input"
+                          />
+                        </label>
+                        <label className="planner-field">
+                          <span className="planner-eyebrow mb-1 block">{t.pageEnd}</span>
+                          <input
+                            type="number"
+                            min={1}
+                            value={bookPageEnd}
+                            onChange={(event) => setBookPageEnd(event.target.value)}
+                            className="planner-input"
+                          />
+                        </label>
+                      </>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {(materialType === "notes" || materialType === "mixed") ? (
+                  <div className="mt-3 grid gap-3 md:grid-cols-4">
+                    <label className="planner-field md:col-span-2">
+                      <span className="planner-eyebrow mb-1 block">{t.materialShapeLabel}</span>
+                      <select
+                        value={materialShape}
+                        onChange={(event) =>
+                          setMaterialShape(event.target.value as ExamWorkloadMaterialShape)
+                        }
+                        className="planner-input"
+                      >
+                        {materialShapeOptions(t).map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="mt-2 text-sm text-slate-500">{t.materialShapeHint}</p>
+                    </label>
+                    <label className="planner-field">
+                      <span className="planner-eyebrow mb-1 block">{t.approximateScopeValue}</span>
+                      <input
+                        type="number"
+                        min={1}
+                        value={approximateScopeValue}
+                        onChange={(event) => setApproximateScopeValue(event.target.value)}
+                        className="planner-input"
+                      />
+                    </label>
+                    <label className="planner-field">
+                      <span className="planner-eyebrow mb-1 block">{t.approximateScopeUnit}</span>
+                      <select
+                        value={approximateScopeUnit}
+                        onChange={(event) =>
+                          setApproximateScopeUnit(
+                            event.target.value as ExamWorkloadApproximateScopeUnit,
+                          )
+                        }
+                        className="planner-input"
+                      >
+                        {approximateScopeUnitOptions(t).map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                ) : null}
+              </div>
 
               <div className="mt-3 grid gap-3 md:grid-cols-2">
                 <label className="planner-field">
@@ -898,10 +1197,22 @@ export default function PlannerExamsPage() {
               const workloadPayload = examMeta?.workloadPayload ?? null;
               const hasRealPages =
                 normalizePositivePageCount(workloadPayload?.totalPages) != null ||
-                normalizePositivePageCount(workloadPayload?.verifiedPageCount) != null;
+                normalizePositivePageCount(workloadPayload?.verifiedPageCount) != null ||
+                (workloadPayload?.bookCoverageMode === "page_range" &&
+                  typeof workloadPayload.bookPageStart === "number" &&
+                  typeof workloadPayload.bookPageEnd === "number");
+              const pageRangeTotal =
+                workloadPayload?.bookCoverageMode === "page_range" &&
+                typeof workloadPayload.bookPageStart === "number" &&
+                typeof workloadPayload.bookPageEnd === "number"
+                  ? Math.max(0, workloadPayload.bookPageEnd - workloadPayload.bookPageStart + 1)
+                  : undefined;
               const displayTotalPages = hasRealPages
                 ? normalizePositivePageCount(workloadPayload?.totalPages) ??
-                  normalizePositivePageCount(workloadPayload?.verifiedPageCount)
+                  normalizePositivePageCount(workloadPayload?.verifiedPageCount) ??
+                  pageRangeTotal
+                : track.estimatedPagesSource !== "inferred"
+                  ? track.estimatedPages
                 : undefined;
               const displayCompletedPages =
                 displayTotalPages != null
@@ -973,6 +1284,13 @@ export default function PlannerExamsPage() {
                         <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 font-semibold text-slate-700">
                           {t.focusSignals}: {track.sessionsCompleted} / {t.focusMinutes}: {track.minutesSpent}m
                         </span>
+                        <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 font-semibold text-slate-700">
+                          {track.estimatedPagesSource === "workload"
+                            ? t.scopeWorkload
+                            : track.estimatedPagesSource === "approximate"
+                              ? t.scopeApproximate
+                              : t.scopeInferred}
+                        </span>
                       </div>
                       {workloadPayload ? (
                         <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-600">
@@ -981,9 +1299,27 @@ export default function PlannerExamsPage() {
                               {workloadPayload.bookTitle}
                             </span>
                           ) : null}
+                          {workloadPayload.bookCoverageMode === "page_range" &&
+                          typeof workloadPayload.bookPageStart === "number" &&
+                          typeof workloadPayload.bookPageEnd === "number" ? (
+                            <span className="rounded-full border border-slate-200 bg-white px-2 py-1">
+                              pp. {workloadPayload.bookPageStart}-{workloadPayload.bookPageEnd}
+                            </span>
+                          ) : null}
                           {typeof workloadPayload.totalPages === "number" ? (
                             <span className="rounded-full border border-slate-200 bg-white px-2 py-1">
                               {workloadPayload.totalPages}p
+                            </span>
+                          ) : null}
+                          {typeof workloadPayload.approximateScopeValue === "number" &&
+                          workloadPayload.approximateScopeUnit ? (
+                            <span className="rounded-full border border-slate-200 bg-white px-2 py-1">
+                              {workloadPayload.approximateScopeValue} {workloadPayload.approximateScopeUnit}
+                            </span>
+                          ) : null}
+                          {workloadPayload.materialShape ? (
+                            <span className="rounded-full border border-slate-200 bg-white px-2 py-1">
+                              {workloadPayload.materialShape.replace(/_/g, " ")}
                             </span>
                           ) : null}
                           {notesSummaryPreview ? (
@@ -1039,9 +1375,13 @@ export default function PlannerExamsPage() {
                           <span className="planner-eyebrow mb-1 block">{t.materialType}</span>
                           <select
                             value={editMaterialType}
-                            onChange={(event) =>
-                              setEditMaterialType(event.target.value as MaterialType)
-                            }
+                            onChange={(event) => {
+                              const nextType = event.target.value as MaterialType;
+                              setEditMaterialType(nextType);
+                              if (nextType !== "book") {
+                                setEditMaterialShape(defaultMaterialShape(nextType));
+                              }
+                            }}
                             className="planner-input"
                           >
                             <option value="book">{t.materialBook}</option>
@@ -1085,6 +1425,110 @@ export default function PlannerExamsPage() {
                           </p>
                         </div>
                       ) : null}
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                          {t.scopePlanner}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">{t.scopePlannerHint}</p>
+
+                        {(editMaterialType === "book" || editMaterialType === "mixed") ? (
+                          <div className="mt-3 grid gap-3 md:grid-cols-3">
+                            <label className="planner-field md:col-span-3">
+                              <span className="planner-eyebrow mb-1 block">{t.bookCoverageLabel}</span>
+                              <select
+                                value={editBookCoverageMode}
+                                onChange={(event) =>
+                                  setEditBookCoverageMode(
+                                    event.target.value as BookCoverageMode,
+                                  )
+                                }
+                                className="planner-input"
+                              >
+                                <option value="full_book">{t.coverageFull}</option>
+                                <option value="page_range">{t.coverageRange}</option>
+                              </select>
+                            </label>
+                            {editBookCoverageMode === "page_range" ? (
+                              <>
+                                <label className="planner-field">
+                                  <span className="planner-eyebrow mb-1 block">{t.pageStart}</span>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    value={editBookPageStart}
+                                    onChange={(event) => setEditBookPageStart(event.target.value)}
+                                    className="planner-input"
+                                  />
+                                </label>
+                                <label className="planner-field">
+                                  <span className="planner-eyebrow mb-1 block">{t.pageEnd}</span>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    value={editBookPageEnd}
+                                    onChange={(event) => setEditBookPageEnd(event.target.value)}
+                                    className="planner-input"
+                                  />
+                                </label>
+                              </>
+                            ) : null}
+                          </div>
+                        ) : null}
+
+                        {(editMaterialType === "notes" || editMaterialType === "mixed") ? (
+                          <div className="mt-3 grid gap-3 md:grid-cols-4">
+                            <label className="planner-field md:col-span-2">
+                              <span className="planner-eyebrow mb-1 block">{t.materialShapeLabel}</span>
+                              <select
+                                value={editMaterialShape}
+                                onChange={(event) =>
+                                  setEditMaterialShape(
+                                    event.target.value as ExamWorkloadMaterialShape,
+                                  )
+                                }
+                                className="planner-input"
+                              >
+                                {materialShapeOptions(t).map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                              <p className="mt-2 text-sm text-slate-500">{t.materialShapeHint}</p>
+                            </label>
+                            <label className="planner-field">
+                              <span className="planner-eyebrow mb-1 block">{t.approximateScopeValue}</span>
+                              <input
+                                type="number"
+                                min={1}
+                                value={editApproximateScopeValue}
+                                onChange={(event) =>
+                                  setEditApproximateScopeValue(event.target.value)
+                                }
+                                className="planner-input"
+                              />
+                            </label>
+                            <label className="planner-field">
+                              <span className="planner-eyebrow mb-1 block">{t.approximateScopeUnit}</span>
+                              <select
+                                value={editApproximateScopeUnit}
+                                onChange={(event) =>
+                                  setEditApproximateScopeUnit(
+                                    event.target.value as ExamWorkloadApproximateScopeUnit,
+                                  )
+                                }
+                                className="planner-input"
+                              >
+                                {approximateScopeUnitOptions(t).map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          </div>
+                        ) : null}
+                      </div>
                       <div className="grid gap-3 md:grid-cols-2">
                         <label className="planner-field">
                           <span className="planner-eyebrow mb-1 block">{t.totalPages}</span>

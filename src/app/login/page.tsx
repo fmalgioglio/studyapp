@@ -19,9 +19,6 @@ const COPY = {
     createAccount: "Create an account",
     newHere: "New here?",
     checking: "Checking session...",
-    localShortcut: "Local testing shortcut",
-    instantDevAccess: "Instant local dev access",
-    devAccessError: "Local dev access failed.",
   },
   it: {
     title: "Accesso",
@@ -33,9 +30,6 @@ const COPY = {
     createAccount: "Crea account",
     newHere: "Nuovo utente?",
     checking: "Controllo sessione...",
-    localShortcut: "Scorciatoia test locale",
-    instantDevAccess: "Accesso locale dev istantaneo",
-    devAccessError: "Accesso locale dev non riuscito.",
   },
 } as const;
 
@@ -103,37 +97,6 @@ export default function LoginPage() {
     router.refresh();
   }
 
-  async function onDevAccess() {
-    setError("");
-    setLoading(true);
-
-    const { ok, payload } = await requestJson<{
-      id: string;
-      email: string;
-      fullName: string | null;
-      weeklyHours: number;
-    }>(
-      "/api/auth/dev-bootstrap",
-      {
-        method: "POST",
-      },
-    );
-
-    setLoading(false);
-
-    if (!ok || !payload.data) {
-      setError(payload.error ?? t.devAccessError);
-      return;
-    }
-
-    syncAuthStudentCache(payload.data);
-
-    router.push("/planner");
-    router.refresh();
-  }
-
-  const isDevMode = process.env.NODE_ENV !== "production";
-
   if (checkingSession) {
     return (
       <main className="min-h-[calc(100vh-73px)] bg-[linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)] px-4 py-10 sm:px-6">
@@ -198,22 +161,6 @@ export default function LoginPage() {
             {t.createAccount}
           </Link>
         </p>
-
-        {isDevMode ? (
-          <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">
-              {t.localShortcut}
-            </p>
-            <button
-              type="button"
-              onClick={onDevAccess}
-              disabled={loading}
-              className="mt-2 w-full rounded-xl border border-sky-300 bg-white px-4 py-2.5 text-sm font-semibold text-sky-800 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {t.instantDevAccess}
-            </button>
-          </div>
-        ) : null}
       </div>
     </main>
   );

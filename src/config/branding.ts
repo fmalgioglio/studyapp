@@ -1,14 +1,14 @@
 export const BRANDING = {
   appName: "StudyApp",
-  homeBadge: "Work In Progress",
-  homeHeadlineLine1: "Study better with",
-  homeHeadlineLine2: "structure, focus, and momentum.",
+  homeBadge: "Student Planning Workspace",
+  homeHeadlineLine1: "Plan exams with",
+  homeHeadlineLine2: "clear scope and calmer routines.",
   homeDescription:
-    "StudyApp helps students plan study time, track sessions, and prepare for exams with stochastic estimates and a gamified focus system.",
-  plannerTitle: "Planner Console",
+    "StudyApp helps students plan study time, track sessions, and prepare for exams with cleaner workload visibility and focused routines.",
+  plannerTitle: "Season Board",
   plannerSubtitle:
-    "Operational workspace for planning, focus sessions, and exam readiness tracking.",
-  mascotName: "Aero the Parrot",
+    "Operational workspace for exam planning, focus sessions, and readiness tracking.",
+  mascotName: "StudyApp",
   mascotImagePath: "/mascots/pico.svg",
   heroWallpaperPath: "/wallpapers/home-hero.svg",
   gradients: {

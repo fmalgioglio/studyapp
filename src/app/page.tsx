@@ -1,62 +1,44 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import dynamic from "next/dynamic";
-
-import { useSiteTheme } from "@/app/_hooks/use-site-theme";
 import { useUiLanguage } from "@/app/_hooks/use-ui-language";
-
-const HomeBrandingCard = dynamic(
-  () =>
-    import("@/app/_components/home-branding-card").then((module) => ({
-      default: module.HomeBrandingCard,
-    })),
-  {
-    loading: () => <div className="home-card home-meta-card planner-skeleton h-28" />,
-  },
-);
 
 const COPY = {
   en: {
-    badge: "Season Planning + Gamification",
-    headline1: "Build your exam season with",
-    headline2: "missions, focus, and momentum.",
+    badge: "Student Planning Workspace",
+    headline1: "Plan exams with",
+    headline2: "clean workload visibility.",
     description:
-      "StudyApp turns complex exam calendars into weekly quests, safe daily targets, and rewarding focus runs.",
+      "StudyApp helps students and teachers keep exam scope, study pace, and focused sessions in one compact workspace.",
     openStudyHub: "Open Study Hub",
     login: "Login",
-    branding: "Branding and assets",
+    metric1: "Per-exam pace",
+    metric1Body: "Study pace stays tied to the actual exam, not the subject.",
+    metric2: "Material-aware exams",
+    metric2Body: "Books, notes, mixed cases, and verified scope all stay visible.",
+    metric3: "Clearer weekly board",
+    metric3Body: "Daily priorities, focus support, and readiness stay calm and readable.",
   },
   it: {
-    badge: "Pianificazione Sessione + Gamification",
-    headline1: "Costruisci la sessione esami con",
-    headline2: "missioni, focus e continuita.",
+    badge: "Workspace di Pianificazione",
+    headline1: "Pianifica gli esami con",
+    headline2: "un carico piu leggibile.",
     description:
-      "StudyApp trasforma calendari complessi in quest settimanali, target giornalieri e sessioni focus gratificanti.",
+      "StudyApp aiuta studenti e docenti a tenere insieme perimetro esame, ritmo di studio e sessioni focus in uno spazio compatto.",
     openStudyHub: "Apri Study Hub",
     login: "Accesso",
-    branding: "Branding e assets",
+    metric1: "Ritmo per esame",
+    metric1Body: "Il ritmo di studio resta collegato al singolo esame, non solo alla materia.",
+    metric2: "Esami sensibili al materiale",
+    metric2Body: "Libri, appunti, casi misti e perimetro verificato restano visibili.",
+    metric3: "Board settimanale piu chiara",
+    metric3Body: "Priorita giornaliere, supporto focus e prontezza restano calmi e leggibili.",
   },
 } as const;
 
 export default function HomePage() {
   const { language } = useUiLanguage("en");
-  const { theme } = useSiteTheme("parrot");
   const t = COPY[language];
-
-  const mascot =
-    theme === "parrot"
-      ? {
-          name: "Aero the Parrot",
-          image: "/mascots/parrot.svg",
-          accent: "from-emerald-100 to-amber-100",
-        }
-      : {
-          name: "Nami the Dolphin",
-          image: "/mascots/dolphin.svg",
-          accent: "from-cyan-100 to-blue-100",
-        };
 
   return (
     <main className="home-shell">
@@ -87,31 +69,19 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div
-            className={`home-card home-mascot-card overflow-hidden bg-gradient-to-br ${mascot.accent}`}
-          >
-            <div className="flex items-center gap-4">
-              <Image
-                src={mascot.image}
-                alt={mascot.name}
-                width={88}
-                height={88}
-                className="animate-[floaty_3.4s_ease-in-out_infinite]"
-              />
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
-                  Active mascot
-                </p>
-                <p className="text-2xl font-black text-slate-900">{mascot.name}</p>
-                <p className="mt-1 text-sm text-slate-700">
-                  Change mascot with the theme toggle in the top navigation.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <HomeBrandingCard title={t.branding} />
+        <div className="grid gap-4">
+          <article className="home-card border border-slate-200 bg-white/90">
+            <p className="planner-eyebrow">{t.metric1}</p>
+            <p className="mt-2 text-sm text-slate-700">{t.metric1Body}</p>
+          </article>
+          <article className="home-card border border-slate-200 bg-white/90">
+            <p className="planner-eyebrow">{t.metric2}</p>
+            <p className="mt-2 text-sm text-slate-700">{t.metric2Body}</p>
+          </article>
+          <article className="home-card border border-slate-200 bg-white/90">
+            <p className="planner-eyebrow">{t.metric3}</p>
+            <p className="mt-2 text-sm text-slate-700">{t.metric3Body}</p>
+          </article>
         </div>
       </section>
     </main>

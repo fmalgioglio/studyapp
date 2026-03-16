@@ -99,6 +99,8 @@ export default function PlannerStudentsPage() {
   const [savedAffinityOverride, setSavedAffinityOverride] = useState<SubjectAffinity | null>(null);
   const [affinityDraft, setAffinityDraft] = useState<SubjectAffinity | null>(null);
   const [feedback, setFeedback] = useState<FeedbackState>(null);
+  const [profileExpanded, setProfileExpanded] = useState(false);
+  const [preferencesExpanded, setPreferencesExpanded] = useState(false);
   const [studyContext, setStudyContext] = useState<StudyContext | null>(() => {
     try {
       const stored = localStorage.getItem(STUDY_CONTEXT_STORAGE_KEY);
@@ -189,12 +191,10 @@ export default function PlannerStudentsPage() {
         effort = [...effort, subject];
       }
 
-      return normalizeAffinity(
-        {
-          easiestSubjects: easiest,
-          effortSubjects: effort,
-        },
-      );
+      return normalizeAffinity({
+        easiestSubjects: easiest,
+        effortSubjects: effort,
+      });
     });
   }
 
@@ -252,7 +252,7 @@ export default function PlannerStudentsPage() {
       <section className="planner-panel planner-hero">
         <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Profile</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Configure your personal study capacity and account details.
+          Keep profile data light, then expand only the parts you want to tune.
         </p>
       </section>
 
@@ -275,7 +275,7 @@ export default function PlannerStudentsPage() {
           </div>
         </div>
 
-        {recommendations.length > 0 && (
+        {recommendations.length > 0 ? (
           <ul className="mt-3 space-y-1">
             {recommendations.map((rec) => (
               <li key={rec} className="flex items-center gap-2 text-xs text-slate-600">
@@ -284,7 +284,7 @@ export default function PlannerStudentsPage() {
               </li>
             ))}
           </ul>
-        )}
+        ) : null}
 
         <div className="mt-4">
           <p className="planner-eyebrow mb-2 block text-xs">Study context</p>
@@ -308,122 +308,195 @@ export default function PlannerStudentsPage() {
       </section>
 
       <section className="planner-panel">
-        {loading ? (
-          <div className="space-y-2">
-            <p className="text-sm text-slate-600">Loading profile...</p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div className="planner-skeleton h-12" />
-              <div className="planner-skeleton h-12" />
-            </div>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Profile details</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Core account and capacity settings stay collapsed until needed.
+            </p>
           </div>
-        ) : (
-          <form className="grid gap-3 md:grid-cols-3" onSubmit={saveProfile}>
-            <label className="planner-field space-y-1">
-              <span className="planner-eyebrow mb-1 block">Email</span>
-              <input
-                type="email"
-                value={student?.email ?? ""}
-                disabled
-                className="planner-input"
-              />
-            </label>
-            <label className="planner-field space-y-1">
-              <span className="planner-eyebrow mb-1 block">Full name</span>
-              <input
-                type="text"
-                value={fullNameDraft ?? student?.fullName ?? ""}
-                onChange={(event) => setFullNameDraft(event.target.value)}
-                className="planner-input"
-              />
-            </label>
-            <label className="planner-field space-y-1">
-              <span className="planner-eyebrow mb-1 block">Weekly hours</span>
-              <input
-                type="number"
-                min={1}
-                max={80}
-                value={weeklyHoursDraft ?? student?.weeklyHours ?? 10}
-                onChange={(event) => setWeeklyHoursDraft(Number(event.target.value))}
-                className="planner-input"
-              />
-            </label>
-            <button
-              type="submit"
-              className="planner-btn planner-btn-accent w-full md:col-span-3"
-            >
-              Save profile
-            </button>
-          </form>
-        )}
+          <button
+            type="button"
+            onClick={() => setProfileExpanded((current) => !current)}
+            className="planner-btn planner-btn-secondary"
+          >
+            {profileExpanded ? "Hide editor" : "Edit profile"}
+          </button>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <article className="planner-card bg-slate-50/80">
+            <p className="planner-eyebrow">Name</p>
+            <p className="mt-1 text-base font-semibold text-slate-900">
+              {resolvedName.trim() || "Not set"}
+            </p>
+          </article>
+          <article className="planner-card bg-slate-50/80">
+            <p className="planner-eyebrow">Email</p>
+            <p className="mt-1 break-all text-sm font-semibold text-slate-900">
+              {student?.email ?? "No account"}
+            </p>
+          </article>
+          <article className="planner-card bg-slate-50/80">
+            <p className="planner-eyebrow">Weekly capacity</p>
+            <p className="mt-1 text-base font-semibold text-slate-900">
+              {resolvedWeeklyHours} hours
+            </p>
+          </article>
+        </div>
+
+        {profileExpanded ? (
+          loading ? (
+            <div className="mt-4 space-y-2">
+              <p className="text-sm text-slate-600">Loading profile...</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="planner-skeleton h-12" />
+                <div className="planner-skeleton h-12" />
+              </div>
+            </div>
+          ) : (
+            <form className="mt-4 grid gap-3 md:grid-cols-3" onSubmit={saveProfile}>
+              <label className="planner-field space-y-1">
+                <span className="planner-eyebrow mb-1 block">Email</span>
+                <input
+                  type="email"
+                  value={student?.email ?? ""}
+                  disabled
+                  className="planner-input"
+                />
+              </label>
+              <label className="planner-field space-y-1">
+                <span className="planner-eyebrow mb-1 block">Full name</span>
+                <input
+                  type="text"
+                  value={fullNameDraft ?? student?.fullName ?? ""}
+                  onChange={(event) => setFullNameDraft(event.target.value)}
+                  className="planner-input"
+                />
+              </label>
+              <label className="planner-field space-y-1">
+                <span className="planner-eyebrow mb-1 block">Weekly hours</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={80}
+                  value={weeklyHoursDraft ?? student?.weeklyHours ?? 10}
+                  onChange={(event) => setWeeklyHoursDraft(Number(event.target.value))}
+                  className="planner-input"
+                />
+              </label>
+              <button
+                type="submit"
+                className="planner-btn planner-btn-accent w-full md:col-span-3"
+              >
+                Save profile
+              </button>
+            </form>
+          )
+        ) : null}
       </section>
 
       <section className="planner-panel">
-        <h2 className="text-lg font-bold text-slate-900">Study preferences</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Mark up to three easier subjects and up to three effort-heavy subjects.
-        </p>
-
-        <div className="mt-5 space-y-4">
-          <div className="grid grid-cols-[1fr_auto_auto] gap-2 border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <p>Subject</p>
-            <p className="text-center">Easy</p>
-            <p className="text-center">Effort</p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Study preferences</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Mark the subjects that usually feel lighter and the ones that need more deliberate effort.
+            </p>
           </div>
-
-          <div className="space-y-2">
-            {SUBJECT_AFFINITY_OPTIONS.map((subjectName) => {
-              const isEasy = affinity.easiestSubjects.includes(subjectName);
-              const isEffort = affinity.effortSubjects.includes(subjectName);
-              return (
-                <div
-                  key={subjectName}
-                  className="grid grid-cols-[1fr_auto_auto] items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
-                >
-                  <p className="text-sm font-medium text-slate-800">{subjectName}</p>
-                  <button
-                    type="button"
-                    onClick={() => setAffinityRole(subjectName, isEasy ? "none" : "easy")}
-                    className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
-                      isEasy
-                        ? "border-emerald-300 bg-emerald-50 text-emerald-800"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-                    }`}
-                  >
-                    Easy
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAffinityRole(subjectName, isEffort ? "none" : "effort")}
-                    className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
-                      isEffort
-                        ? "border-amber-300 bg-amber-50 text-amber-900"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-                    }`}
-                  >
-                    Effort
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-
-          <p className="text-xs text-slate-500">
-            Easy: {easiestCount}/{AFFINITY_LIMIT} · Effort-heavy: {effortCount}/{AFFINITY_LIMIT}
-          </p>
-
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="text-xs text-slate-500">
-              Saved profile: {savedAffinity.easiestSubjects.length} easy / {savedAffinity.effortSubjects.length} effort-heavy
-            </div>
-            <button
-              type="button"
-              onClick={() => void saveAffinity()}
-              className="planner-btn planner-btn-accent"
-            >
-              Save preferences and continue
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setPreferencesExpanded((current) => !current)}
+            className="planner-btn planner-btn-secondary"
+          >
+            {preferencesExpanded ? "Collapse editor" : "Edit preferences"}
+          </button>
         </div>
+
+        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          <article className="planner-card bg-emerald-50/70">
+            <p className="planner-eyebrow text-emerald-700">Naturally lighter</p>
+            <p className="mt-1 text-sm text-slate-700">
+              {affinity.easiestSubjects.length > 0
+                ? affinity.easiestSubjects.join(" · ")
+                : "No easier subjects selected yet."}
+            </p>
+            <p className="mt-3 text-xs font-semibold text-emerald-800">
+              {easiestCount}/{AFFINITY_LIMIT} selected
+            </p>
+          </article>
+          <article className="planner-card bg-amber-50/70">
+            <p className="planner-eyebrow text-amber-700">Needs more effort</p>
+            <p className="mt-1 text-sm text-slate-700">
+              {affinity.effortSubjects.length > 0
+                ? affinity.effortSubjects.join(" · ")
+                : "No effort-heavy subjects selected yet."}
+            </p>
+            <p className="mt-3 text-xs font-semibold text-amber-900">
+              {effortCount}/{AFFINITY_LIMIT} selected
+            </p>
+          </article>
+        </div>
+
+        {preferencesExpanded ? (
+          <div className="mt-5 space-y-4">
+            <div className="grid grid-cols-[1fr_auto_auto] gap-2 border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <p>Subject</p>
+              <p className="text-center">Easy</p>
+              <p className="text-center">Effort</p>
+            </div>
+
+            <div className="space-y-2">
+              {SUBJECT_AFFINITY_OPTIONS.map((subjectName) => {
+                const isEasy = affinity.easiestSubjects.includes(subjectName);
+                const isEffort = affinity.effortSubjects.includes(subjectName);
+                return (
+                  <div
+                    key={subjectName}
+                    className="grid grid-cols-[1fr_auto_auto] items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
+                  >
+                    <p className="text-sm font-medium text-slate-800">{subjectName}</p>
+                    <button
+                      type="button"
+                      onClick={() => setAffinityRole(subjectName, isEasy ? "none" : "easy")}
+                      className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
+                        isEasy
+                          ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                      }`}
+                    >
+                      Easy
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAffinityRole(subjectName, isEffort ? "none" : "effort")}
+                      className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
+                        isEffort
+                          ? "border-amber-300 bg-amber-50 text-amber-900"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                      }`}
+                    >
+                      Effort
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="text-xs text-slate-500">
+                Saved profile: {savedAffinity.easiestSubjects.length} easy / {savedAffinity.effortSubjects.length} effort-heavy
+              </div>
+              <button
+                type="button"
+                onClick={() => void saveAffinity()}
+                className="planner-btn planner-btn-accent"
+              >
+                Save preferences
+              </button>
+            </div>
+          </div>
+        ) : null}
       </section>
 
       {feedback?.kind === "error" ? (

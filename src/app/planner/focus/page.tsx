@@ -28,13 +28,6 @@ const FOCUS_PRESETS = [
   { minutes: 60, label: "Exam", subtitle: "Long concentration" },
 ] as const;
 
-const REWARD_REACTIONS = [
-  "Aero says: great run, your brain just got sharper.",
-  "Quest complete: tiny progress today, massive result later.",
-  "Parrot hype: focus combo unlocked.",
-  "Momentum++: consistency beats intensity chaos.",
-] as const;
-
 type FocusStats = {
   xp: number;
   streak: number;
@@ -60,11 +53,11 @@ const getHydratedServerSnapshot = () => false;
 const COPY = {
   en: {
     title: "Focus Sessions",
-    subtitle: "Run focused blocks and connect each run to an exam timeline.",
-    xp: "XP",
+    subtitle: "Run one study block at a time and log it against the right exam.",
+    xp: "Focus score",
     streak: "Streak",
     sessions: "Sessions",
-    mood: "Mood",
+    mood: "Session status",
     targetExam: "Target exam",
     topic: "What are you studying?",
     pagesInput: "Pages completed this run (optional)",
@@ -88,13 +81,13 @@ const COPY = {
     exitLock: "Exit lock",
     moodReady: "Ready",
     moodFocused: "Focused",
-    moodWarm: "Warming up",
-    moodTrack: "On track",
-    moodAlert: "Alert",
+    moodWarm: "Building",
+    moodTrack: "Stable",
+    moodAlert: "Needs attention",
     moodHintReady: "Pick an exam and start your first focused run.",
-    moodHintFocused: "Timer is running, momentum is active.",
-    moodHintWarm: "You started building consistency. Keep the chain alive.",
-    moodHintTrack: "Strong rhythm. Your exam timeline is improving.",
+    moodHintFocused: "Timer is running and the session is active.",
+    moodHintWarm: "A first layer of consistency is forming.",
+    moodHintTrack: "Your recent sessions are supporting the exam timeline.",
     moodHintAlert: "Deadline is close. Prioritize this exam in the next runs.",
     noExam: "No exams available. Add one in Exams page first.",
     selectExamFirst: "Select an exam target before starting focus mode.",
@@ -125,11 +118,11 @@ const COPY = {
   },
   it: {
     title: "Sessioni Focus",
-    subtitle: "Esegui blocchi focus e collega ogni run alla timeline esame.",
-    xp: "XP",
+    subtitle: "Esegui un blocco di studio per volta e registralo sull'esame corretto.",
+    xp: "Focus score",
     streak: "Streak",
     sessions: "Sessioni",
-    mood: "Mood",
+    mood: "Stato sessione",
     targetExam: "Esame target",
     topic: "Cosa stai studiando?",
     pagesInput: "Pagine completate in questa run (opzionale)",
@@ -153,13 +146,13 @@ const COPY = {
     exitLock: "Esci dal lock",
     moodReady: "Pronto",
     moodFocused: "Concentrato",
-    moodWarm: "In partenza",
-    moodTrack: "In carreggiata",
-    moodAlert: "Allerta",
+    moodWarm: "In costruzione",
+    moodTrack: "Stabile",
+    moodAlert: "Richiede attenzione",
     moodHintReady: "Scegli un esame e avvia la prima sessione focus.",
-    moodHintFocused: "Timer attivo, momentum in corso.",
-    moodHintWarm: "La costanza sta crescendo. Mantieni la catena.",
-    moodHintTrack: "Ritmo solido. La timeline esame sta migliorando.",
+    moodHintFocused: "Timer attivo e sessione in corso.",
+    moodHintWarm: "Si sta formando un primo livello di costanza.",
+    moodHintTrack: "Le sessioni recenti stanno sostenendo la timeline esame.",
     moodHintAlert: "Scadenza vicina. Dai priorita a questo esame.",
     noExam: "Nessun esame disponibile. Aggiungine uno nella pagina Esami.",
     selectExamFirst: "Seleziona prima un esame target.",
@@ -274,7 +267,6 @@ export default function PlannerFocusPage() {
   const [focusRunning, setFocusRunning] = useState(false);
   const [focusLocked, setFocusLocked] = useState(false);
   const [message, setMessage] = useState("");
-  const [rewardLine, setRewardLine] = useState("");
   const [stats, setStats] = useState<FocusStats>(() => getInitialFocusStats());
   const [selectedExamId, setSelectedExamId] = useState("");
   const [focusTopic, setFocusTopic] = useState("");
@@ -415,7 +407,6 @@ export default function PlannerFocusPage() {
         setMessage(`${t.completed}: +${gainedXp} XP.`);
       }
 
-      setRewardLine(REWARD_REACTIONS[Math.floor(Math.random() * REWARD_REACTIONS.length)]);
       setPagesCompletedInput("");
     },
     [focusMinutes, focusTopic, pagesCompletedInput, selectedExam, stats.streak, t],
@@ -731,16 +722,6 @@ export default function PlannerFocusPage() {
       {message || dataErrorMessage ? (
         <section className="planner-alert" role="status" aria-live="polite">
           {message || dataErrorMessage}
-        </section>
-      ) : null}
-
-      {rewardLine ? (
-        <section
-          className="planner-card border-emerald-200 bg-emerald-50 text-sm text-emerald-900"
-          role="status"
-          aria-live="polite"
-        >
-          {rewardLine}
         </section>
       ) : null}
 

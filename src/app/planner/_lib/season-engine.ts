@@ -1,9 +1,32 @@
 import type { ExamHint, ExamHintsMap } from "./exam-hints";
+import type {
+  ExamWorkloadApproximateScopeUnit,
+  ExamWorkloadMaterialShape,
+} from "@/lib/exam-workload-contract";
 
 type ExamLite = {
   id: string;
   title: string;
   examDate: string;
+  materialType?: "book" | "notes" | "mixed" | null;
+  workloadPayload?: {
+    totalPages?: number;
+    bookTitle?: string;
+    bookCoverageMode?: "page_range";
+    bookPageStart?: number;
+    bookPageEnd?: number;
+    notesSummary?: string;
+    materialDetails?: string;
+    verifiedPageCount?: number;
+    bookSource?: "google_books" | "open_library" | "local_catalog";
+    matchConfidenceScore?: number;
+    bookAuthors?: string[];
+    inferredSubject?: string;
+    materialShape?: ExamWorkloadMaterialShape;
+    approximateScopeValue?: number;
+    approximateScopeUnit?: ExamWorkloadApproximateScopeUnit;
+    isApproximate?: boolean;
+  } | null;
   subject: {
     id: string;
     name: string;
@@ -14,6 +37,8 @@ type SubjectPace = {
   pagesPerHour: number;
   complexity: number;
 };
+
+type ExamScopeSource = "workload" | "approximate" | "inferred";
 
 export type SeasonProgressEntry = {
   pagesCompleted: number;
@@ -38,8 +63,23 @@ const SUBJECT_PACE_MAP: Record<string, SubjectPace> = {
   general: { pagesPerHour: 11, complexity: 1.15 },
 };
 
+const APPROXIMATE_SCOPE_FACTORS: Record<ExamWorkloadApproximateScopeUnit, number> = {
+  pages: 1,
+  slides: 2,
+  handouts: 12,
+  items: 8,
+};
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function normalizePositiveInt(value: number | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return undefined;
+  }
+  const rounded = Math.round(value);
+  return rounded > 0 ? rounded : undefined;
 }
 
 function startOfWeek(date: Date) {
@@ -69,6 +109,98 @@ function inferExamPages(exam: ExamLite) {
     (title.includes("advanced") ? 40 : 0) +
     (title.includes("midterm") ? -15 : 0);
   return Math.round(clamp(base + intensityBonus, 110, 680));
+}
+
+function resolveApproximateScopePages(exam: ExamLite) {
+  const payload = exam.workloadPayload;
+  const approximateScopeValue = normalizePositiveInt(payload?.approximateScopeValue);
+  const approximateScopeUnit = payload?.approximateScopeUnit;
+  if (!approximateScopeValue || !approximateScopeUnit) {
+    return undefined;
+  }
+
+  const factor = APPROXIMATE_SCOPE_FACTORS[approximateScopeUnit];
+  const basePages = Math.round(approximateScopeValue * factor);
+
+  if (payload?.materialShape === "slides") {
+    return Math.round(basePages * 0.9);
+  }
+  if (payload?.materialShape === "mini_handout") {
+    return Math.round(basePages * 0.85);
+  }
+  if (payload?.materialShape === "handout_set") {
+    return Math.round(basePages * 1.05);
+  }
+  if (payload?.materialShape === "personal_notes") {
+    return Math.round(basePages * 1.1);
+  }
+
+  return basePages;
+}
+
+function resolveBookRangePages(exam: ExamLite) {
+  const payload = exam.workloadPayload;
+  if (payload?.bookCoverageMode !== "page_range") {
+    return undefined;
+  }
+
+  const start = normalizePositiveInt(payload.bookPageStart);
+  const end = normalizePositiveInt(payload.bookPageEnd);
+  if (!start || !end || end < start) {
+    return undefined;
+  }
+
+  return end - start + 1;
+}
+
+function resolveExamScopePages(exam: ExamLite): {
+  pages: number;
+  source: ExamScopeSource;
+} {
+  const payload = exam.workloadPayload;
+  const explicitTotalPages = normalizePositiveInt(payload?.totalPages);
+  if (explicitTotalPages) {
+    return {
+      pages: clamp(explicitTotalPages, 30, 20_000),
+      source: "workload",
+    };
+  }
+
+  const bookRangePages = resolveBookRangePages(exam);
+  if (bookRangePages) {
+    return {
+      pages: clamp(bookRangePages, 20, 20_000),
+      source: "workload",
+    };
+  }
+
+  const verifiedPageCount = normalizePositiveInt(payload?.verifiedPageCount);
+  const approximateScopePages = resolveApproximateScopePages(exam);
+  if (exam.materialType === "mixed" && verifiedPageCount && approximateScopePages) {
+    return {
+      pages: clamp(verifiedPageCount + approximateScopePages, 40, 20_000),
+      source: "approximate",
+    };
+  }
+
+  if (verifiedPageCount) {
+    return {
+      pages: clamp(verifiedPageCount, 30, 20_000),
+      source: "workload",
+    };
+  }
+
+  if (approximateScopePages) {
+    return {
+      pages: clamp(approximateScopePages, 20, 20_000),
+      source: "approximate",
+    };
+  }
+
+  return {
+    pages: inferExamPages(exam),
+    source: "inferred",
+  };
 }
 
 function resolveWorkloadPaceMultiplier(workloadMode: ExamHint["workloadMode"] | undefined) {
@@ -147,6 +279,7 @@ export type ExamProgressSnapshot = {
   subjectName: string;
   daysLeft: number;
   estimatedPages: number;
+  estimatedPagesSource: ExamScopeSource;
   completedPages: number;
   remainingPages: number;
   completionPercent: number;
@@ -171,7 +304,8 @@ export function buildExamProgressSnapshot(
 ): ExamProgressSnapshot[] {
   return exams
     .map((exam) => {
-      const estimatedPages = inferExamPages(exam);
+      const examScope = resolveExamScopePages(exam);
+      const estimatedPages = examScope.pages;
       const subjectPace = inferSubjectPace(exam.subject.name);
       const examHint = examHints[exam.id];
       const examProgress = progress[exam.id];
@@ -227,6 +361,7 @@ export function buildExamProgressSnapshot(
         subjectName: exam.subject.name,
         daysLeft,
         estimatedPages,
+        estimatedPagesSource: examScope.source,
         completedPages,
         remainingPages,
         completionPercent,
