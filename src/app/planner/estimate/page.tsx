@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 
 import {
   BookSearchTypeahead,
@@ -233,7 +233,9 @@ export default function PlannerEstimatePage() {
   const [bookTitle, setBookTitle] = useState("");
   const [selectedBook, setSelectedBook] = useState<BookSearchItem | null>(null);
   const [planSubject, setPlanSubject] = useState("");
-  const [planExamDate, setPlanExamDate] = useState("");
+  const [planExamDate, setPlanExamDate] = useState(() =>
+    toDateInputValue(new Date(Date.now() + 21 * 24 * 60 * 60 * 1000)),
+  );
   const [knownPages, setKnownPages] = useState("");
   const [knownPagesTouched, setKnownPagesTouched] = useState(false);
   const [notes, setNotes] = useState("");
@@ -243,10 +245,6 @@ export default function PlannerEstimatePage() {
   const [estimate, setEstimate] = useState<PlanningEstimate | null>(null);
   const [selectedTier, setSelectedTier] = useState<1 | 2 | 3 | 4>(2);
   const [message, setMessage] = useState("");
-
-  useEffect(() => {
-    setPlanExamDate(toDateInputValue(new Date(Date.now() + 21 * 24 * 60 * 60 * 1000)));
-  }, []);
 
   const selectedMode = useMemo(() => {
     if (!estimate) return null;

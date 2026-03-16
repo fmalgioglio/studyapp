@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { useUiLanguage } from "@/app/_hooks/use-ui-language";
 import {
@@ -52,12 +52,9 @@ type FocusProgressMap = Record<
   }
 >;
 
-const EMPTY_FOCUS_STATS: FocusStats = {
-  xp: 0,
-  streak: 0,
-  sessionsCompleted: 0,
-  lastCompletionDate: "",
-};
+const HYDRATION_SUBSCRIBE = () => () => {};
+const getHydratedSnapshot = () => true;
+const getHydratedServerSnapshot = () => false;
 
 const COPY = {
   en: {
@@ -255,12 +252,18 @@ export default function PlannerFocusPage() {
   const [focusLocked, setFocusLocked] = useState(false);
   const [message, setMessage] = useState("");
   const [rewardLine, setRewardLine] = useState("");
-  const [stats, setStats] = useState<FocusStats>(EMPTY_FOCUS_STATS);
+  const [stats, setStats] = useState<FocusStats>(() => getInitialFocusStats());
   const [selectedExamId, setSelectedExamId] = useState("");
   const [focusTopic, setFocusTopic] = useState("");
   const [pagesCompletedInput, setPagesCompletedInput] = useState("");
-  const [focusProgress, setFocusProgress] = useState<FocusProgressMap>({});
-  const [hasHydratedClientState, setHasHydratedClientState] = useState(false);
+  const [focusProgress, setFocusProgress] = useState<FocusProgressMap>(() =>
+    readFocusProgress(),
+  );
+  const hasHydratedClientState = useSyncExternalStore(
+    HYDRATION_SUBSCRIBE,
+    getHydratedSnapshot,
+    getHydratedServerSnapshot,
+  );
   const dataErrorMessage = examsError;
 
   const minutesLeft = Math.floor(focusSecondsLeft / 60);
@@ -316,12 +319,6 @@ export default function PlannerFocusPage() {
     if (mascotMood === t.moodWarm) return t.moodHintWarm;
     return t.moodHintReady;
   }, [mascotMood, t]);
-
-  useEffect(() => {
-    setStats(getInitialFocusStats());
-    setFocusProgress(readFocusProgress());
-    setHasHydratedClientState(true);
-  }, []);
 
   useEffect(() => {
     if (!hasHydratedClientState) return;

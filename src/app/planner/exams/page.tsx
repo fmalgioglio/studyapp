@@ -38,8 +38,6 @@ type CreatedSubject = PlannerSubject;
 type WorkloadReadiness = "known" | "unknown";
 type MaterialType = "book" | "notes" | "mixed";
 
-const EMPTY_FOCUS_PROGRESS: FocusProgressMap = {};
-
 const COPY = {
   en: {
     title: "Exams",
@@ -239,7 +237,9 @@ export default function PlannerExamsPage() {
     subscribeToRevision: false,
   });
 
-  const [focusProgress, setFocusProgress] = useState<FocusProgressMap>(EMPTY_FOCUS_PROGRESS);
+  const [focusProgress, setFocusProgress] = useState<FocusProgressMap>(() =>
+    readFocusProgress(),
+  );
   const [subjectMode, setSubjectMode] = useState<"existing" | "new">("existing");
   const [subjectId, setSubjectId] = useState("");
   const [newSubjectName, setNewSubjectName] = useState("");
@@ -267,7 +267,6 @@ export default function PlannerExamsPage() {
   const examById = useMemo(() => new Map(exams.map((exam) => [exam.id, exam])), [exams]);
 
   useEffect(() => {
-    setFocusProgress(readFocusProgress());
     return subscribeDataRevision((source) => {
       if (source !== "focus_progress") return;
       setFocusProgress(readFocusProgress());

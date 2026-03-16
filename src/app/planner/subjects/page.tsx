@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { useUiLanguage } from "@/app/_hooks/use-ui-language";
 import { usePlannerData } from "@/app/planner/_hooks/use-planner-data";
@@ -165,8 +165,11 @@ const COPY = {
 } as const;
 
 const SUBJECT_HINTS_STORAGE_KEY = "studyapp_subject_hints";
-const EMPTY_FOCUS_PROGRESS: FocusProgressMap = {};
 const EMPTY_SUBJECT_HINTS: Record<string, SubjectHint> = {};
+
+const HYDRATION_SUBSCRIBE = () => () => {};
+const getHydratedSnapshot = () => true;
+const getHydratedServerSnapshot = () => false;
 
 type SubjectsCopy = (typeof COPY)[keyof typeof COPY];
 
@@ -205,6 +208,19 @@ function buildCascadeConfirmMessage(
   ].join("\n");
 }
 
+function getInitialSubjectHints(): Record<string, SubjectHint> {
+  if (typeof window === "undefined") return EMPTY_SUBJECT_HINTS;
+
+  const raw = localStorage.getItem(SUBJECT_HINTS_STORAGE_KEY);
+  if (!raw) return EMPTY_SUBJECT_HINTS;
+
+  try {
+    return JSON.parse(raw) as Record<string, SubjectHint>;
+  } catch {
+    return EMPTY_SUBJECT_HINTS;
+  }
+}
+
 export default function PlannerSubjectsPage() {
   const { student, loading } = useAuthStudent();
   const { language } = useUiLanguage("en");
@@ -213,9 +229,17 @@ export default function PlannerSubjectsPage() {
     enabled: Boolean(student?.id),
     subscribeToRevision: false,
   });
-  const [focusProgress, setFocusProgress] = useState<FocusProgressMap>(EMPTY_FOCUS_PROGRESS);
-  const [subjectHints, setSubjectHints] = useState<Record<string, SubjectHint>>(EMPTY_SUBJECT_HINTS);
-  const [storageHydrated, setStorageHydrated] = useState(false);
+  const [focusProgress, setFocusProgress] = useState<FocusProgressMap>(() =>
+    readFocusProgress(),
+  );
+  const [subjectHints, setSubjectHints] = useState<Record<string, SubjectHint>>(
+    () => getInitialSubjectHints(),
+  );
+  const storageHydrated = useSyncExternalStore(
+    HYDRATION_SUBSCRIBE,
+    getHydratedSnapshot,
+    getHydratedServerSnapshot,
+  );
   const [subjectName, setSubjectName] = useState("");
   const [subjectColor, setSubjectColor] = useState("");
   const [message, setMessage] = useState("");
@@ -224,21 +248,6 @@ export default function PlannerSubjectsPage() {
     () => buildExamProgressSnapshot(exams, focusProgress),
     [exams, focusProgress],
   );
-
-  useEffect(() => {
-    setFocusProgress(readFocusProgress());
-    if (typeof window !== "undefined") {
-      const raw = localStorage.getItem(SUBJECT_HINTS_STORAGE_KEY);
-      if (raw) {
-        try {
-          setSubjectHints(JSON.parse(raw) as Record<string, SubjectHint>);
-        } catch {
-          setSubjectHints(EMPTY_SUBJECT_HINTS);
-        }
-      }
-    }
-    setStorageHydrated(true);
-  }, []);
 
   useEffect(() => {
     if (!storageHydrated) return;

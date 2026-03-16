@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { useSiteTheme } from "@/app/_hooks/use-site-theme";
@@ -185,15 +185,9 @@ type FocusProgressMap = Record<
   }
 >;
 
-const EMPTY_FOCUS_STATS: FocusStats = {
-  xp: 0,
-  streak: 0,
-  sessionsCompleted: 0,
-};
-
-const EMPTY_FOCUS_PROGRESS: FocusProgressMap = {};
-
-const EMPTY_QUEST_COMPLETIONS: Record<string, boolean> = {};
+const HYDRATION_SUBSCRIBE = () => () => {};
+const getHydratedSnapshot = () => true;
+const getHydratedServerSnapshot = () => false;
 
 const EMPTY_SEASON_PLAN: SeasonPlan = {
   totalExams: 0,
@@ -286,24 +280,24 @@ export default function PlannerOverviewPage() {
     subscribeToRevision: false,
   });
 
-  const [focusStats, setFocusStats] = useState<FocusStats>(EMPTY_FOCUS_STATS);
-  const [focusProgress, setFocusProgress] = useState<FocusProgressMap>(EMPTY_FOCUS_PROGRESS);
-  const [questCompletions, setQuestCompletions] =
-    useState<Record<string, boolean>>(EMPTY_QUEST_COMPLETIONS);
-  const [storageHydrated, setStorageHydrated] = useState(false);
+  const [focusStats] = useState<FocusStats>(() => getFocusStats());
+  const [focusProgress, setFocusProgress] = useState<FocusProgressMap>(() =>
+    readFocusProgress(),
+  );
+  const [questCompletions, setQuestCompletions] = useState<Record<string, boolean>>(
+    () => getQuestCompletions(),
+  );
+  const storageHydrated = useSyncExternalStore(
+    HYDRATION_SUBSCRIBE,
+    getHydratedSnapshot,
+    getHydratedServerSnapshot,
+  );
   const [seasonMode, setSeasonMode] = useState<"focused" | "balanced" | "full">("full");
   const [manualSelectedExamId, setManualSelectedExamId] = useState<string | null>(null);
   const [simXpReward, setSimXpReward] = useState(0);
   const [message, setMessage] = useState("");
   const dataErrorMessage = errors.subjects ?? errors.exams ?? "";
   const selectedExamId = manualSelectedExamId ?? searchParams.get("exam");
-
-  useEffect(() => {
-    setFocusStats(getFocusStats());
-    setFocusProgress(readFocusProgress());
-    setQuestCompletions(getQuestCompletions());
-    setStorageHydrated(true);
-  }, []);
 
   useEffect(() => {
     if (!storageHydrated) return;
