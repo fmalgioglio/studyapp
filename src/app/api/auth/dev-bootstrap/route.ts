@@ -10,24 +10,29 @@ import {
 } from "@/server/auth/session";
 import { apiError, apiSuccess, getErrorDetails } from "@/server/http/response";
 
-const DEMO_EMAIL = process.env.DEV_BOOTSTRAP_EMAIL ?? "demo@studyapp.local";
-const DEMO_PASSWORD = process.env.DEV_BOOTSTRAP_PASSWORD ?? "";
-const DEMO_FULL_NAME = "StudyApp Demo";
-const DEMO_WEEKLY_HOURS = 12;
+const DEV_BOOTSTRAP_EMAIL =
+  process.env.DEV_BOOTSTRAP_EMAIL ?? "dev@studyapp.local";
+const DEV_BOOTSTRAP_PASSWORD = process.env.DEV_BOOTSTRAP_PASSWORD ?? "";
+const DEV_BOOTSTRAP_FULL_NAME = "StudyApp Local Dev";
+const DEV_BOOTSTRAP_WEEKLY_HOURS = 12;
 
-async function upsertDemoStudent(includePasswordHash: boolean) {
+async function upsertDevBootstrapStudent(includePasswordHash: boolean) {
   return prisma.student.upsert({
-    where: { email: DEMO_EMAIL },
+    where: { email: DEV_BOOTSTRAP_EMAIL },
     update: {
-      fullName: DEMO_FULL_NAME,
-      weeklyHours: DEMO_WEEKLY_HOURS,
-      ...(includePasswordHash ? { passwordHash: hashPassword(DEMO_PASSWORD) } : {}),
+      fullName: DEV_BOOTSTRAP_FULL_NAME,
+      weeklyHours: DEV_BOOTSTRAP_WEEKLY_HOURS,
+      ...(includePasswordHash
+        ? { passwordHash: hashPassword(DEV_BOOTSTRAP_PASSWORD) }
+        : {}),
     },
     create: {
-      email: DEMO_EMAIL,
-      fullName: DEMO_FULL_NAME,
-      weeklyHours: DEMO_WEEKLY_HOURS,
-      ...(includePasswordHash ? { passwordHash: hashPassword(DEMO_PASSWORD) } : {}),
+      email: DEV_BOOTSTRAP_EMAIL,
+      fullName: DEV_BOOTSTRAP_FULL_NAME,
+      weeklyHours: DEV_BOOTSTRAP_WEEKLY_HOURS,
+      ...(includePasswordHash
+        ? { passwordHash: hashPassword(DEV_BOOTSTRAP_PASSWORD) }
+        : {}),
     },
     select: {
       id: true,
@@ -47,7 +52,7 @@ export async function POST() {
     return apiError("Not found", 404);
   }
 
-  if (!DEMO_PASSWORD || DEMO_PASSWORD.length < 8) {
+  if (!DEV_BOOTSTRAP_PASSWORD || DEV_BOOTSTRAP_PASSWORD.length < 8) {
     return apiError(
       "Dev bootstrap is enabled but DEV_BOOTSTRAP_PASSWORD is missing or too short.",
       500,
@@ -59,14 +64,14 @@ export async function POST() {
     let usedPasswordHashFallback = false;
 
     try {
-      student = await upsertDemoStudent(true);
+      student = await upsertDevBootstrapStudent(true);
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === "P2022"
       ) {
         usedPasswordHashFallback = true;
-        student = await upsertDemoStudent(false);
+        student = await upsertDevBootstrapStudent(false);
       } else {
         throw error;
       }
@@ -81,7 +86,7 @@ export async function POST() {
       ...(usedPasswordHashFallback
         ? {
             warning:
-              "Demo account created without passwordHash due schema mismatch. Run prisma migrate dev to enable password login.",
+              "Local dev account created without passwordHash due schema mismatch. Run prisma migrate dev to enable password login.",
           }
         : {}),
     });
@@ -97,6 +102,10 @@ export async function POST() {
       );
     }
 
-    return apiError("Failed to bootstrap demo account", 500, getErrorDetails(error));
+    return apiError(
+      "Failed to bootstrap local dev account",
+      500,
+      getErrorDetails(error),
+    );
   }
 }

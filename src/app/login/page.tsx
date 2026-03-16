@@ -20,7 +20,8 @@ const COPY = {
     newHere: "New here?",
     checking: "Checking session...",
     localShortcut: "Local testing shortcut",
-    instantDemo: "Instant local demo access",
+    instantDevAccess: "Instant local dev access",
+    devAccessError: "Local dev access failed.",
   },
   it: {
     title: "Accesso",
@@ -33,7 +34,8 @@ const COPY = {
     newHere: "Nuovo utente?",
     checking: "Controllo sessione...",
     localShortcut: "Scorciatoia test locale",
-    instantDemo: "Accesso demo locale istantaneo",
+    instantDevAccess: "Accesso locale dev istantaneo",
+    devAccessError: "Accesso locale dev non riuscito.",
   },
 } as const;
 
@@ -101,7 +103,7 @@ export default function LoginPage() {
     router.refresh();
   }
 
-  async function onDemoAccess() {
+  async function onDevAccess() {
     setError("");
     setLoading(true);
 
@@ -120,7 +122,7 @@ export default function LoginPage() {
     setLoading(false);
 
     if (!ok || !payload.data) {
-      setError(payload.error ?? "Demo login failed.");
+      setError(payload.error ?? t.devAccessError);
       return;
     }
 
@@ -204,11 +206,11 @@ export default function LoginPage() {
             </p>
             <button
               type="button"
-              onClick={onDemoAccess}
+              onClick={onDevAccess}
               disabled={loading}
               className="mt-2 w-full rounded-xl border border-sky-300 bg-white px-4 py-2.5 text-sm font-semibold text-sky-800 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {t.instantDemo}
+              {t.instantDevAccess}
             </button>
           </div>
         ) : null}
