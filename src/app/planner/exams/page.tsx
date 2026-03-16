@@ -220,6 +220,16 @@ function pct(value: number) {
   return `${Math.round(value * 100)}%`;
 }
 
+function normalizePositivePageCount(value: number | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return undefined;
+  }
+  if (value <= 0) {
+    return undefined;
+  }
+  return value;
+}
+
 export default function PlannerExamsPage() {
   const { student, loading } = useAuthStudent();
   const { language } = useUiLanguage("en");
@@ -691,6 +701,11 @@ export default function PlannerExamsPage() {
             {examTracks.map((track) => {
               const examMeta = examById.get(track.examId);
               const workloadPayload = examMeta?.workloadPayload ?? null;
+              const displayTotalPages =
+                normalizePositivePageCount(workloadPayload?.totalPages) ??
+                normalizePositivePageCount(workloadPayload?.verifiedPageCount) ??
+                track.estimatedPages;
+              const displayCompletedPages = Math.min(track.completedPages, displayTotalPages);
               return (
                 <li
                   key={track.examId}
@@ -724,7 +739,7 @@ export default function PlannerExamsPage() {
                         {t.focusContribution}: {focusContributionLabel(track.focusContributionLevel, t)} ({track.focusContributionPercent}%)
                       </span>
                       <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 font-semibold text-slate-700">
-                        {track.completedPages}/{track.estimatedPages}p
+                        {displayCompletedPages}/{displayTotalPages}p
                       </span>
                       <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 font-semibold text-slate-700">
                         {t.focusSignals}: {track.sessionsCompleted} / {t.focusMinutes}: {track.minutesSpent}m

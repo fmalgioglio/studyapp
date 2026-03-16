@@ -77,3 +77,76 @@ export async function POST(request: Request) {
     return apiError("Failed to create subject", 500, getErrorDetails(error));
   }
 }
+
+export async function DELETE(request: Request) {
+  const session = await requireSession();
+  if (!session) {
+    return apiError("Unauthorized", 401);
+  }
+
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get("id")?.trim();
+  const confirmCascadeValue = searchParams.get("confirmCascade");
+
+  if (!id) {
+    return apiError("Missing required query parameter: id", 400);
+  }
+
+  if (
+    confirmCascadeValue !== null &&
+    confirmCascadeValue !== "true" &&
+    confirmCascadeValue !== "false"
+  ) {
+    return apiError("Invalid query parameter: confirmCascade", 400);
+  }
+
+  const confirmCascade = confirmCascadeValue === "true";
+
+  try {
+    const subject = await prisma.subject.findFirst({
+      where: {
+        id,
+        studentId: session.uid,
+      },
+      select: {
+        id: true,
+        _count: {
+          select: {
+            exams: true,
+            sources: true,
+            studySessions: true,
+          },
+        },
+      },
+    });
+
+    if (!subject) {
+      return apiError("Subject not found", 404);
+    }
+
+    const relationCounts = {
+      exams: subject._count.exams,
+      sources: subject._count.sources,
+      studySessions: subject._count.studySessions,
+    };
+    const linkedRecordsTotal =
+      relationCounts.exams + relationCounts.sources + relationCounts.studySessions;
+
+    if (linkedRecordsTotal > 0 && !confirmCascade) {
+      return apiError("Subject has linked data", 409, {
+        id: subject.id,
+        relationCounts,
+        requiresConfirmCascade: true,
+      });
+    }
+
+    await prisma.subject.delete({ where: { id: subject.id } });
+
+    return apiSuccess({
+      id: subject.id,
+      relationCounts,
+    });
+  } catch (error) {
+    return apiError("Failed to delete subject", 500, getErrorDetails(error));
+  }
+}

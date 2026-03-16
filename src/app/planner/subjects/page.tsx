@@ -29,6 +29,23 @@ type SubjectHint = {
   summaryCoverage: number;
 };
 
+type SubjectDeleteRelationCounts = {
+  exams: number;
+  sources: number;
+  studySessions: number;
+};
+
+type DeletedSubject = {
+  id: string;
+  relationCounts: SubjectDeleteRelationCounts;
+};
+
+type SubjectDeleteConflictDetails = {
+  id?: string;
+  relationCounts?: SubjectDeleteRelationCounts;
+  requiresConfirmCascade?: boolean;
+};
+
 const SUBJECT_PRESETS = [
   { name: "Biology", color: "#16a34a" },
   { name: "Chemistry", color: "#ea580c" },
@@ -67,6 +84,16 @@ const COPY = {
     daySuffix: "day(s)",
     examsPerSubject: "Exam timelines",
     openExams: "Open Exams",
+    delete: "Delete",
+    deleteConfirmPrompt: "Delete subject",
+    deleteLinkedWarning:
+      "This subject has linked data. Confirming will remove linked records too.",
+    deleteCancelAction: "Cancel",
+    deleteConfirmAction: "Confirm delete",
+    subjectDeleted: "Subject deleted",
+    deleteError: "Failed to delete subject",
+    linkedSources: "Sources linked",
+    linkedStudySessions: "Study sessions linked",
     loadExamsError: "Failed to load exams",
     statusNotStarted: "Not started",
     statusWarmingUp: "Warming up",
@@ -109,6 +136,16 @@ const COPY = {
     daySuffix: "giorni",
     examsPerSubject: "Timeline esami",
     openExams: "Apri Esami",
+    delete: "Elimina",
+    deleteConfirmPrompt: "Eliminare la materia",
+    deleteLinkedWarning:
+      "Questa materia ha dati collegati. Confermando verranno eliminati anche i record collegati.",
+    deleteCancelAction: "Annulla",
+    deleteConfirmAction: "Conferma eliminazione",
+    subjectDeleted: "Materia eliminata",
+    deleteError: "Impossibile eliminare la materia",
+    linkedSources: "Fonti collegate",
+    linkedStudySessions: "Sessioni studio collegate",
     loadExamsError: "Impossibile caricare gli esami",
     statusNotStarted: "Non iniziato",
     statusWarmingUp: "In avvio",
@@ -139,6 +176,33 @@ function progressStateLabel(state: ExamProgressState, t: SubjectsCopy) {
   if (state === "steady") return t.statusSteady;
   if (state === "warming_up") return t.statusWarmingUp;
   return t.statusNotStarted;
+}
+
+function normalizeRelationCounts(
+  relationCounts: SubjectDeleteRelationCounts | undefined,
+): SubjectDeleteRelationCounts {
+  return {
+    exams: Number(relationCounts?.exams ?? 0),
+    sources: Number(relationCounts?.sources ?? 0),
+    studySessions: Number(relationCounts?.studySessions ?? 0),
+  };
+}
+
+function buildCascadeConfirmMessage(
+  subjectName: string,
+  relationCounts: SubjectDeleteRelationCounts,
+  t: SubjectsCopy,
+) {
+  return [
+    `${t.deleteConfirmPrompt}: ${subjectName}?`,
+    t.deleteLinkedWarning,
+    `${t.linkedExams}: ${relationCounts.exams}`,
+    `${t.linkedSources}: ${relationCounts.sources}`,
+    `${t.linkedStudySessions}: ${relationCounts.studySessions}`,
+    "",
+    `${t.deleteConfirmAction}: OK`,
+    `${t.deleteCancelAction}: Cancel`,
+  ].join("\n");
 }
 
 export default function PlannerSubjectsPage() {
@@ -220,6 +284,52 @@ export default function PlannerSubjectsPage() {
     await createSubjectByValues(subjectName, subjectColor || undefined);
     setSubjectName("");
     setSubjectColor("");
+  }
+
+  async function deleteSubject(subjectId: string, subjectName: string) {
+    setMessage("");
+
+    const endpoint = `/api/subjects?id=${encodeURIComponent(subjectId)}`;
+    const firstAttempt = await requestJson<DeletedSubject>(endpoint, {
+      method: "DELETE",
+    });
+
+    if (!firstAttempt.ok) {
+      const details = firstAttempt.payload.details as SubjectDeleteConflictDetails | undefined;
+      if (details?.requiresConfirmCascade === true) {
+        const relationCounts = normalizeRelationCounts(details.relationCounts);
+        const confirmed = window.confirm(
+          buildCascadeConfirmMessage(subjectName, relationCounts, t),
+        );
+
+        if (!confirmed) {
+          return;
+        }
+
+        const confirmedAttempt = await requestJson<DeletedSubject>(
+          `${endpoint}&confirmCascade=true`,
+          {
+            method: "DELETE",
+          },
+        );
+
+        if (!confirmedAttempt.ok || !confirmedAttempt.payload.data) {
+          setMessage(confirmedAttempt.payload.error ?? t.deleteError);
+          return;
+        }
+      } else {
+        setMessage(firstAttempt.payload.error ?? t.deleteError);
+        return;
+      }
+    }
+
+    const refreshResult = await refresh({ force: true });
+    notifyDataRevision();
+    if (!refreshResult.ok && !refreshResult.skipped) {
+      setMessage(refreshResult.errors.subjects ?? refreshResult.errors.exams ?? t.loadExamsError);
+      return;
+    }
+    setMessage(`${t.subjectDeleted}: ${subjectName}`);
   }
 
   function setSubjectHint(subjectId: string, patch: Partial<SubjectHint>) {
@@ -412,6 +522,14 @@ export default function PlannerSubjectsPage() {
                     >
                       {t.openExams}
                     </Link>
+                    <button
+                      type="button"
+                      onClick={() => void deleteSubject(subject.id, subject.name)}
+                      className="planner-btn planner-btn-danger min-h-0 py-1.5"
+                      aria-label={`${t.delete} ${subject.name}`}
+                    >
+                      {t.delete}
+                    </button>
                   </div>
 
                   <div className="planner-card-soft mt-2 bg-white p-2">
