@@ -152,7 +152,7 @@ const COPY = {
     workloadSection: "Carico di studio",
     workloadHelp: "Imposta il carico ora oppure lascialo provvisorio e rifiniscilo dopo.",
     workloadStatus: "Stato del carico",
-    workloadKnown: "Gia noto",
+    workloadKnown: "Già noto",
     workloadUnknown: "Sconosciuto per ora",
     materialType: "Tipo di materiale",
     materialTypeHelp: "Scegli da dove arriva il carico di studio.",
@@ -166,11 +166,11 @@ const COPY = {
     notebookNotesTitle: "Caso appunti",
     notebookNotesBody: "Sceglilo quando la preparazione si basa soprattutto su appunti, slide o dispense.",
     notebookMixedTitle: "Caso misto",
-    notebookMixedBody: "Sceglilo quando il carico e distribuito tra libro e appunti.",
+    notebookMixedBody: "Sceglilo quando il carico è distribuito tra libro e appunti.",
     notebookFocusTitle: "Interpretazione",
     notebookFocusBody: "L'app interpreta questo esame come",
     notebookScopeHint:
-      "In Perimetro materiale, indica i capitoli, le unita o i blocchi di appunti inclusi.",
+      "In Perimetro materiale, indica i capitoli, le unità o i blocchi di appunti inclusi.",
     totalPages: "Pagine totali (opzionale)",
     bookLookupLabel: "Ricerca libro",
     bookLookupHint: "Cerca titolo + autore per risultati migliori",
@@ -767,7 +767,6 @@ export default function PlannerExamsPage() {
                         }`}
                       >
                         <p className="text-xs font-semibold">{item.title}</p>
-                        <p className="mt-1 text-xs leading-5 text-slate-600">{item.body}</p>
                       </div>
                     );
                   })}
