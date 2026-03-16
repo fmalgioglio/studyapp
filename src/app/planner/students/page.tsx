@@ -47,6 +47,18 @@ const SUBJECT_AFFINITY_OPTIONS = [
 const AFFINITY_LIMIT = 3;
 const SUBJECT_AFFINITY_SET = new Set<string>(SUBJECT_AFFINITY_OPTIONS);
 
+const STUDY_CONTEXT_OPTIONS = [
+  "University",
+  "High school",
+  "Middle school",
+  "Primary school",
+  "Personal study",
+] as const;
+
+type StudyContext = (typeof STUDY_CONTEXT_OPTIONS)[number];
+
+const STUDY_CONTEXT_STORAGE_KEY = "studyapp_profile_context_v1";
+
 type SubjectAffinityOption = (typeof SUBJECT_AFFINITY_OPTIONS)[number];
 
 function normalizeAffinityList(values: string[] | null | undefined): SubjectAffinityOption[] {
@@ -85,6 +97,17 @@ export default function PlannerStudentsPage() {
   const [savedAffinityOverride, setSavedAffinityOverride] = useState<SubjectAffinity | null>(null);
   const [affinityDraft, setAffinityDraft] = useState<SubjectAffinity | null>(null);
   const [feedback, setFeedback] = useState<FeedbackState>(null);
+  const [studyContext, setStudyContext] = useState<StudyContext | null>(() => {
+    try {
+      const stored = localStorage.getItem(STUDY_CONTEXT_STORAGE_KEY);
+      if (stored && (STUDY_CONTEXT_OPTIONS as readonly string[]).includes(stored)) {
+        return stored as StudyContext;
+      }
+    } catch {
+      // storage unavailable
+    }
+    return null;
+  });
 
   useEffect(() => {
     if (!feedback || feedback.kind !== "success") return;
@@ -100,6 +123,15 @@ export default function PlannerStudentsPage() {
 
   function showSuccess(text: string) {
     setFeedback({ kind: "success", text });
+  }
+
+  function handleContextChange(ctx: StudyContext) {
+    setStudyContext(ctx);
+    try {
+      localStorage.setItem(STUDY_CONTEXT_STORAGE_KEY, ctx);
+    } catch {
+      // storage unavailable
+    }
   }
 
   async function saveProfile(event: FormEvent) {
@@ -207,6 +239,19 @@ export default function PlannerStudentsPage() {
   const easiestCount = affinity.easiestSubjects.length;
   const effortCount = affinity.effortSubjects.length;
 
+  const resolvedName = fullNameDraft ?? student?.fullName ?? "";
+  const resolvedWeeklyHours = weeklyHoursDraft ?? student?.weeklyHours ?? 0;
+  const profileScore =
+    (resolvedName.trim().length > 0 ? 25 : 0) +
+    (resolvedWeeklyHours >= 6 ? 25 : 0) +
+    (easiestCount > 0 ? 25 : 0) +
+    (effortCount > 0 ? 25 : 0);
+  const recommendations: string[] = [];
+  if (!resolvedName.trim()) recommendations.push("Add your full name.");
+  if (resolvedWeeklyHours < 6) recommendations.push("Set at least 6 weekly study hours.");
+  if (easiestCount === 0) recommendations.push("Pick at least one easy subject.");
+  if (effortCount === 0) recommendations.push("Pick at least one effort-heavy subject.");
+
   return (
     <main className="space-y-5 sm:space-y-6">
       <section className="planner-panel planner-hero">
@@ -214,6 +259,57 @@ export default function PlannerStudentsPage() {
         <p className="mt-1 text-sm text-slate-600">
           Configure your personal study capacity and account details.
         </p>
+      </section>
+
+      <section className="planner-panel">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900">Learning profile</h2>
+            <p className="mt-0.5 text-sm text-slate-500">
+              {studyContext ?? "No context selected"} · {profileScore}% complete
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="h-2 w-32 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-emerald-400 transition-all"
+                style={{ width: `${profileScore}%` }}
+              />
+            </div>
+            <span className="text-xs font-semibold text-slate-700">{profileScore}%</span>
+          </div>
+        </div>
+
+        {recommendations.length > 0 && (
+          <ul className="mt-3 space-y-1">
+            {recommendations.map((rec) => (
+              <li key={rec} className="flex items-center gap-2 text-xs text-slate-600">
+                <span className="h-1.5 w-1.5 flex-none rounded-full bg-amber-400" />
+                {rec}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="mt-4">
+          <p className="planner-eyebrow mb-2 block text-xs">Study context</p>
+          <div className="flex flex-wrap gap-2">
+            {STUDY_CONTEXT_OPTIONS.map((ctx) => (
+              <button
+                key={ctx}
+                type="button"
+                onClick={() => handleContextChange(ctx)}
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                  studyContext === ctx
+                    ? "border-sky-300 bg-sky-50 text-sky-800"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                }`}
+              >
+                {ctx}
+              </button>
+            ))}
+          </div>
+        </div>
       </section>
 
       <section className="planner-panel">
