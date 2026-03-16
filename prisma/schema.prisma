@@ -32,6 +32,7 @@ model Student {
   passwordHash String?
   fullName     String?
   weeklyHours  Int            @default(10)
+  subjectAffinity Json?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
@@ -65,6 +66,9 @@ model Exam {
   title         String
   examDate      DateTime
   targetGrade   String?
+  workloadReadiness String?
+  materialType      String?
+  workloadPayload   Json?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 

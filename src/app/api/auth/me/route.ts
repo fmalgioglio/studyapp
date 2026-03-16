@@ -25,6 +25,7 @@ export async function GET() {
         email: true,
         fullName: true,
         weeklyHours: true,
+        subjectAffinity: true,
       },
     });
 

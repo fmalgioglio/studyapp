@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 import { notifyDataRevision } from "@/app/planner/_lib/focus-progress";
 import { requestJson } from "../_lib/client-api";
@@ -11,20 +11,103 @@ type Student = {
   email: string;
   fullName: string | null;
   weeklyHours: number;
+  subjectAffinity?: {
+    easiestSubjects: string[];
+    effortSubjects: string[];
+  } | null;
 };
+
+type SubjectAffinity = {
+  easiestSubjects: string[];
+  effortSubjects: string[];
+};
+
+type FeedbackState =
+  | {
+      kind: "success" | "error";
+      text: string;
+    }
+  | null;
+
+const SUBJECT_AFFINITY_OPTIONS = [
+  "Mathematics",
+  "Physics",
+  "Chemistry",
+  "Biology",
+  "History",
+  "Literature",
+  "English",
+  "Law",
+  "Economics",
+  "Computer Science",
+  "Philosophy",
+  "Art / Design",
+] as const;
+
+const AFFINITY_LIMIT = 3;
+const SUBJECT_AFFINITY_SET = new Set<string>(SUBJECT_AFFINITY_OPTIONS);
+
+type SubjectAffinityOption = (typeof SUBJECT_AFFINITY_OPTIONS)[number];
+
+function normalizeAffinityList(values: string[] | null | undefined): SubjectAffinityOption[] {
+  const normalized: SubjectAffinityOption[] = [];
+  const seen = new Set<SubjectAffinityOption>();
+
+  for (const entry of values ?? []) {
+    if (!SUBJECT_AFFINITY_SET.has(entry)) continue;
+    const subject = entry as SubjectAffinityOption;
+    if (seen.has(subject)) continue;
+    seen.add(subject);
+    normalized.push(subject);
+    if (normalized.length >= AFFINITY_LIMIT) break;
+  }
+
+  return normalized;
+}
+
+function normalizeAffinity(value: Student["subjectAffinity"] | null | undefined): SubjectAffinity {
+  const easiestSubjects = normalizeAffinityList(value?.easiestSubjects);
+  const easiestSet = new Set(easiestSubjects);
+  const effortSubjects = normalizeAffinityList(value?.effortSubjects).filter(
+    (subject) => !easiestSet.has(subject),
+  );
+
+  return {
+    easiestSubjects,
+    effortSubjects,
+  };
+}
 
 export default function PlannerStudentsPage() {
   const { student, loading } = useAuthStudent();
   const [fullNameDraft, setFullNameDraft] = useState<string | null>(null);
   const [weeklyHoursDraft, setWeeklyHoursDraft] = useState<number | null>(null);
-  const [message, setMessage] = useState("");
+  const [savedAffinityOverride, setSavedAffinityOverride] = useState<SubjectAffinity | null>(null);
+  const [affinityDraft, setAffinityDraft] = useState<SubjectAffinity | null>(null);
+  const [feedback, setFeedback] = useState<FeedbackState>(null);
+
+  useEffect(() => {
+    if (!feedback || feedback.kind !== "success") return;
+    const timer = window.setTimeout(() => {
+      setFeedback((current) => (current?.kind === "success" ? null : current));
+    }, 2200);
+    return () => window.clearTimeout(timer);
+  }, [feedback]);
+
+  function showError(text: string) {
+    setFeedback({ kind: "error", text });
+  }
+
+  function showSuccess(text: string) {
+    setFeedback({ kind: "success", text });
+  }
 
   async function saveProfile(event: FormEvent) {
     event.preventDefault();
-    setMessage("");
+    setFeedback(null);
 
     if (!student) {
-      setMessage("No account context found.");
+      showError("No account context found.");
       return;
     }
 
@@ -41,16 +124,88 @@ export default function PlannerStudentsPage() {
     });
 
     if (!ok || !payload.data) {
-      setMessage(payload.error ?? "Failed to save profile");
+      showError(payload.error ?? "Failed to save profile");
       return;
     }
 
-    setMessage("Profile updated.");
+    showSuccess("Profile updated.");
     syncAuthStudentCache(payload.data);
     setFullNameDraft(payload.data.fullName ?? "");
     setWeeklyHoursDraft(payload.data.weeklyHours);
     notifyDataRevision();
   }
+
+  function toggleAffinity(
+    key: keyof SubjectAffinity,
+    subject: (typeof SUBJECT_AFFINITY_OPTIONS)[number],
+  ) {
+    setAffinityDraft((current) => {
+      const base = current ?? savedAffinity;
+      const oppositeKey = key === "easiestSubjects" ? "effortSubjects" : "easiestSubjects";
+      const nextSelected = [...base[key]];
+      const nextOpposite = [...base[oppositeKey]];
+      const selectedIndex = nextSelected.indexOf(subject);
+
+      if (selectedIndex >= 0) {
+        nextSelected.splice(selectedIndex, 1);
+      } else {
+        if (nextSelected.length >= AFFINITY_LIMIT) return base;
+        nextSelected.push(subject);
+        const oppositeIndex = nextOpposite.indexOf(subject);
+        if (oppositeIndex >= 0) {
+          nextOpposite.splice(oppositeIndex, 1);
+        }
+      }
+
+      return normalizeAffinity(
+        key === "easiestSubjects"
+          ? {
+              easiestSubjects: nextSelected,
+              effortSubjects: nextOpposite,
+            }
+          : {
+              easiestSubjects: nextOpposite,
+              effortSubjects: nextSelected,
+            },
+      );
+    });
+  }
+
+  async function saveAffinity() {
+    setFeedback(null);
+
+    if (!student) {
+      showError("No account context found.");
+      return;
+    }
+
+    const baseAffinity = savedAffinityOverride ?? normalizeAffinity(student.subjectAffinity);
+    const subjectAffinity = normalizeAffinity(affinityDraft ?? baseAffinity);
+    const { ok, payload } = await requestJson<Student>("/api/students", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        subjectAffinity,
+      }),
+    });
+
+    if (!ok || !payload.data) {
+      showError(payload.error ?? "Failed to save subject preferences");
+      return;
+    }
+
+    showSuccess("Subject preferences saved.");
+    syncAuthStudentCache(payload.data);
+    const normalized = normalizeAffinity(payload.data.subjectAffinity);
+    setSavedAffinityOverride(normalized);
+    setAffinityDraft(normalized);
+    notifyDataRevision();
+  }
+
+  const savedAffinity = savedAffinityOverride ?? normalizeAffinity(student?.subjectAffinity);
+  const affinity = affinityDraft ?? savedAffinity;
+  const easiestCount = affinity.easiestSubjects.length;
+  const effortCount = affinity.effortSubjects.length;
 
   return (
     <main className="space-y-5 sm:space-y-6">
@@ -73,9 +228,7 @@ export default function PlannerStudentsPage() {
         ) : (
           <form className="grid gap-3 md:grid-cols-3" onSubmit={saveProfile}>
             <label className="planner-field space-y-1">
-              <span className="planner-eyebrow mb-1 block">
-                Email
-              </span>
+              <span className="planner-eyebrow mb-1 block">Email</span>
               <input
                 type="email"
                 value={student?.email ?? ""}
@@ -84,29 +237,25 @@ export default function PlannerStudentsPage() {
               />
             </label>
             <label className="planner-field space-y-1">
-              <span className="planner-eyebrow mb-1 block">
-                Full name
-              </span>
-                <input
-                  type="text"
-                  value={fullNameDraft ?? student?.fullName ?? ""}
-                  onChange={(event) => setFullNameDraft(event.target.value)}
-                  className="planner-input"
-                />
-              </label>
+              <span className="planner-eyebrow mb-1 block">Full name</span>
+              <input
+                type="text"
+                value={fullNameDraft ?? student?.fullName ?? ""}
+                onChange={(event) => setFullNameDraft(event.target.value)}
+                className="planner-input"
+              />
+            </label>
             <label className="planner-field space-y-1">
-              <span className="planner-eyebrow mb-1 block">
-                Weekly hours
-              </span>
-                <input
-                  type="number"
-                  min={1}
-                  max={80}
-                  value={weeklyHoursDraft ?? student?.weeklyHours ?? 10}
-                  onChange={(event) => setWeeklyHoursDraft(Number(event.target.value))}
-                  className="planner-input"
-                />
-              </label>
+              <span className="planner-eyebrow mb-1 block">Weekly hours</span>
+              <input
+                type="number"
+                min={1}
+                max={80}
+                value={weeklyHoursDraft ?? student?.weeklyHours ?? 10}
+                onChange={(event) => setWeeklyHoursDraft(Number(event.target.value))}
+                className="planner-input"
+              />
+            </label>
             <button
               type="submit"
               className="planner-btn planner-btn-accent w-full md:col-span-3"
@@ -117,9 +266,99 @@ export default function PlannerStudentsPage() {
         )}
       </section>
 
-      {message ? (
-        <section className="planner-alert">
-          {message}
+      <section className="planner-panel">
+        <h2 className="text-lg font-bold text-slate-900">Subject Affinity Onboarding</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Pick your natural strengths and effort-heavy subjects so StudyApp can prepare a basic
+          preference profile.
+        </p>
+
+        <div className="mt-5 space-y-5">
+          <article>
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-sm font-semibold text-slate-900">
+                Which subjects feel easiest or most natural to you?
+              </p>
+              <span className="text-xs font-medium text-slate-500">
+                {easiestCount}/{AFFINITY_LIMIT}
+              </span>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {SUBJECT_AFFINITY_OPTIONS.map((subjectName) => {
+                const selected = affinity.easiestSubjects.includes(subjectName);
+                return (
+                  <button
+                    key={`easy-${subjectName}`}
+                    type="button"
+                    onClick={() => toggleAffinity("easiestSubjects", subjectName)}
+                    className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+                      selected
+                        ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                    }`}
+                  >
+                    {subjectName}
+                  </button>
+                );
+              })}
+            </div>
+          </article>
+
+          <article>
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-sm font-semibold text-slate-900">
+                Which subjects usually require more effort from you?
+              </p>
+              <span className="text-xs font-medium text-slate-500">
+                {effortCount}/{AFFINITY_LIMIT}
+              </span>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {SUBJECT_AFFINITY_OPTIONS.map((subjectName) => {
+                const selected = affinity.effortSubjects.includes(subjectName);
+                return (
+                  <button
+                    key={`effort-${subjectName}`}
+                    type="button"
+                    onClick={() => toggleAffinity("effortSubjects", subjectName)}
+                    className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+                      selected
+                        ? "border-amber-300 bg-amber-50 text-amber-900"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                    }`}
+                  >
+                    {subjectName}
+                  </button>
+                );
+              })}
+            </div>
+          </article>
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-xs text-slate-500">
+              Saved profile: {savedAffinity.easiestSubjects.length} easy / {savedAffinity.effortSubjects.length} effort-heavy
+            </div>
+            <button
+              type="button"
+              onClick={() => void saveAffinity()}
+              className="planner-btn planner-btn-accent"
+            >
+              Save preferences and continue
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {feedback?.kind === "error" ? (
+        <section className="planner-alert">{feedback.text}</section>
+      ) : null}
+      {feedback?.kind === "success" ? (
+        <section
+          className="fixed bottom-4 right-4 z-50 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900 shadow-sm"
+          role="status"
+          aria-live="polite"
+        >
+          {feedback.text}
         </section>
       ) : null}
     </main>

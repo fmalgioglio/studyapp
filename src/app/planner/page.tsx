@@ -14,6 +14,7 @@ import {
   buildSeasonPlan,
   type ExamProgressState,
   type FocusContributionLevel,
+  type SeasonPlan,
 } from "./_lib/season-engine";
 import { readFocusProgress, subscribeDataRevision } from "./_lib/focus-progress";
 import {
@@ -184,6 +185,28 @@ type FocusProgressMap = Record<
   }
 >;
 
+const EMPTY_FOCUS_STATS: FocusStats = {
+  xp: 0,
+  streak: 0,
+  sessionsCompleted: 0,
+};
+
+const EMPTY_FOCUS_PROGRESS: FocusProgressMap = {};
+
+const EMPTY_QUEST_COMPLETIONS: Record<string, boolean> = {};
+
+const EMPTY_SEASON_PLAN: SeasonPlan = {
+  totalExams: 0,
+  weeklyMinutesBudget: 0,
+  weeklyPagesTarget: 0,
+  riskLevel: "low",
+  riskMessage: "",
+  dayRows: [],
+  todayMissions: [],
+  examTracks: [],
+  leaderboardPreview: [],
+};
+
 function getFocusStats(): FocusStats {
   if (typeof window === "undefined") return { xp: 0, streak: 0, sessionsCompleted: 0 };
   const raw = localStorage.getItem("studyapp_focus_stats");
@@ -263,9 +286,11 @@ export default function PlannerOverviewPage() {
     subscribeToRevision: false,
   });
 
-  const [focusStats] = useState<FocusStats>(getFocusStats);
-  const [focusProgress, setFocusProgress] = useState<FocusProgressMap>(readFocusProgress);
-  const [questCompletions, setQuestCompletions] = useState<Record<string, boolean>>(getQuestCompletions);
+  const [focusStats, setFocusStats] = useState<FocusStats>(EMPTY_FOCUS_STATS);
+  const [focusProgress, setFocusProgress] = useState<FocusProgressMap>(EMPTY_FOCUS_PROGRESS);
+  const [questCompletions, setQuestCompletions] =
+    useState<Record<string, boolean>>(EMPTY_QUEST_COMPLETIONS);
+  const [storageHydrated, setStorageHydrated] = useState(false);
   const [seasonMode, setSeasonMode] = useState<"focused" | "balanced" | "full">("full");
   const [manualSelectedExamId, setManualSelectedExamId] = useState<string | null>(null);
   const [simXpReward, setSimXpReward] = useState(0);
@@ -274,8 +299,16 @@ export default function PlannerOverviewPage() {
   const selectedExamId = manualSelectedExamId ?? searchParams.get("exam");
 
   useEffect(() => {
+    setFocusStats(getFocusStats());
+    setFocusProgress(readFocusProgress());
+    setQuestCompletions(getQuestCompletions());
+    setStorageHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!storageHydrated) return;
     localStorage.setItem(QUEST_COMPLETIONS_STORAGE_KEY, JSON.stringify(questCompletions));
-  }, [questCompletions]);
+  }, [questCompletions, storageHydrated]);
 
   useEffect(() => {
     return subscribeDataRevision((source) => {
@@ -284,10 +317,10 @@ export default function PlannerOverviewPage() {
     });
   }, []);
 
-  const seasonPlan = useMemo(
-    () => buildSeasonPlan(exams, student?.weeklyHours ?? 10, focusProgress, seasonMode),
-    [exams, student?.weeklyHours, focusProgress, seasonMode],
-  );
+  const seasonPlan = useMemo(() => {
+    if (!storageHydrated) return EMPTY_SEASON_PLAN;
+    return buildSeasonPlan(exams, student?.weeklyHours ?? 10, focusProgress, seasonMode);
+  }, [exams, student?.weeklyHours, focusProgress, seasonMode, storageHydrated]);
   const examTrackById = useMemo(
     () => new Map(seasonPlan.examTracks.map((track) => [track.examId, track])),
     [seasonPlan.examTracks],

@@ -1,7 +1,12 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
+import {
+  BookSearchTypeahead,
+  type BookSearchItem,
+  type BookSearchSource,
+} from "@/app/planner/_components/book-search-typeahead";
 import { useAuthStudent } from "../_hooks/use-auth-student";
 import { useUiLanguage } from "../_hooks/use-ui-language";
 import { requestJson } from "../_lib/client-api";
@@ -73,12 +78,27 @@ type CalibrationSession = {
   retentionScore?: number;
 };
 
+const SUBJECT_HINT_OPTIONS = [
+  "",
+  "Mathematics",
+  "Physics",
+  "Chemistry",
+  "Biology",
+  "History",
+  "Literature",
+  "English",
+  "Law",
+  "Economics",
+  "Computer Science",
+  "Medicine",
+] as const;
+
 const COPY = {
   en: {
-    title: "Quick Estimator",
-    subtitle: "Simple target first. Advanced stats only when needed.",
+    title: "Study Plan Assistant",
+    subtitle: "Use verified book signals first, then tune the daily target only if needed.",
     run: "Generate plan",
-    target: "Today target",
+    target: "Quick output",
     finishChance: "Finish chance",
     tier: "Intensity tiers",
     optional: "Optional context",
@@ -95,14 +115,15 @@ const COPY = {
     projectedCoverage: "projected coverage",
     gap: "gap",
     bookTitleLabel: "Book title",
-    bookTitlePlaceholder: "Manuale di diritto privato",
+    bookTitlePlaceholder: "Search title + author for better matches",
     examDateLabel: "Exam date",
-    knownPagesLabel: "Known pages (optional)",
+    knownPagesLabel: "Known pages",
     paceProfileLabel: "Pace profile",
     paceConservative: "Conservative",
     paceBalanced: "Balanced",
     paceFast: "Fast",
-    optionalSubjectLabel: "Subject (optional)",
+    subjectHintLabel: "Subject hint",
+    allSubjects: "All subjects",
     optionalNotesLabel: "Notes (optional)",
     quickCalibration: "Quick calibration samples",
     pagesPerDayUnit: "pages/day",
@@ -114,12 +135,19 @@ const COPY = {
     confidence: "confidence",
     researchModel: "Research model",
     baseline: "baseline",
+    verificationBar: "Verification bar",
+    verifiedPages: "Verified pages",
+    sourceLabel: "Source",
+    selectedBook: "Selected book",
+    sourceGoogle: "Google Books",
+    sourceOpenLibrary: "Open Library",
+    sourceLocal: "Local catalog",
   },
   it: {
-    title: "Stimatore Rapido",
-    subtitle: "Prima target semplice. Statistiche avanzate solo se servono.",
+    title: "Study Plan Assistant",
+    subtitle: "Usa prima i segnali verificati del libro, poi rifinisci il target giornaliero solo se serve.",
     run: "Genera piano",
-    target: "Target di oggi",
+    target: "Output rapido",
     finishChance: "Probabilita completamento",
     tier: "Tier di intensita",
     optional: "Contesto opzionale",
@@ -136,14 +164,15 @@ const COPY = {
     projectedCoverage: "copertura prevista",
     gap: "gap",
     bookTitleLabel: "Titolo libro",
-    bookTitlePlaceholder: "Manuale di diritto privato",
+    bookTitlePlaceholder: "Cerca titolo + autore per risultati migliori",
     examDateLabel: "Data esame",
-    knownPagesLabel: "Pagine note (opzionale)",
+    knownPagesLabel: "Pagine note",
     paceProfileLabel: "Profilo ritmo",
     paceConservative: "Conservativo",
     paceBalanced: "Bilanciato",
     paceFast: "Veloce",
-    optionalSubjectLabel: "Materia (opzionale)",
+    subjectHintLabel: "Suggerimento materia",
+    allSubjects: "Tutte le materie",
     optionalNotesLabel: "Note (opzionale)",
     quickCalibration: "Campioni rapidi calibrazione",
     pagesPerDayUnit: "pagine/giorno",
@@ -155,6 +184,13 @@ const COPY = {
     confidence: "confidenza",
     researchModel: "Modello di ricerca",
     baseline: "baseline",
+    verificationBar: "Barra verifica",
+    verifiedPages: "Pagine verificate",
+    sourceLabel: "Fonte",
+    selectedBook: "Libro selezionato",
+    sourceGoogle: "Google Books",
+    sourceOpenLibrary: "Open Library",
+    sourceLocal: "Catalogo locale",
   },
 } as const;
 
@@ -162,10 +198,6 @@ function toDateInputValue(date: Date) {
   const timezoneOffsetMs = date.getTimezoneOffset() * 60 * 1000;
   return new Date(date.getTime() - timezoneOffsetMs).toISOString().slice(0, 10);
 }
-
-const DEFAULT_EXAM_DATE = toDateInputValue(
-  new Date(Date.now() + 21 * 24 * 60 * 60 * 1000),
-);
 
 function pct(value: number) {
   return `${Math.round(value * 100)}%`;
@@ -184,15 +216,26 @@ function feasibilityClasses(status: "on_track" | "tight" | "rescue") {
   return "border-rose-300 bg-rose-50 text-rose-900";
 }
 
+function sourceLabel(
+  source: BookSearchSource | undefined,
+  t: (typeof COPY)[keyof typeof COPY],
+) {
+  if (source === "google_books") return t.sourceGoogle;
+  if (source === "open_library") return t.sourceOpenLibrary;
+  return t.sourceLocal;
+}
+
 export default function PlannerEstimatePage() {
   const { student } = useAuthStudent();
   const { language } = useUiLanguage("en");
   const t = COPY[language] ?? COPY.en;
 
   const [bookTitle, setBookTitle] = useState("");
+  const [selectedBook, setSelectedBook] = useState<BookSearchItem | null>(null);
   const [planSubject, setPlanSubject] = useState("");
-  const [planExamDate, setPlanExamDate] = useState(DEFAULT_EXAM_DATE);
+  const [planExamDate, setPlanExamDate] = useState("");
   const [knownPages, setKnownPages] = useState("");
+  const [knownPagesTouched, setKnownPagesTouched] = useState(false);
   const [notes, setNotes] = useState("");
   const [paceProfile, setPaceProfile] = useState<PaceProfile>("balanced");
   const [showOptional, setShowOptional] = useState(false);
@@ -200,6 +243,10 @@ export default function PlannerEstimatePage() {
   const [estimate, setEstimate] = useState<PlanningEstimate | null>(null);
   const [selectedTier, setSelectedTier] = useState<1 | 2 | 3 | 4>(2);
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    setPlanExamDate(toDateInputValue(new Date(Date.now() + 21 * 24 * 60 * 60 * 1000)));
+  }, []);
 
   const selectedMode = useMemo(() => {
     if (!estimate) return null;
@@ -215,14 +262,23 @@ export default function PlannerEstimatePage() {
       return;
     }
 
+    if (!planExamDate) {
+      setMessage(t.failEstimate);
+      return;
+    }
+
+    const effectiveKnownPages =
+      knownPages || (selectedBook?.verified_page_count ? String(selectedBook.verified_page_count) : "");
+    const effectiveSubject = planSubject || selectedBook?.inferred_subject || "";
+
     const { ok, payload } = await requestJson<PlanningEstimate>("/api/planning/estimate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         bookTitle,
-        subject: planSubject || undefined,
+        subject: effectiveSubject || undefined,
         examDate: new Date(`${planExamDate}T00:00:00`).toISOString(),
-        knownPages: knownPages ? Number(knownPages) : undefined,
+        knownPages: effectiveKnownPages ? Number(effectiveKnownPages) : undefined,
         notes: notes || undefined,
         paceProfile,
         calibrationSessions:
@@ -256,14 +312,53 @@ export default function PlannerEstimatePage() {
 
       <section className="planner-panel">
         <form className="grid gap-3 md:grid-cols-2" onSubmit={runEstimate}>
+          <BookSearchTypeahead
+            idPrefix="estimate-book"
+            label={t.bookTitleLabel}
+            query={bookTitle}
+            subjectHint={planSubject}
+            placeholder={t.bookTitlePlaceholder}
+            onQueryChange={(value) => {
+              setBookTitle(value);
+              setSelectedBook(null);
+            }}
+            onSelect={(item) => {
+              setSelectedBook(item);
+              setBookTitle(item.title);
+              if (!knownPagesTouched && item.verified_page_count) {
+                setKnownPages(String(item.verified_page_count));
+              }
+              if (!planSubject && item.inferred_subject) {
+                setPlanSubject(item.inferred_subject);
+              }
+            }}
+          />
+
           <label className="planner-field">
-            <span className="planner-eyebrow mb-1 block">{t.bookTitleLabel}</span>
+            <span className="planner-eyebrow mb-1 block">{t.subjectHintLabel}</span>
+            <select
+              value={planSubject}
+              onChange={(event) => setPlanSubject(event.target.value)}
+              className="planner-input"
+            >
+              {SUBJECT_HINT_OPTIONS.map((option) => (
+                <option key={option || "all"} value={option}>
+                  {option || t.allSubjects}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="planner-field">
+            <span className="planner-eyebrow mb-1 block">{t.knownPagesLabel}</span>
             <input
-              required
-              type="text"
-              value={bookTitle}
-              onChange={(event) => setBookTitle(event.target.value)}
-              placeholder={t.bookTitlePlaceholder}
+              type="number"
+              min={1}
+              value={knownPages}
+              onChange={(event) => {
+                setKnownPagesTouched(true);
+                setKnownPages(event.target.value);
+              }}
               className="planner-input"
             />
           </label>
@@ -279,18 +374,7 @@ export default function PlannerEstimatePage() {
             />
           </label>
 
-          <label className="planner-field">
-            <span className="planner-eyebrow mb-1 block">{t.knownPagesLabel}</span>
-            <input
-              type="number"
-              min={1}
-              value={knownPages}
-              onChange={(event) => setKnownPages(event.target.value)}
-              className="planner-input"
-            />
-          </label>
-
-          <div className="planner-field">
+          <div className="planner-field md:col-span-2">
             <span className="planner-eyebrow mb-1 block">{t.paceProfileLabel}</span>
             <div className="grid grid-cols-3 gap-2">
               {(["conservative", "balanced", "fast"] as const).map((profile) => (
@@ -312,6 +396,21 @@ export default function PlannerEstimatePage() {
             </div>
           </div>
 
+          {selectedBook ? (
+            <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-slate-700 md:col-span-2">
+              <p className="font-semibold text-slate-900">{t.verificationBar}</p>
+              <p className="mt-1 text-xs text-slate-600">
+                {t.selectedBook}: <strong>{selectedBook.title}</strong>
+                {" | "}
+                {t.verifiedPages}: <strong>{selectedBook.verified_page_count ?? "-"}</strong>
+                {" | "}
+                {t.confidence}: <strong>{pct(selectedBook.confidence_score)}</strong>
+                {" | "}
+                {t.sourceLabel}: <strong>{sourceLabel(selectedBook.source, t)}</strong>
+              </p>
+            </div>
+          ) : null}
+
           <div className="md:col-span-2">
             <button
               type="button"
@@ -326,17 +425,7 @@ export default function PlannerEstimatePage() {
 
           {showOptional ? (
             <>
-              <label id="estimate-optional-settings" className="planner-field">
-                <span className="planner-eyebrow mb-1 block">{t.optionalSubjectLabel}</span>
-                <input
-                  type="text"
-                  value={planSubject}
-                  onChange={(event) => setPlanSubject(event.target.value)}
-                  className="planner-input"
-                />
-              </label>
-
-              <label className="planner-field">
+              <label id="estimate-optional-settings" className="planner-field md:col-span-2">
                 <span className="planner-eyebrow mb-1 block">{t.optionalNotesLabel}</span>
                 <input
                   type="text"

@@ -9,27 +9,23 @@ import { useUiLanguage } from "@/app/_hooks/use-ui-language";
 const COPY = {
   en: {
     home: "Home",
-    planner: "Planner",
+    studyHub: "Study Hub",
     profile: "Profile",
-    login: "Login",
-    signup: "Sign up",
     theme: "Theme",
     parrot: "Parrot",
     dolphin: "Dolphin",
   },
   it: {
     home: "Home",
-    planner: "Planner",
+    studyHub: "Study Hub",
     profile: "Profilo",
-    login: "Accesso",
-    signup: "Registrati",
     theme: "Tema",
     parrot: "Pappagallo",
     dolphin: "Delfino",
   },
 } as const;
 
-export function SiteNav({ isAuthenticated }: { isAuthenticated: boolean }) {
+export function SiteNav() {
   const { language, setLanguage } = useUiLanguage("en");
   const { theme, setTheme } = useSiteTheme("parrot");
   const pathname = usePathname();
@@ -39,9 +35,9 @@ export function SiteNav({ isAuthenticated }: { isAuthenticated: boolean }) {
   const isProfile = pathname?.startsWith("/planner/students") ?? false;
   const isPlanner =
     pathname === "/planner" ||
-    ((pathname?.startsWith("/planner/") ?? false) && !isProfile);
-  const isLogin = pathname === "/login";
-  const isSignup = pathname === "/signup";
+    pathname === "/study" ||
+    ((pathname?.startsWith("/planner/") ?? false) && !isProfile) ||
+    ((pathname?.startsWith("/study/") ?? false) && !isProfile);
   const linkClass = (isActive: boolean, extra = "") =>
     `site-nav-link ${extra} ${isActive ? "site-nav-link-active" : ""}`.trim();
 
@@ -62,35 +58,15 @@ export function SiteNav({ isAuthenticated }: { isAuthenticated: boolean }) {
         aria-current={isPlanner ? "page" : undefined}
         className={linkClass(isPlanner)}
       >
-        {t.planner}
+        {t.studyHub}
       </Link>
-      {isAuthenticated ? (
-        <Link
-          href="/planner/students"
-          aria-current={isProfile ? "page" : undefined}
-          className={linkClass(isProfile)}
-        >
-          {t.profile}
-        </Link>
-      ) : null}
-      {!isAuthenticated ? (
-        <>
-          <Link
-            href="/login"
-            aria-current={isLogin ? "page" : undefined}
-            className={linkClass(isLogin, "site-nav-cta-primary")}
-          >
-            {t.login}
-          </Link>
-          <Link
-            href="/signup"
-            aria-current={isSignup ? "page" : undefined}
-            className={linkClass(isSignup, "site-nav-cta-secondary")}
-          >
-            {t.signup}
-          </Link>
-        </>
-      ) : null}
+      <Link
+        href="/planner/students"
+        aria-current={isProfile ? "page" : undefined}
+        className={linkClass(isProfile)}
+      >
+        {t.profile}
+      </Link>
       <div className="site-toggle-group">
         <button
           type="button"

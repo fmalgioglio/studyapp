@@ -4,6 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { subscribeDataRevision } from "../_lib/focus-progress";
 import { requestJson } from "../_lib/client-api";
+import {
+  type ExamWorkloadApproximateScopeUnit,
+  type ExamWorkloadMaterialShape,
+} from "@/lib/exam-workload-contract";
 
 export type PlannerSubject = {
   id: string;
@@ -18,6 +22,26 @@ export type PlannerExam = {
   title: string;
   examDate: string;
   targetGrade?: string | null;
+  workloadReadiness?: "known" | "unknown";
+  materialType?: "book" | "notes" | "mixed" | null;
+  workloadPayload?: {
+    totalPages?: number;
+    bookTitle?: string;
+    bookCoverageMode?: "page_range";
+    bookPageStart?: number;
+    bookPageEnd?: number;
+    notesSummary?: string;
+    materialDetails?: string;
+    verifiedPageCount?: number;
+    bookSource?: "google_books" | "open_library" | "local_catalog";
+    matchConfidenceScore?: number;
+    bookAuthors?: string[];
+    inferredSubject?: string;
+    materialShape?: ExamWorkloadMaterialShape;
+    approximateScopeValue?: number;
+    approximateScopeUnit?: ExamWorkloadApproximateScopeUnit;
+    isApproximate?: boolean;
+  } | null;
   subject: {
     id: string;
     name: string;
@@ -42,6 +66,10 @@ type RefreshOptions = {
 type UsePlannerDataOptions = {
   enabled: boolean;
   subscribeToRevision?: boolean;
+};
+
+type RemoveSubjectOptions = {
+  removeLinkedExams?: boolean;
 };
 
 const MIN_REFRESH_INTERVAL_MS = 900;
@@ -96,6 +124,12 @@ function writeStoredPlannerCache(value: PlannerCacheState) {
   }
 }
 
+function sortExamsByDate(exams: PlannerExam[]) {
+  return [...exams].sort(
+    (a, b) => new Date(a.examDate).getTime() - new Date(b.examDate).getTime(),
+  );
+}
+
 export function usePlannerData(options: UsePlannerDataOptions) {
   const { enabled, subscribeToRevision = false } = options;
   const mountedRef = useRef(true);
@@ -130,6 +164,112 @@ export function usePlannerData(options: UsePlannerDataOptions) {
     };
   }, []);
 
+  const commitLocalData = useCallback(
+    (nextState: {
+      subjects?: PlannerSubject[];
+      exams?: PlannerExam[];
+      errors?: PlannerDataErrors;
+    }) => {
+      refreshSequenceRef.current += 1;
+
+      const nextSubjects = nextState.subjects ?? plannerCache.subjects;
+      const nextExams = nextState.exams ?? plannerCache.exams;
+      const nextErrors = nextState.errors ?? plannerCache.errors;
+
+      plannerCache.subjects = nextSubjects;
+      plannerCache.exams = nextExams;
+      plannerCache.errors = nextErrors;
+      plannerCache.loaded = true;
+      plannerCache.fetchedAt = Date.now();
+      writeStoredPlannerCache(plannerCache);
+      hasLoadedOnceRef.current = true;
+
+      if (!mountedRef.current) return;
+      setSubjects(nextSubjects);
+      setExams(nextExams);
+      setErrors(nextErrors);
+      setLoading(false);
+    },
+    [],
+  );
+
+  const upsertSubject = useCallback(
+    (subject: PlannerSubject) => {
+      const existingIndex = plannerCache.subjects.findIndex(
+        (item) => item.id === subject.id,
+      );
+      const nextSubjects = [...plannerCache.subjects];
+      if (existingIndex >= 0) {
+        nextSubjects[existingIndex] = {
+          ...nextSubjects[existingIndex],
+          ...subject,
+        };
+      } else {
+        nextSubjects.push(subject);
+      }
+
+      const nextErrors = { ...plannerCache.errors };
+      delete nextErrors.subjects;
+      commitLocalData({ subjects: nextSubjects, errors: nextErrors });
+    },
+    [commitLocalData],
+  );
+
+  const removeSubject = useCallback(
+    (subjectId: string, options: RemoveSubjectOptions = {}) => {
+      const { removeLinkedExams = true } = options;
+      const nextSubjects = plannerCache.subjects.filter(
+        (subject) => subject.id !== subjectId,
+      );
+      const nextExams = removeLinkedExams
+        ? plannerCache.exams.filter((exam) => exam.subject.id !== subjectId)
+        : plannerCache.exams;
+      const nextErrors = { ...plannerCache.errors };
+      delete nextErrors.subjects;
+      delete nextErrors.exams;
+      commitLocalData({
+        subjects: nextSubjects,
+        exams: nextExams,
+        errors: nextErrors,
+      });
+    },
+    [commitLocalData],
+  );
+
+  const upsertExam = useCallback(
+    (exam: PlannerExam) => {
+      const existingIndex = plannerCache.exams.findIndex(
+        (item) => item.id === exam.id,
+      );
+      const nextExams = [...plannerCache.exams];
+      if (existingIndex >= 0) {
+        nextExams[existingIndex] = {
+          ...nextExams[existingIndex],
+          ...exam,
+        };
+      } else {
+        nextExams.push(exam);
+      }
+      const nextErrors = { ...plannerCache.errors };
+      delete nextErrors.exams;
+      commitLocalData({
+        exams: sortExamsByDate(nextExams),
+        errors: nextErrors,
+      });
+    },
+    [commitLocalData],
+  );
+
+  const removeExam = useCallback(
+    (examId: string) => {
+      const nextExams = plannerCache.exams.filter((exam) => exam.id !== examId);
+      const nextErrors = { ...plannerCache.errors };
+      delete nextErrors.exams;
+      commitLocalData({ exams: nextExams, errors: nextErrors });
+    },
+    [commitLocalData],
+  );
+
   const refresh = useCallback(
     async (refreshOptions: RefreshOptions = {}): Promise<PlannerDataRefreshResult> => {
       const { force = false } = refreshOptions;
@@ -156,7 +296,7 @@ export function usePlannerData(options: UsePlannerDataOptions) {
         };
       }
 
-      if (plannerInFlight) {
+      if (plannerInFlight && !force) {
         const pending = await plannerInFlight;
         if (mountedRef.current) {
           setSubjects(plannerCache.subjects);
@@ -179,25 +319,42 @@ export function usePlannerData(options: UsePlannerDataOptions) {
             }
           }
 
-          const [subjectsRes, examsRes] = await Promise.all([
-            requestJson<PlannerSubject[]>("/api/subjects"),
-            requestJson<PlannerExam[]>("/api/exams"),
-          ]);
+          const subjectsRequest = requestJson<PlannerSubject[]>("/api/subjects");
+          const examsRequest = requestJson<PlannerExam[]>("/api/exams");
+          const subjectsRes = await subjectsRequest;
 
           if (!mountedRef.current || sequence !== refreshSequenceRef.current) {
             return { ok: false, errors: {}, skipped: true };
           }
 
-          const nextErrors: PlannerDataErrors = {};
+          const nextErrors: PlannerDataErrors = { ...plannerCache.errors };
 
           if (subjectsRes.ok && subjectsRes.payload.data) {
             plannerCache.subjects = subjectsRes.payload.data;
+            delete nextErrors.subjects;
           } else {
             nextErrors.subjects = subjectsRes.payload.error ?? "Failed to load subjects";
           }
 
+          plannerCache.errors = nextErrors;
+          plannerCache.loaded = true;
+          plannerCache.fetchedAt = Date.now();
+          writeStoredPlannerCache(plannerCache);
+          hasLoadedOnceRef.current = true;
+          if (mountedRef.current) {
+            setSubjects(plannerCache.subjects);
+            setErrors(nextErrors);
+            setLoading(false);
+          }
+
+          const examsRes = await examsRequest;
+          if (!mountedRef.current || sequence !== refreshSequenceRef.current) {
+            return { ok: false, errors: {}, skipped: true };
+          }
+
           if (examsRes.ok && examsRes.payload.data) {
             plannerCache.exams = examsRes.payload.data;
+            delete nextErrors.exams;
           } else {
             nextErrors.exams = examsRes.payload.error ?? "Failed to load exams";
           }
@@ -259,7 +416,7 @@ export function usePlannerData(options: UsePlannerDataOptions) {
         window.clearTimeout(revisionTimerRef.current);
       }
       revisionTimerRef.current = window.setTimeout(() => {
-        void refresh();
+        void refresh({ force: true });
         revisionTimerRef.current = null;
       }, REVISION_DEBOUNCE_MS);
     });
@@ -280,5 +437,9 @@ export function usePlannerData(options: UsePlannerDataOptions) {
     refreshing,
     errors,
     refresh,
+    upsertSubject,
+    removeSubject,
+    upsertExam,
+    removeExam,
   };
 }

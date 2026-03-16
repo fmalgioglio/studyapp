@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { cookies } from "next/headers";
 import Link from "next/link";
 
 import { SiteNav } from "@/app/_components/site-nav";
-import { SESSION_COOKIE_NAME, verifySessionToken } from "@/server/auth/session";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -27,26 +25,34 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-  const session = token ? verifySessionToken(token) : null;
-
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <div className="min-h-screen">
+        <div className="flex min-h-screen flex-col">
           <header className="site-header sticky top-0 z-40">
             <div className="site-header-inner">
               <Link href="/" className="site-brand">
                 <span className="site-brand-dot" aria-hidden />
                 StudyApp
               </Link>
-              <SiteNav isAuthenticated={Boolean(session)} />
+              <SiteNav />
             </div>
           </header>
-          {children}
+          <div className="flex-1">
+            {children}
+          </div>
+          <footer className="border-t border-slate-200/80 bg-white/85">
+            <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-5 text-sm text-slate-600 sm:px-6">
+              <p>StudyApp 2026</p>
+              <div className="flex flex-wrap items-center gap-4 font-semibold text-slate-700">
+                <Link href="/privacy">Privacy</Link>
+                <Link href="/terms">Terms</Link>
+                <Link href="/cookies">Cookies</Link>
+              </div>
+            </div>
+          </footer>
         </div>
       </body>
     </html>

@@ -4,7 +4,16 @@ import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { useUiLanguage } from "@/app/_hooks/use-ui-language";
-import { usePlannerData } from "@/app/planner/_hooks/use-planner-data";
+import {
+  BookSearchTypeahead,
+  type BookSearchItem,
+  type BookSearchSource,
+} from "@/app/planner/_components/book-search-typeahead";
+import {
+  usePlannerData,
+  type PlannerExam,
+  type PlannerSubject,
+} from "@/app/planner/_hooks/use-planner-data";
 import {
   notifyDataRevision,
   readFocusProgress,
@@ -23,15 +32,52 @@ import {
 import { requestJson } from "../_lib/client-api";
 import { useAuthStudent } from "../_hooks/use-auth-student";
 
+type CreatedExam = PlannerExam;
+type CreatedSubject = PlannerSubject;
+
+type WorkloadReadiness = "known" | "unknown";
+type MaterialType = "book" | "notes" | "mixed";
+
+const EMPTY_FOCUS_PROGRESS: FocusProgressMap = {};
+
 const COPY = {
   en: {
     title: "Exams",
     subtitle: "Manage full-session exams and open timeline details.",
+    subjectSection: "1. Subject",
+    subjectSectionHint: "Pick one subject and continue.",
+    subjectModeExisting: "Use existing subject",
+    subjectModeNew: "Create new subject",
     subject: "Subject",
     selectSubject: "Select subject",
+    newSubjectName: "New subject name",
+    newSubjectColor: "Subject color (optional)",
+    createSubjectHint: "Create a subject inline and continue in one step.",
+    basicsSection: "2. Exam basics",
     examTitle: "Exam title",
     examDate: "Exam date",
     targetGrade: "Target grade (optional)",
+    workloadSection: "Study workload",
+    workloadHelp: "Set workload now, or mark it unknown and refine later.",
+    workloadStatus: "Workload status",
+    workloadKnown: "Known now",
+    workloadUnknown: "Unknown for now",
+    materialType: "Material type",
+    materialTypeHelp: "Choose where your study load comes from.",
+    materialBook: "Book",
+    materialNotes: "Notes",
+    materialMixed: "Mixed",
+    totalPages: "Total pages (optional)",
+    bookLookupLabel: "Book lookup",
+    bookLookupHint: "Search title + author for better matches",
+    bookLookupHelp:
+      "Select a suggestion to attach verified pages and source confidence.",
+    selectedBook: "Selected book",
+    verifiedPages: "Verified pages",
+    confidence: "Confidence",
+    sourceLabel: "Source",
+    notesSummary: "Notes summary (optional)",
+    materialDetails: "Other material details (optional)",
     addExam: "Add exam",
     list: "Exam list",
     none: "No exams yet.",
@@ -41,6 +87,19 @@ const COPY = {
     readiness: "Readiness",
     focusContribution: "Focus contribution",
     focusSignals: "Focus signals",
+    focusMinutes: "Focus minutes",
+    focusSessions: "Focus sessions",
+    loading: "Loading account...",
+    noAccount: "No account context found.",
+    subjectRequired: "Select a subject or create a new one.",
+    subjectCreateError: "Failed to create subject",
+    noDate: "Select an exam date.",
+    created: "Exam created",
+    deleted: "Exam deleted.",
+    loadSubjectsError: "Failed to load subjects",
+    loadExamsError: "Failed to load exams",
+    createError: "Failed to create exam",
+    deleteError: "Failed to delete exam",
     statusNotStarted: "Not started",
     statusWarmingUp: "Warming up",
     statusSteady: "Steady",
@@ -50,25 +109,50 @@ const COPY = {
     contributionLow: "Low",
     contributionMedium: "Medium",
     contributionHigh: "High",
-    loading: "Loading account...",
-    noAccount: "No account context found.",
-    noSubject: "Select a subject first.",
-    noDate: "Select an exam date.",
-    created: "Exam created",
-    deleted: "Exam deleted.",
-    loadSubjectsError: "Failed to load subjects",
-    loadExamsError: "Failed to load exams",
-    createError: "Failed to create exam",
-    deleteError: "Failed to delete exam",
+    workloadKnownChip: "Workload known",
+    workloadUnknownChip: "Workload unknown",
+    provisional: "Provisional",
+    sourceGoogle: "Google Books",
+    sourceOpenLibrary: "Open Library",
+    sourceLocal: "Local catalog",
   },
   it: {
     title: "Esami",
     subtitle: "Gestisci gli esami della sessione e apri la timeline.",
+    subjectSection: "1. Materia",
+    subjectSectionHint: "Seleziona una materia e continua.",
+    subjectModeExisting: "Usa materia esistente",
+    subjectModeNew: "Crea nuova materia",
     subject: "Materia",
     selectSubject: "Seleziona materia",
+    newSubjectName: "Nome nuova materia",
+    newSubjectColor: "Colore materia (opzionale)",
+    createSubjectHint: "Crea una materia inline e continua in un unico passaggio.",
+    basicsSection: "2. Dettagli esame",
     examTitle: "Titolo esame",
     examDate: "Data esame",
     targetGrade: "Voto target (opzionale)",
+    workloadSection: "Carico di studio",
+    workloadHelp: "Imposta il carico ora oppure lascialo provvisorio e rifiniscilo dopo.",
+    workloadStatus: "Stato del carico",
+    workloadKnown: "Gia noto",
+    workloadUnknown: "Sconosciuto per ora",
+    materialType: "Tipo di materiale",
+    materialTypeHelp: "Scegli da dove arriva il carico di studio.",
+    materialBook: "Libro",
+    materialNotes: "Appunti",
+    materialMixed: "Misto",
+    totalPages: "Pagine totali (opzionale)",
+    bookLookupLabel: "Ricerca libro",
+    bookLookupHint: "Cerca titolo + autore per risultati migliori",
+    bookLookupHelp:
+      "Seleziona un suggerimento per collegare pagine verificate e confidenza fonte.",
+    selectedBook: "Libro selezionato",
+    verifiedPages: "Pagine verificate",
+    confidence: "Confidenza",
+    sourceLabel: "Fonte",
+    notesSummary: "Riassunto appunti (opzionale)",
+    materialDetails: "Altri dettagli materiali (opzionale)",
     addExam: "Aggiungi esame",
     list: "Lista esami",
     none: "Nessun esame.",
@@ -78,6 +162,19 @@ const COPY = {
     readiness: "Prontezza",
     focusContribution: "Contributo focus",
     focusSignals: "Segnali focus",
+    focusMinutes: "Minuti focus",
+    focusSessions: "Sessioni focus",
+    loading: "Caricamento account...",
+    noAccount: "Contesto account non trovato.",
+    subjectRequired: "Seleziona una materia o creane una nuova.",
+    subjectCreateError: "Impossibile creare la materia",
+    noDate: "Seleziona la data esame.",
+    created: "Esame creato",
+    deleted: "Esame eliminato.",
+    loadSubjectsError: "Impossibile caricare le materie",
+    loadExamsError: "Impossibile caricare gli esami",
+    createError: "Impossibile creare l'esame",
+    deleteError: "Impossibile eliminare l'esame",
     statusNotStarted: "Non iniziato",
     statusWarmingUp: "In avvio",
     statusSteady: "Costante",
@@ -87,23 +184,14 @@ const COPY = {
     contributionLow: "Basso",
     contributionMedium: "Medio",
     contributionHigh: "Alto",
-    loading: "Caricamento account...",
-    noAccount: "Contesto account non trovato.",
-    noSubject: "Seleziona prima una materia.",
-    noDate: "Seleziona la data esame.",
-    created: "Esame creato",
-    deleted: "Esame eliminato.",
-    loadSubjectsError: "Impossibile caricare le materie",
-    loadExamsError: "Impossibile caricare gli esami",
-    createError: "Impossibile creare l'esame",
-    deleteError: "Impossibile eliminare l'esame",
+    workloadKnownChip: "Carico noto",
+    workloadUnknownChip: "Carico sconosciuto",
+    provisional: "Provvisorio",
+    sourceGoogle: "Google Books",
+    sourceOpenLibrary: "Open Library",
+    sourceLocal: "Catalogo locale",
   },
 } as const;
-
-type CreatedExam = {
-  id: string;
-  title: string;
-};
 
 type ExamsCopy = (typeof COPY)[keyof typeof COPY];
 
@@ -122,6 +210,16 @@ function focusContributionLabel(level: FocusContributionLevel, t: ExamsCopy) {
   return t.contributionNone;
 }
 
+function sourceLabel(source: BookSearchSource | undefined, t: ExamsCopy) {
+  if (source === "google_books") return t.sourceGoogle;
+  if (source === "open_library") return t.sourceOpenLibrary;
+  return t.sourceLocal;
+}
+
+function pct(value: number) {
+  return `${Math.round(value * 100)}%`;
+}
+
 export default function PlannerExamsPage() {
   const { student, loading } = useAuthStudent();
   const { language } = useUiLanguage("en");
@@ -131,26 +229,57 @@ export default function PlannerExamsPage() {
     subscribeToRevision: false,
   });
 
-  const [focusProgress, setFocusProgress] = useState<FocusProgressMap>(readFocusProgress);
+  const [focusProgress, setFocusProgress] = useState<FocusProgressMap>(EMPTY_FOCUS_PROGRESS);
+  const [subjectMode, setSubjectMode] = useState<"existing" | "new">("existing");
   const [subjectId, setSubjectId] = useState("");
+  const [newSubjectName, setNewSubjectName] = useState("");
+  const [newSubjectColor, setNewSubjectColor] = useState("");
   const [examTitle, setExamTitle] = useState("");
   const [examDate, setExamDate] = useState("");
   const [targetGrade, setTargetGrade] = useState("");
+  const [workloadReadiness, setWorkloadReadiness] = useState<WorkloadReadiness>("known");
+  const [materialType, setMaterialType] = useState<MaterialType>("book");
+  const [totalPages, setTotalPages] = useState("");
+  const [bookLookupQuery, setBookLookupQuery] = useState("");
+  const [selectedBook, setSelectedBook] = useState<BookSearchItem | null>(null);
+  const [notesSummary, setNotesSummary] = useState("");
+  const [materialDetails, setMaterialDetails] = useState("");
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const selectedSubjectId = subjectId || subjects[0]?.id || "";
+  const [pagesTouched, setPagesTouched] = useState(false);
+
   const dataErrorMessage = errors.subjects ?? errors.exams ?? "";
+  const selectedSubjectId = subjectMode === "existing" ? subjectId || subjects[0]?.id || "" : "";
   const examTracks = useMemo(
     () => buildExamProgressSnapshot(exams, focusProgress),
     [exams, focusProgress],
   );
+  const examById = useMemo(() => new Map(exams.map((exam) => [exam.id, exam])), [exams]);
 
   useEffect(() => {
+    setFocusProgress(readFocusProgress());
     return subscribeDataRevision((source) => {
       if (source !== "focus_progress") return;
       setFocusProgress(readFocusProgress());
     });
   }, []);
+
+  async function createSubjectByValues(name: string, color?: string) {
+    const { ok, payload } = await requestJson<CreatedSubject>("/api/subjects", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        color: color?.trim() || undefined,
+      }),
+    });
+
+    if (!ok || !payload.data) {
+      throw new Error(payload.error ?? t.subjectCreateError);
+    }
+
+    return payload.data;
+  }
 
   async function handleRefresh() {
     const result = await refresh();
@@ -168,8 +297,23 @@ export default function PlannerExamsPage() {
       return;
     }
 
-    if (!selectedSubjectId) {
-      setMessage(t.noSubject);
+    let nextSubjectId = selectedSubjectId;
+    if (subjectMode === "new") {
+      if (!newSubjectName.trim()) {
+        setMessage(t.subjectRequired);
+        return;
+      }
+      try {
+        const createdSubject = await createSubjectByValues(newSubjectName, newSubjectColor);
+        nextSubjectId = createdSubject.id;
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : t.subjectCreateError);
+        return;
+      }
+    }
+
+    if (!nextSubjectId) {
+      setMessage(t.subjectRequired);
       return;
     }
 
@@ -178,15 +322,49 @@ export default function PlannerExamsPage() {
       return;
     }
 
+    const workloadPayload: Record<string, unknown> = {};
+    const normalizedTotalPages = totalPages ? Number(totalPages) : undefined;
+    if (normalizedTotalPages) {
+      workloadPayload.totalPages = normalizedTotalPages;
+    }
+    if (materialType === "book" || materialType === "mixed") {
+      const bookTitle = selectedBook?.title || bookLookupQuery.trim();
+      if (bookTitle) workloadPayload.bookTitle = bookTitle;
+      if (selectedBook?.verified_page_count) {
+        workloadPayload.verifiedPageCount = selectedBook.verified_page_count;
+      }
+      if (selectedBook?.source) {
+        workloadPayload.bookSource = selectedBook.source;
+      }
+      if (typeof selectedBook?.confidence_score === "number") {
+        workloadPayload.matchConfidenceScore = selectedBook.confidence_score;
+      }
+      if (selectedBook?.authors?.length) {
+        workloadPayload.bookAuthors = selectedBook.authors;
+      }
+      if (selectedBook?.inferred_subject) {
+        workloadPayload.inferredSubject = selectedBook.inferred_subject;
+      }
+    }
+    if (notesSummary.trim()) {
+      workloadPayload.notesSummary = notesSummary.trim();
+    }
+    if (materialDetails.trim()) {
+      workloadPayload.materialDetails = materialDetails.trim();
+    }
+
     setSubmitting(true);
     const { ok, payload } = await requestJson<CreatedExam>("/api/exams", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        subjectId: selectedSubjectId,
+        subjectId: nextSubjectId,
         title: examTitle.trim(),
         examDate,
         targetGrade: targetGrade.trim() || undefined,
+        workloadReadiness,
+        materialType,
+        workloadPayload,
       }),
     });
     setSubmitting(false);
@@ -196,11 +374,23 @@ export default function PlannerExamsPage() {
       return;
     }
 
+    setSubjectMode("existing");
+    setSubjectId(nextSubjectId);
+    setNewSubjectName("");
+    setNewSubjectColor("");
     setExamTitle("");
     setExamDate("");
     setTargetGrade("");
+    setWorkloadReadiness("known");
+    setMaterialType("book");
+    setTotalPages("");
+    setBookLookupQuery("");
+    setSelectedBook(null);
+    setNotesSummary("");
+    setMaterialDetails("");
+    setPagesTouched(false);
     setMessage(`${t.created}: ${payload.data.title}`);
-    const refreshResult = await refresh();
+    const refreshResult = await refresh({ force: true });
     if (!refreshResult.ok && !refreshResult.skipped) {
       setMessage(refreshResult.errors.exams ?? refreshResult.errors.subjects ?? t.loadExamsError);
       return;
@@ -219,7 +409,7 @@ export default function PlannerExamsPage() {
     }
 
     setMessage(t.deleted);
-    const refreshResult = await refresh();
+    const refreshResult = await refresh({ force: true });
     if (!refreshResult.ok && !refreshResult.skipped) {
       setMessage(refreshResult.errors.exams ?? refreshResult.errors.subjects ?? t.loadExamsError);
       return;
@@ -244,67 +434,234 @@ export default function PlannerExamsPage() {
             </div>
           </div>
         ) : (
-          <form className="grid gap-3 md:grid-cols-4" onSubmit={createExam}>
-            <label className="planner-field space-y-1">
-              <span className="planner-eyebrow mb-1 block">
-                {t.subject}
-              </span>
-              <select
-                value={selectedSubjectId}
-                onChange={(event) => setSubjectId(event.target.value)}
-                className="planner-input"
-              >
-                <option value="">{t.selectSubject}</option>
-                {subjects.map((subject) => (
-                  <option key={subject.id} value={subject.id}>
-                    {subject.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+          <form className="space-y-4" onSubmit={createExam}>
+            <section className="planner-card-soft">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="planner-eyebrow">{t.subjectSection}</p>
+                </div>
+                <p className="text-sm text-slate-500">{t.subjectSectionHint}</p>
+              </div>
 
-            <label className="planner-field space-y-1">
-              <span className="planner-eyebrow mb-1 block">
-                {t.examTitle}
-              </span>
-              <input
-                required
-                type="text"
-                value={examTitle}
-                onChange={(event) => setExamTitle(event.target.value)}
-                className="planner-input"
-              />
-            </label>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSubjectMode("existing")}
+                  className={`planner-btn ${
+                    subjectMode === "existing" ? "planner-btn-primary" : "planner-btn-secondary"
+                  }`}
+                >
+                  {t.subjectModeExisting}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSubjectMode("new")}
+                  className={`planner-btn ${
+                    subjectMode === "new" ? "planner-btn-primary" : "planner-btn-secondary"
+                  }`}
+                >
+                  {t.subjectModeNew}
+                </button>
+              </div>
 
-            <label className="planner-field space-y-1">
-              <span className="planner-eyebrow mb-1 block">
-                {t.examDate}
-              </span>
-              <input
-                required
-                type="date"
-                value={examDate}
-                onChange={(event) => setExamDate(event.target.value)}
-                className="planner-input"
-              />
-            </label>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                {subjectMode === "existing" ? (
+                  <label className="planner-field">
+                    <span className="planner-eyebrow mb-1 block">{t.subject}</span>
+                    <select
+                      value={selectedSubjectId}
+                      onChange={(event) => setSubjectId(event.target.value)}
+                      className="planner-input"
+                    >
+                      <option value="">{t.selectSubject}</option>
+                      {subjects.map((subject) => (
+                        <option key={subject.id} value={subject.id}>
+                          {subject.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <>
+                    <label className="planner-field">
+                      <span className="planner-eyebrow mb-1 block">{t.newSubjectName}</span>
+                      <input
+                        required
+                        type="text"
+                        value={newSubjectName}
+                        onChange={(event) => setNewSubjectName(event.target.value)}
+                        className="planner-input"
+                      />
+                    </label>
+                    <label className="planner-field">
+                      <span className="planner-eyebrow mb-1 block">{t.newSubjectColor}</span>
+                      <input
+                        type="text"
+                        value={newSubjectColor}
+                        onChange={(event) => setNewSubjectColor(event.target.value)}
+                        className="planner-input"
+                        placeholder="#0ea5e9"
+                      />
+                    </label>
+                  </>
+                )}
+              </div>
 
-            <label className="planner-field space-y-1">
-              <span className="planner-eyebrow mb-1 block">
-                {t.targetGrade}
-              </span>
-              <input
-                type="text"
-                value={targetGrade}
-                onChange={(event) => setTargetGrade(event.target.value)}
-                className="planner-input"
-              />
-            </label>
+              {subjectMode === "new" ? (
+                <p className="mt-2 text-sm text-slate-500">{t.createSubjectHint}</p>
+              ) : null}
+            </section>
+
+            <section className="grid gap-3 md:grid-cols-4">
+              <label className="planner-field">
+                <span className="planner-eyebrow mb-1 block">{t.examTitle}</span>
+                <input
+                  required
+                  type="text"
+                  value={examTitle}
+                  onChange={(event) => setExamTitle(event.target.value)}
+                  className="planner-input"
+                />
+              </label>
+
+              <label className="planner-field">
+                <span className="planner-eyebrow mb-1 block">{t.examDate}</span>
+                <input
+                  required
+                  type="date"
+                  value={examDate}
+                  onChange={(event) => setExamDate(event.target.value)}
+                  className="planner-input"
+                />
+              </label>
+
+              <label className="planner-field md:col-span-2">
+                <span className="planner-eyebrow mb-1 block">{t.targetGrade}</span>
+                <input
+                  type="text"
+                  value={targetGrade}
+                  onChange={(event) => setTargetGrade(event.target.value)}
+                  className="planner-input"
+                />
+              </label>
+            </section>
+
+            <section className="planner-card">
+              <p className="planner-eyebrow">{t.workloadSection}</p>
+              <p className="mt-1 text-sm text-slate-600">{t.workloadHelp}</p>
+
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <label className="planner-field">
+                  <span className="planner-eyebrow mb-1 block">{t.workloadStatus}</span>
+                  <select
+                    value={workloadReadiness}
+                    onChange={(event) =>
+                      setWorkloadReadiness(event.target.value as WorkloadReadiness)
+                    }
+                    className="planner-input"
+                  >
+                    <option value="known">{t.workloadKnown}</option>
+                    <option value="unknown">{t.workloadUnknown}</option>
+                  </select>
+                </label>
+
+                <label className="planner-field">
+                  <span className="planner-eyebrow mb-1 block">{t.materialType}</span>
+                  <select
+                    value={materialType}
+                    onChange={(event) => setMaterialType(event.target.value as MaterialType)}
+                    className="planner-input"
+                  >
+                    <option value="book">{t.materialBook}</option>
+                    <option value="notes">{t.materialNotes}</option>
+                    <option value="mixed">{t.materialMixed}</option>
+                  </select>
+                  <p className="mt-2 text-sm text-slate-500">{t.materialTypeHelp}</p>
+                </label>
+              </div>
+
+              {(materialType === "book" || materialType === "mixed") ? (
+                <div className="mt-3">
+                  <BookSearchTypeahead
+                    idPrefix="exam-book"
+                    label={t.bookLookupLabel}
+                    query={bookLookupQuery}
+                    subjectHint={
+                      subjectMode === "existing"
+                        ? subjects.find((subject) => subject.id === selectedSubjectId)?.name ?? ""
+                        : newSubjectName
+                    }
+                    placeholder={t.bookLookupHint}
+                    helpText={t.bookLookupHelp}
+                    onQueryChange={(value) => {
+                      setBookLookupQuery(value);
+                      setSelectedBook(null);
+                    }}
+                    onSelect={(item) => {
+                      setSelectedBook(item);
+                      setBookLookupQuery(item.title);
+                      if (!pagesTouched && item.verified_page_count) {
+                        setTotalPages(String(item.verified_page_count));
+                      }
+                    }}
+                  />
+                </div>
+              ) : null}
+
+              {selectedBook ? (
+                <div className="mt-3 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-slate-700">
+                  <p className="font-semibold text-slate-900">{t.selectedBook}: {selectedBook.title}</p>
+                  <p className="mt-1 text-xs text-slate-600">
+                    {t.verifiedPages}: <strong>{selectedBook.verified_page_count ?? "-"}</strong>
+                    {" | "}
+                    {t.confidence}: <strong>{pct(selectedBook.confidence_score)}</strong>
+                    {" | "}
+                    {t.sourceLabel}: <strong>{sourceLabel(selectedBook.source, t)}</strong>
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <label className="planner-field">
+                  <span className="planner-eyebrow mb-1 block">{t.totalPages}</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={totalPages}
+                    onChange={(event) => {
+                      setPagesTouched(true);
+                      setTotalPages(event.target.value);
+                    }}
+                    className="planner-input"
+                  />
+                </label>
+
+                <label className="planner-field">
+                  <span className="planner-eyebrow mb-1 block">{t.materialDetails}</span>
+                  <input
+                    type="text"
+                    value={materialDetails}
+                    onChange={(event) => setMaterialDetails(event.target.value)}
+                    className="planner-input"
+                  />
+                </label>
+              </div>
+
+              <label className="planner-field mt-3 block">
+                <span className="planner-eyebrow mb-1 block">{t.notesSummary}</span>
+                <input
+                  type="text"
+                  value={notesSummary}
+                  onChange={(event) => setNotesSummary(event.target.value)}
+                  className="planner-input"
+                />
+              </label>
+            </section>
 
             <button
               type="submit"
               disabled={submitting}
-              className="planner-btn planner-btn-accent w-full md:col-span-4"
+              className="planner-btn planner-btn-accent w-full"
             >
               {t.addExam}
             </button>
@@ -331,52 +688,87 @@ export default function PlannerExamsPage() {
           <p className="mt-3 text-sm text-slate-600">{t.none}</p>
         ) : (
           <ul className="mt-3 space-y-2">
-            {examTracks.map((track) => (
-              <li
-                key={track.examId}
-                className="planner-card flex flex-wrap items-center justify-between gap-2 bg-slate-50"
-              >
-                <div>
-                  <p className="font-semibold text-slate-900">{track.examTitle}</p>
-                  <p className="text-sm text-slate-600">
-                    {track.subjectName} -{" "}
-                    {new Date(track.examDate).toLocaleDateString(
-                      language === "it" ? "it-IT" : "en-US",
-                    )}
-                  </p>
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                    <span className={`rounded-full border px-2 py-0.5 font-semibold ${progressStateClasses(track.progressState)}`}>
-                      {t.readiness}: {progressStateLabel(track.progressState, t)}
-                    </span>
-                    <span className={`rounded-full border px-2 py-0.5 font-semibold ${focusContributionClasses(track.focusContributionLevel)}`}>
-                      {t.focusContribution}: {focusContributionLabel(track.focusContributionLevel, t)} ({track.focusContributionPercent}%)
-                    </span>
-                    <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 font-semibold text-slate-700">
-                      {track.completedPages}/{track.estimatedPages}p
-                    </span>
-                    <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 font-semibold text-slate-700">
-                      {t.focusSignals}: {track.sessionsCompleted} sessions, {track.minutesSpent}m
-                    </span>
+            {examTracks.map((track) => {
+              const examMeta = examById.get(track.examId);
+              const workloadPayload = examMeta?.workloadPayload ?? null;
+              return (
+                <li
+                  key={track.examId}
+                  className="planner-card flex flex-wrap items-center justify-between gap-3 bg-slate-50"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold text-slate-900">{track.examTitle}</p>
+                      <span className="planner-chip bg-white text-slate-700">
+                        {examMeta?.workloadReadiness === "known"
+                          ? t.workloadKnownChip
+                          : t.workloadUnknownChip}
+                      </span>
+                      {examMeta?.workloadReadiness === "unknown" ? (
+                        <span className="planner-chip border-amber-200 bg-amber-50 text-amber-900">
+                          {t.provisional}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="text-sm text-slate-600">
+                      {track.subjectName} -{" "}
+                      {new Date(track.examDate).toLocaleDateString(
+                        language === "it" ? "it-IT" : "en-US",
+                      )}
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                      <span className={`rounded-full border px-2 py-0.5 font-semibold ${progressStateClasses(track.progressState)}`}>
+                        {t.readiness}: {progressStateLabel(track.progressState, t)}
+                      </span>
+                      <span className={`rounded-full border px-2 py-0.5 font-semibold ${focusContributionClasses(track.focusContributionLevel)}`}>
+                        {t.focusContribution}: {focusContributionLabel(track.focusContributionLevel, t)} ({track.focusContributionPercent}%)
+                      </span>
+                      <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 font-semibold text-slate-700">
+                        {track.completedPages}/{track.estimatedPages}p
+                      </span>
+                      <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 font-semibold text-slate-700">
+                        {t.focusSignals}: {track.sessionsCompleted} / {t.focusMinutes}: {track.minutesSpent}m
+                      </span>
+                    </div>
+                    {workloadPayload ? (
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-600">
+                        {workloadPayload.bookTitle ? (
+                          <span className="rounded-full border border-slate-200 bg-white px-2 py-1">
+                            {workloadPayload.bookTitle}
+                          </span>
+                        ) : null}
+                        {typeof workloadPayload.totalPages === "number" ? (
+                          <span className="rounded-full border border-slate-200 bg-white px-2 py-1">
+                            {workloadPayload.totalPages}p
+                          </span>
+                        ) : null}
+                        {typeof workloadPayload.verifiedPageCount === "number" ? (
+                          <span className="rounded-full border border-slate-200 bg-white px-2 py-1">
+                            {t.verifiedPages}: {workloadPayload.verifiedPageCount}
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Link
-                    href={`/planner?exam=${track.examId}`}
-                    className="planner-btn planner-btn-secondary min-h-0 py-1.5"
-                  >
-                    {t.openTimeline}
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => void deleteExam(track.examId)}
-                    className="planner-btn planner-btn-danger min-h-0 py-1.5"
-                    aria-label={`${t.delete} ${track.examTitle}`}
-                  >
-                    {t.delete} x
-                  </button>
-                </div>
-              </li>
-            ))}
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/planner?exam=${track.examId}`}
+                      className="planner-btn planner-btn-secondary min-h-0 py-1.5"
+                    >
+                      {t.openTimeline}
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => void deleteExam(track.examId)}
+                      className="planner-btn planner-btn-danger min-h-0 py-1.5"
+                      aria-label={`${t.delete} ${track.examTitle}`}
+                    >
+                      {t.delete} x
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

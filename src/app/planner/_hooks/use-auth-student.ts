@@ -9,6 +9,10 @@ type AuthStudent = {
   email: string;
   fullName: string | null;
   weeklyHours: number;
+  subjectAffinity?: {
+    easiestSubjects: string[];
+    effortSubjects: string[];
+  } | null;
 };
 
 const AUTH_CACHE_TTL_MS = 60_000;

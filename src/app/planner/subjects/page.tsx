@@ -128,6 +128,8 @@ const COPY = {
 } as const;
 
 const SUBJECT_HINTS_STORAGE_KEY = "studyapp_subject_hints";
+const EMPTY_FOCUS_PROGRESS: FocusProgressMap = {};
+const EMPTY_SUBJECT_HINTS: Record<string, SubjectHint> = {};
 
 type SubjectsCopy = (typeof COPY)[keyof typeof COPY];
 
@@ -147,17 +149,9 @@ export default function PlannerSubjectsPage() {
     enabled: Boolean(student?.id),
     subscribeToRevision: false,
   });
-  const [focusProgress, setFocusProgress] = useState<FocusProgressMap>(readFocusProgress);
-  const [subjectHints, setSubjectHints] = useState<Record<string, SubjectHint>>(() => {
-    if (typeof window === "undefined") return {};
-    const raw = localStorage.getItem(SUBJECT_HINTS_STORAGE_KEY);
-    if (!raw) return {};
-    try {
-      return JSON.parse(raw) as Record<string, SubjectHint>;
-    } catch {
-      return {};
-    }
-  });
+  const [focusProgress, setFocusProgress] = useState<FocusProgressMap>(EMPTY_FOCUS_PROGRESS);
+  const [subjectHints, setSubjectHints] = useState<Record<string, SubjectHint>>(EMPTY_SUBJECT_HINTS);
+  const [storageHydrated, setStorageHydrated] = useState(false);
   const [subjectName, setSubjectName] = useState("");
   const [subjectColor, setSubjectColor] = useState("");
   const [message, setMessage] = useState("");
@@ -168,8 +162,24 @@ export default function PlannerSubjectsPage() {
   );
 
   useEffect(() => {
+    setFocusProgress(readFocusProgress());
+    if (typeof window !== "undefined") {
+      const raw = localStorage.getItem(SUBJECT_HINTS_STORAGE_KEY);
+      if (raw) {
+        try {
+          setSubjectHints(JSON.parse(raw) as Record<string, SubjectHint>);
+        } catch {
+          setSubjectHints(EMPTY_SUBJECT_HINTS);
+        }
+      }
+    }
+    setStorageHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!storageHydrated) return;
     localStorage.setItem(SUBJECT_HINTS_STORAGE_KEY, JSON.stringify(subjectHints));
-  }, [subjectHints]);
+  }, [storageHydrated, subjectHints]);
 
   useEffect(() => {
     return subscribeDataRevision((source) => {

@@ -24,7 +24,7 @@ const COPY = {
     headline2: "missions, focus, and momentum.",
     description:
       "StudyApp turns complex exam calendars into weekly quests, safe daily targets, and rewarding focus runs.",
-    openPlanner: "Open Planner",
+    openStudyHub: "Open Study Hub",
     login: "Login",
     branding: "Branding and assets",
   },
@@ -34,7 +34,7 @@ const COPY = {
     headline2: "missioni, focus e continuita.",
     description:
       "StudyApp trasforma calendari complessi in quest settimanali, target giornalieri e sessioni focus gratificanti.",
-    openPlanner: "Apri Planner",
+    openStudyHub: "Apri Study Hub",
     login: "Accesso",
     branding: "Branding e assets",
   },
@@ -76,7 +76,7 @@ export default function HomePage() {
               href="/planner"
               className="home-btn home-btn-primary"
             >
-              {t.openPlanner}
+              {t.openStudyHub}
             </Link>
             <Link
               href="/login"

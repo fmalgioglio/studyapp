@@ -52,6 +52,13 @@ type FocusProgressMap = Record<
   }
 >;
 
+const EMPTY_FOCUS_STATS: FocusStats = {
+  xp: 0,
+  streak: 0,
+  sessionsCompleted: 0,
+  lastCompletionDate: "",
+};
+
 const COPY = {
   en: {
     title: "Focus Sessions",
@@ -248,11 +255,12 @@ export default function PlannerFocusPage() {
   const [focusLocked, setFocusLocked] = useState(false);
   const [message, setMessage] = useState("");
   const [rewardLine, setRewardLine] = useState("");
-  const [stats, setStats] = useState<FocusStats>(getInitialFocusStats);
+  const [stats, setStats] = useState<FocusStats>(EMPTY_FOCUS_STATS);
   const [selectedExamId, setSelectedExamId] = useState("");
   const [focusTopic, setFocusTopic] = useState("");
   const [pagesCompletedInput, setPagesCompletedInput] = useState("");
-  const [focusProgress, setFocusProgress] = useState<FocusProgressMap>(readFocusProgress);
+  const [focusProgress, setFocusProgress] = useState<FocusProgressMap>({});
+  const [hasHydratedClientState, setHasHydratedClientState] = useState(false);
   const dataErrorMessage = examsError;
 
   const minutesLeft = Math.floor(focusSecondsLeft / 60);
@@ -310,8 +318,15 @@ export default function PlannerFocusPage() {
   }, [mascotMood, t]);
 
   useEffect(() => {
+    setStats(getInitialFocusStats());
+    setFocusProgress(readFocusProgress());
+    setHasHydratedClientState(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasHydratedClientState) return;
     localStorage.setItem("studyapp_focus_stats", JSON.stringify(stats));
-  }, [stats]);
+  }, [hasHydratedClientState, stats]);
 
   useEffect(() => {
     return subscribeDataRevision((source) => {
