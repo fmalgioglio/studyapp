@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useUiLanguage } from "@/app/_hooks/use-ui-language";
+import { syncAuthStudentCache } from "@/app/planner/_hooks/use-auth-student";
 import { requestJson } from "../planner/_lib/client-api";
 
 const COPY = {
@@ -73,7 +74,12 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
-    const { ok, payload } = await requestJson<{ id: string; email: string }>(
+    const { ok, payload } = await requestJson<{
+      id: string;
+      email: string;
+      fullName: string | null;
+      weeklyHours: number;
+    }>(
       "/api/auth/login",
       {
         method: "POST",
@@ -89,6 +95,8 @@ export default function LoginPage() {
       return;
     }
 
+    syncAuthStudentCache(payload.data);
+
     router.push("/planner");
     router.refresh();
   }
@@ -97,7 +105,12 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
-    const { ok, payload } = await requestJson<{ id: string }>(
+    const { ok, payload } = await requestJson<{
+      id: string;
+      email: string;
+      fullName: string | null;
+      weeklyHours: number;
+    }>(
       "/api/auth/dev-bootstrap",
       {
         method: "POST",
@@ -110,6 +123,8 @@ export default function LoginPage() {
       setError(payload.error ?? "Demo login failed.");
       return;
     }
+
+    syncAuthStudentCache(payload.data);
 
     router.push("/planner");
     router.refresh();

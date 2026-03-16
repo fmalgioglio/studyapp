@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useUiLanguage } from "@/app/_hooks/use-ui-language";
+import { syncAuthStudentCache } from "@/app/planner/_hooks/use-auth-student";
 import { requestJson } from "../planner/_lib/client-api";
 
 const COPY = {
@@ -75,7 +76,12 @@ export default function SignupPage() {
     setError("");
     setLoading(true);
 
-    const { ok, payload } = await requestJson<{ id: string; email: string }>(
+    const { ok, payload } = await requestJson<{
+      id: string;
+      email: string;
+      fullName: string | null;
+      weeklyHours: number;
+    }>(
       "/api/auth/register",
       {
         method: "POST",
@@ -95,6 +101,8 @@ export default function SignupPage() {
       setError(payload.error ?? "Signup failed.");
       return;
     }
+
+    syncAuthStudentCache(payload.data);
 
     router.push("/planner");
     router.refresh();

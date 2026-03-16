@@ -16,6 +16,7 @@ type AuthStudent = {
 };
 
 const AUTH_CACHE_TTL_MS = 60_000;
+const AUTH_NULL_CACHE_TTL_MS = 5_000;
 const AUTH_STORAGE_KEY = "studyapp_auth_cache_v1";
 
 let authCache: AuthStudent | null | undefined;
@@ -56,8 +57,9 @@ async function fetchAuthStudent(): Promise<AuthStudent | null> {
   }
 
   const now = Date.now();
+  const effectiveTtlMs = authCache ? AUTH_CACHE_TTL_MS : AUTH_NULL_CACHE_TTL_MS;
   const hasFreshCache =
-    authCache !== undefined && now - authCacheAt < AUTH_CACHE_TTL_MS;
+    authCache !== undefined && now - authCacheAt < effectiveTtlMs;
   if (hasFreshCache) {
     return authCache ?? null;
   }
