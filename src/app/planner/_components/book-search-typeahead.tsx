@@ -48,6 +48,7 @@ type Props = {
 
 const TYPEAHEAD_DEBOUNCE_MS = 300;
 const TYPEAHEAD_CACHE_TTL_MS = 5 * 60 * 1000;
+const TYPEAHEAD_SELECT_SUPPRESS_MS = 450;
 
 const COPY = {
   en: {
@@ -92,6 +93,10 @@ function pct(value: number) {
   return `${Math.round(value * 100)}%`;
 }
 
+function normalizeQueryValue(value: string) {
+  return value.trim().toLowerCase();
+}
+
 function highlightMatch(text: string, query: string): ReactNode {
   const normalizedQuery = query.trim();
   if (!normalizedQuery) return text;
@@ -128,6 +133,7 @@ export function BookSearchTypeahead({
     new Map(),
   );
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const selectionGuardRef = useRef<{ query: string; until: number } | null>(null);
 
   const [bookSuggestions, setBookSuggestions] = useState<BookSearchItem[]>([]);
   const [bookSearchLoading, setBookSearchLoading] = useState(false);
@@ -155,6 +161,7 @@ export function BookSearchTypeahead({
     }
 
     const normalizedQuery = query.trim();
+    const normalizedQueryKey = normalizeQueryValue(query);
     if (normalizedQuery.length < 2) {
       setBookSuggestions([]);
       setBookSearchLoading(false);
@@ -165,9 +172,23 @@ export function BookSearchTypeahead({
       return;
     }
 
+    const guard = selectionGuardRef.current;
+    if (guard && guard.query === normalizedQueryKey && guard.until > Date.now()) {
+      setBookSuggestions([]);
+      setBookSearchLoading(false);
+      setBookSearchError("");
+      setBookSearchDegraded(false);
+      setShowSuggestions(false);
+      setActiveSuggestionIndex(-1);
+      return;
+    }
+    if (guard && guard.until <= Date.now()) {
+      selectionGuardRef.current = null;
+    }
+
     let active = true;
     const timer = window.setTimeout(async () => {
-      const key = `${normalizedQuery.toLowerCase()}|${subjectHint.toLowerCase()}`;
+      const key = `${normalizedQueryKey}|${normalizeQueryValue(subjectHint)}`;
       const cached = booksCacheRef.current.get(key);
       if (cached && Date.now() - cached.at < TYPEAHEAD_CACHE_TTL_MS) {
         setBookSuggestions(cached.items);
@@ -229,6 +250,16 @@ export function BookSearchTypeahead({
   }
 
   function selectSuggestion(item: BookSearchItem) {
+    const normalizedSelectedQuery = normalizeQueryValue(item.title);
+    if (normalizedSelectedQuery) {
+      selectionGuardRef.current = {
+        query: normalizedSelectedQuery,
+        until: Date.now() + TYPEAHEAD_SELECT_SUPPRESS_MS,
+      };
+    } else {
+      selectionGuardRef.current = null;
+    }
+
     onSelect(item);
     setBookSuggestions([]);
     setShowSuggestions(false);
@@ -289,13 +320,25 @@ export function BookSearchTypeahead({
           value={query}
           disabled={disabled}
           onChange={(event) => {
-            onQueryChange(event.target.value);
+            const nextQuery = event.target.value;
+            const guard = selectionGuardRef.current;
+            if (guard && normalizeQueryValue(nextQuery) !== guard.query) {
+              selectionGuardRef.current = null;
+            }
+            onQueryChange(nextQuery);
             setShowSuggestions(true);
             setBookSearchError("");
           }}
           onFocus={() => {
             if (query.trim().length >= 2) {
-              setShowSuggestions(true);
+              const guard = selectionGuardRef.current;
+              const isSuppressed =
+                guard &&
+                guard.query === normalizeQueryValue(query) &&
+                guard.until > Date.now();
+              if (!isSuppressed) {
+                setShowSuggestions(true);
+              }
             }
           }}
           onBlur={() => {
@@ -367,8 +410,15 @@ export function BookSearchTypeahead({
                         role="option"
                         aria-selected={active}
                         onMouseEnter={() => setActiveSuggestionIndex(index)}
-                        onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => selectSuggestion(item)}
+                        onPointerDown={(event) => {
+                          event.preventDefault();
+                          selectSuggestion(item);
+                        }}
+                        onClick={(event) => {
+                          if (event.detail === 0) {
+                            selectSuggestion(item);
+                          }
+                        }}
                         className={`study-typeahead-option ${
                           active ? "study-typeahead-option-active" : ""
                         }`}
