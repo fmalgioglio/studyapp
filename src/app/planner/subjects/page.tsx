@@ -65,25 +65,28 @@ const COPY = {
     name: "Subject name",
     color: "Color label",
     add: "Add subject",
-    analytics: "Subject load dashboard",
+    subjectDashboard: "Subject dashboard",
     noSubjects: "No subjects yet. Add one to unlock planning cards.",
-    workloadGuide: "Workload guide",
+    studyPaceGuide: "Study pace guide",
     linkedExams: "Exams linked",
     closestDeadline: "Closest deadline",
     readyExams: "Ready exams",
     avgProgress: "Average progress",
     focusMinutes: "Focus minutes",
     openTimeline: "Open timeline",
-    workloadMode: "Workload mode",
-    summaryCoverage: "Summary coverage %",
-    noLinkedExamsHint: "Link an exam to apply workload settings per exam.",
+    studyPace: "Study pace",
+    studyFromSummariesPercent: "Study from summaries %",
+    studyPaceHint: "Pick the daily intensity for this exam.",
+    studyFromSummariesHint: "Set how much this exam should rely on summaries.",
+    summariesScaleHint: "0% = full material, 100% = summaries only",
+    noLinkedExamsHint: "Link an exam to set its study pace and summary use.",
     loading: "Loading account...",
     noAccount: "No account context found.",
     subjectCreated: "Subject created",
-    hintSaved: "Subject hint saved for algorithm tuning.",
+    studySettingsSaved: "Exam study settings saved.",
     noDeadline: "n/a",
     daySuffix: "day(s)",
-    examsPerSubject: "Exam timelines",
+    examSettings: "Per-exam study settings",
     openExams: "Open Exams",
     delete: "Delete",
     deleteConfirmPrompt: "Delete subject",
@@ -101,9 +104,9 @@ const COPY = {
     statusSteady: "Steady",
     statusAlmostReady: "Almost ready",
     statusReady: "Ready",
-    light: "Light",
-    standard: "Standard",
-    deep: "Deep",
+    light: "Light pace",
+    standard: "Balanced pace",
+    deep: "Intensive pace",
     lightGuide:
       "Lower daily intensity, larger revision buffer, safer against overload.",
     standardGuide:
@@ -118,25 +121,28 @@ const COPY = {
     name: "Nome materia",
     color: "Colore",
     add: "Aggiungi materia",
-    analytics: "Dashboard carico materie",
+    subjectDashboard: "Dashboard materia",
     noSubjects: "Nessuna materia. Aggiungine una per attivare le card.",
-    workloadGuide: "Guida carico",
+    studyPaceGuide: "Guida ritmo di studio",
     linkedExams: "Esami collegati",
     closestDeadline: "Scadenza piu vicina",
     readyExams: "Esami pronti",
     avgProgress: "Progresso medio",
     focusMinutes: "Minuti focus",
     openTimeline: "Apri timeline",
-    workloadMode: "Modalita carico",
-    summaryCoverage: "Copertura riassunti %",
-    noLinkedExamsHint: "Collega un esame per applicare le impostazioni di carico per esame.",
+    studyPace: "Ritmo di studio",
+    studyFromSummariesPercent: "Studio da riassunti %",
+    studyPaceHint: "Scegli l'intensita giornaliera per questo esame.",
+    studyFromSummariesHint: "Indica quanto vuoi basarti sui riassunti per questo esame.",
+    summariesScaleHint: "0% = materiale completo, 100% = solo riassunti",
+    noLinkedExamsHint: "Collega un esame per impostare ritmo di studio e uso dei riassunti.",
     loading: "Caricamento account...",
     noAccount: "Contesto account non trovato.",
     subjectCreated: "Materia creata",
-    hintSaved: "Preferenza materia salvata per l'algoritmo.",
+    studySettingsSaved: "Impostazioni di studio esame salvate.",
     noDeadline: "n/d",
     daySuffix: "giorni",
-    examsPerSubject: "Timeline esami",
+    examSettings: "Impostazioni studio per esame",
     openExams: "Apri Esami",
     delete: "Elimina",
     deleteConfirmPrompt: "Eliminare la materia",
@@ -154,9 +160,9 @@ const COPY = {
     statusSteady: "Costante",
     statusAlmostReady: "Quasi pronto",
     statusReady: "Pronto",
-    light: "Light",
-    standard: "Standard",
-    deep: "Deep",
+    light: "Ritmo leggero",
+    standard: "Ritmo bilanciato",
+    deep: "Ritmo intensivo",
     lightGuide:
       "Intensita giornaliera ridotta, maggiore buffer di revisione, meno rischio di overload.",
     standardGuide:
@@ -357,7 +363,7 @@ export default function PlannerSubjectsPage() {
         ...normalizedPatch,
       },
     }));
-    setMessage(t.hintSaved);
+    setMessage(t.studySettingsSaved);
   }
 
   return (
@@ -368,7 +374,7 @@ export default function PlannerSubjectsPage() {
       </section>
 
       <section className="planner-panel">
-        <h2 className="text-lg font-bold text-slate-900">{t.workloadGuide}</h2>
+        <h2 className="text-lg font-bold text-slate-900">{t.studyPaceGuide}</h2>
         <div className="mt-3 grid gap-3 md:grid-cols-3">
           <article className="planner-card border-emerald-300 bg-emerald-50">
             <p className="planner-eyebrow text-emerald-700">{t.light}</p>
@@ -463,7 +469,7 @@ export default function PlannerSubjectsPage() {
       </section>
 
       <section className="planner-panel">
-        <h2 className="text-lg font-bold text-slate-900">{t.analytics}</h2>
+        <h2 className="text-lg font-bold text-slate-900">{t.subjectDashboard}</h2>
         {subjects.length === 0 ? (
           <p className="mt-3 text-sm text-slate-600">{t.noSubjects}</p>
         ) : (
@@ -544,9 +550,7 @@ export default function PlannerSubjectsPage() {
                   </div>
 
                   <div className="planner-card-soft mt-2 bg-white p-2">
-                    <p className="planner-eyebrow">
-                      {t.examsPerSubject}
-                    </p>
+                    <p className="planner-eyebrow">{t.examSettings}</p>
                     {linkedTracks.length === 0 ? (
                       <p className="mt-1 text-xs text-slate-500">{t.noLinkedExamsHint}</p>
                     ) : (
@@ -566,9 +570,10 @@ export default function PlannerSubjectsPage() {
                                 {" - "}
                                 {progressStateLabel(track.progressState, t)}
                               </Link>
-                              <div className="mt-1.5 flex flex-wrap gap-2">
-                                <label className="flex items-center gap-1 text-xs text-slate-500">
-                                  {t.workloadMode}
+                              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                                <section className="rounded border border-slate-200 bg-slate-50 p-2">
+                                  <p className="text-xs font-semibold text-slate-700">{t.studyPace}</p>
+                                  <p className="mt-0.5 text-[11px] text-slate-500">{t.studyPaceHint}</p>
                                   <select
                                     value={examHint.workloadMode}
                                     onChange={(event) =>
@@ -576,15 +581,21 @@ export default function PlannerSubjectsPage() {
                                         workloadMode: event.target.value as ExamHint["workloadMode"],
                                       })
                                     }
-                                    className="planner-input py-0.5 text-xs normal-case text-slate-800"
+                                    className="planner-input mt-1.5 py-0.5 text-xs normal-case text-slate-800"
                                   >
                                     <option value="light">{t.light}</option>
                                     <option value="standard">{t.standard}</option>
                                     <option value="deep">{t.deep}</option>
                                   </select>
-                                </label>
-                                <label className="flex items-center gap-1 text-xs text-slate-500">
-                                  {t.summaryCoverage}
+                                </section>
+
+                                <section className="rounded border border-slate-200 bg-slate-50 p-2">
+                                  <p className="text-xs font-semibold text-slate-700">
+                                    {t.studyFromSummariesPercent}
+                                  </p>
+                                  <p className="mt-0.5 text-[11px] text-slate-500">
+                                    {t.studyFromSummariesHint}
+                                  </p>
                                   <input
                                     type="number"
                                     min={0}
@@ -595,9 +606,10 @@ export default function PlannerSubjectsPage() {
                                         summaryCoverage: Number(event.target.value),
                                       })
                                     }
-                                    className="planner-input w-16 py-0.5 text-xs normal-case text-slate-800"
+                                    className="planner-input mt-1.5 w-20 py-0.5 text-xs normal-case text-slate-800"
                                   />
-                                </label>
+                                  <p className="mt-1 text-[11px] text-slate-500">{t.summariesScaleHint}</p>
+                                </section>
                               </div>
                             </div>
                           );
