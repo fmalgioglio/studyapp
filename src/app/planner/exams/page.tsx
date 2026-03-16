@@ -67,6 +67,18 @@ const COPY = {
     materialBook: "Book",
     materialNotes: "Notes",
     materialMixed: "Mixed",
+    notebookTitle: "Material guide",
+    notebookIntro: "Use this to classify your exam material before entering workload details.",
+    notebookBookTitle: "Book case",
+    notebookBookBody: "Choose this when most of your preparation is from one main textbook.",
+    notebookNotesTitle: "Notes case",
+    notebookNotesBody: "Choose this when your preparation is mainly from notes, slides, or handouts.",
+    notebookMixedTitle: "Mixed case",
+    notebookMixedBody: "Choose this when your exam load is split between textbook and notes.",
+    notebookFocusTitle: "Interpretation",
+    notebookFocusBody: "The app currently interprets this exam as",
+    notebookScopeHint:
+      "In Material scope, enter the exact chapters, units, or note sets included in this exam.",
     totalPages: "Total pages (optional)",
     bookLookupLabel: "Book lookup",
     bookLookupHint: "Search title + author for better matches",
@@ -77,7 +89,7 @@ const COPY = {
     confidence: "Confidence",
     sourceLabel: "Source",
     notesSummary: "Notes summary (optional)",
-    materialDetails: "Other material details (optional)",
+    materialDetails: "Material scope (optional)",
     addExam: "Add exam",
     editWorkload: "Edit workload",
     saveWorkload: "Save workload",
@@ -147,6 +159,18 @@ const COPY = {
     materialBook: "Libro",
     materialNotes: "Appunti",
     materialMixed: "Misto",
+    notebookTitle: "Guida materiale",
+    notebookIntro: "Usala per classificare il materiale prima di inserire i dettagli del carico.",
+    notebookBookTitle: "Caso libro",
+    notebookBookBody: "Sceglilo quando la preparazione dipende soprattutto da un testo principale.",
+    notebookNotesTitle: "Caso appunti",
+    notebookNotesBody: "Sceglilo quando la preparazione si basa soprattutto su appunti, slide o dispense.",
+    notebookMixedTitle: "Caso misto",
+    notebookMixedBody: "Sceglilo quando il carico e distribuito tra libro e appunti.",
+    notebookFocusTitle: "Interpretazione",
+    notebookFocusBody: "L'app interpreta questo esame come",
+    notebookScopeHint:
+      "In Perimetro materiale, indica i capitoli, le unita o i blocchi di appunti inclusi.",
     totalPages: "Pagine totali (opzionale)",
     bookLookupLabel: "Ricerca libro",
     bookLookupHint: "Cerca titolo + autore per risultati migliori",
@@ -157,7 +181,7 @@ const COPY = {
     confidence: "Confidenza",
     sourceLabel: "Fonte",
     notesSummary: "Riassunto appunti (opzionale)",
-    materialDetails: "Altri dettagli materiali (opzionale)",
+    materialDetails: "Perimetro materiale (opzionale)",
     addExam: "Aggiungi esame",
     editWorkload: "Modifica carico",
     saveWorkload: "Salva carico",
@@ -226,6 +250,16 @@ function sourceLabel(source: BookSearchSource | undefined, t: ExamsCopy) {
   return t.sourceLocal;
 }
 
+function activeNotebookCase(materialType: MaterialType, t: ExamsCopy) {
+  if (materialType === "notes") {
+    return { title: t.notebookNotesTitle, body: t.notebookNotesBody };
+  }
+  if (materialType === "mixed") {
+    return { title: t.notebookMixedTitle, body: t.notebookMixedBody };
+  }
+  return { title: t.notebookBookTitle, body: t.notebookBookBody };
+}
+
 function pct(value: number) {
   return `${Math.round(value * 100)}%`;
 }
@@ -289,6 +323,7 @@ export default function PlannerExamsPage() {
   const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
 
   const dataErrorMessage = errors.subjects ?? errors.exams ?? "";
+  const activeNotebook = activeNotebookCase(materialType, t);
   const selectedSubjectId = subjectMode === "existing" ? subjectId || subjects[0]?.id || "" : "";
   const examTracks = useMemo(
     () => buildExamProgressSnapshot(exams, focusProgress),
@@ -707,6 +742,46 @@ export default function PlannerExamsPage() {
                   </select>
                   <p className="mt-2 text-sm text-slate-500">{t.materialTypeHelp}</p>
                 </label>
+              </div>
+
+              <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                  {t.notebookTitle}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">{t.notebookIntro}</p>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  {[
+                    { type: "book", title: t.notebookBookTitle, body: t.notebookBookBody },
+                    { type: "notes", title: t.notebookNotesTitle, body: t.notebookNotesBody },
+                    { type: "mixed", title: t.notebookMixedTitle, body: t.notebookMixedBody },
+                  ].map((item) => {
+                    const isActive = materialType === item.type;
+                    return (
+                      <div
+                        key={item.type}
+                        className={`rounded-xl border px-3 py-2 ${
+                          isActive
+                            ? "border-slate-400 bg-white text-slate-900 shadow-sm"
+                            : "border-slate-200 bg-white/80 text-slate-700"
+                        }`}
+                      >
+                        <p className="text-xs font-semibold">{item.title}</p>
+                        <p className="mt-1 text-xs leading-5 text-slate-600">{item.body}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-2">
+                  <p className="text-xs font-semibold text-slate-800">{activeNotebook.title}</p>
+                  <p className="mt-1 text-xs text-slate-600">{activeNotebook.body}</p>
+                  <p className="mt-1 text-xs text-slate-500">{t.notebookScopeHint}</p>
+                  <p className="mt-1 text-xs text-slate-600">
+                    <span className="font-semibold text-slate-700">{t.notebookFocusTitle}: </span>
+                    {t.notebookFocusBody} <span className="font-semibold">{activeNotebook.title}</span>.
+                  </p>
+                </div>
               </div>
 
               {(materialType === "book" || materialType === "mixed") ? (
