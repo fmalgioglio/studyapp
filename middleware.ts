@@ -1,8 +1,24 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+function getHostname(host: string) {
+  if (!host) {
+    return "";
+  }
+
+  if (host.startsWith("[")) {
+    const closingBracketIndex = host.indexOf("]");
+    return closingBracketIndex >= 0
+      ? host.slice(1, closingBracketIndex)
+      : host;
+  }
+
+  return host.split(":")[0]?.trim() ?? "";
+}
+
 function shouldRedirectToCanonicalHost(host: string) {
-  return host.startsWith("127.0.0.1") || host.startsWith("[::1]");
+  const hostname = getHostname(host);
+  return hostname === "127.0.0.1" || hostname === "::1";
 }
 
 export function middleware(request: NextRequest) {
@@ -25,8 +41,10 @@ export function middleware(request: NextRequest) {
   const redirectUrl = nextUrl.clone();
   redirectUrl.hostname = "localhost";
   redirectUrl.protocol = request.headers.get("x-forwarded-proto") ?? nextUrl.protocol;
+  const redirectStatus =
+    request.method === "GET" || request.method === "HEAD" ? 308 : 307;
 
-  return NextResponse.redirect(redirectUrl, 307);
+  return NextResponse.redirect(redirectUrl, redirectStatus);
 }
 
 export const config = {

@@ -31,7 +31,7 @@ export default async function RootLayout({
       {process.env.NODE_ENV !== "production" ? (
         <head>
           <Script id="canonical-localhost" strategy="beforeInteractive">
-            {`(function(){var host=window.location.hostname;if(host==='127.0.0.1'||host==='[::1]'){var url=new URL(window.location.href);url.hostname='localhost';window.location.replace(url.toString());}})();`}
+            {`(function(){var host=window.location.hostname;if(host==='127.0.0.1'||host==='::1'||host==='[::1]'){var url=new URL(window.location.href);url.hostname='localhost';window.location.replace(url.toString());}})();`}
           </Script>
         </head>
       ) : null}
