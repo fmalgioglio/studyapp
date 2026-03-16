@@ -38,33 +38,37 @@ The objective is simple: convert study material (books, notes, topics) into a re
 npm install
 ```
 
-2. Start local database service
+2. Copy env defaults and enable one-click dev access if you want the browser shortcut
 
 ```bash
-npx prisma dev
+cp .env.example .env.local
 ```
 
-3. Apply migrations and generate client
+Set `DEV_BOOTSTRAP_ENABLED=true` in `.env.local` to show the `Enter dev app` button on `/` and `/login`.
 
-```bash
-npx prisma migrate dev --name init_core
-npx prisma generate
-```
-
-4. Start the app
+3. Start the app
 
 ```bash
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+`npm run dev` starts Prisma local dev if needed and runs Next on `http://localhost:3000`.
+Use `localhost`, not `127.0.0.1`, as the canonical local origin.
+No Python or `venv` is required for the normal local flow.
 
-5. Set auth secret for session cookies (required)
+4. Open the app
+
+Open `http://localhost:3000`.
+If `DEV_BOOTSTRAP_ENABLED=true`, click `Enter dev app` on the homepage or login page to create a browser session and jump to `/planner`.
+
+5. First-run database sync only when needed
 
 ```bash
-# PowerShell
-$env:AUTH_SECRET="replace-with-a-long-random-secret"
+npx prisma migrate dev
+npx prisma generate
 ```
+
+`AUTH_SECRET` is optional in local development because the app falls back to a dev-only secret outside production.
 
 ## API Endpoints (MVP)
 
