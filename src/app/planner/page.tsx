@@ -66,7 +66,6 @@ const COPY = {
     completed: "Completed",
     remaining: "Remaining",
     latestTopic: "Latest focus topic",
-    noTopic: "No topic logged yet.",
     examsCount: "Exams",
     weekBudget: "Week budget",
     weeklyPages: "Weekly pages",
@@ -94,7 +93,6 @@ const COPY = {
     contributionLow: "Low",
     contributionMedium: "Medium",
     contributionHigh: "High",
-    milestones: "Milestones",
     pagesUnit: "pages",
     minutesUnit: "min",
     xpLabel: "XP",
@@ -138,7 +136,6 @@ const COPY = {
     completed: "Completato",
     remaining: "Residuo",
     latestTopic: "Ultimo topic focus",
-    noTopic: "Nessun topic registrato.",
     examsCount: "Esami",
     weekBudget: "Budget settimanale",
     weeklyPages: "Pagine settimanali",
@@ -166,7 +163,6 @@ const COPY = {
     contributionLow: "Basso",
     contributionMedium: "Medio",
     contributionHigh: "Alto",
-    milestones: "Milestone",
     pagesUnit: "pagine",
     minutesUnit: "min",
     xpLabel: "XP",
@@ -271,6 +267,7 @@ function formatUpdatedAt(updatedAt: string, language: PlannerLanguage) {
 }
 
 function buildExamPlanSteps(track: ExamTrack, t: PlannerCopy, language: PlannerLanguage) {
+  // Keep this section grounded in tracked data instead of generated milestone copy.
   if (language === "it") {
     return [
       track.remainingPages > 0
@@ -367,31 +364,22 @@ export default function PlannerOverviewPage() {
     if (!storageHydrated) return EMPTY_SEASON_PLAN;
     return buildSeasonPlan(exams, student?.weeklyHours ?? 10, focusProgress, seasonMode);
   }, [exams, student?.weeklyHours, focusProgress, seasonMode, storageHydrated]);
-  const timelineTracks = useMemo(() => {
-    const seenExamIds = new Set<string>();
-
-    return seasonPlan.examTracks.filter((track) => {
-      if (seenExamIds.has(track.examId)) return false;
-      seenExamIds.add(track.examId);
-      return true;
-    });
-  }, [seasonPlan.examTracks]);
   const examTrackById = useMemo(
-    () => new Map(timelineTracks.map((track) => [track.examId, track])),
-    [timelineTracks],
+    () => new Map(seasonPlan.examTracks.map((track) => [track.examId, track])),
+    [seasonPlan.examTracks],
   );
   const completionByExamId = useMemo(
     () =>
-      timelineTracks.reduce<Record<string, number>>((acc, track) => {
+      seasonPlan.examTracks.reduce<Record<string, number>>((acc, track) => {
         acc[track.examId] = track.completionPercent;
         return acc;
       }, {}),
-    [timelineTracks],
+    [seasonPlan.examTracks],
   );
   const selectedTrack = useMemo(() => {
-    if (!selectedExamId) return timelineTracks[0] ?? null;
-    return timelineTracks.find((track) => track.examId === selectedExamId) ?? timelineTracks[0] ?? null;
-  }, [timelineTracks, selectedExamId]);
+    if (!selectedExamId) return seasonPlan.examTracks[0] ?? null;
+    return seasonPlan.examTracks.find((track) => track.examId === selectedExamId) ?? null;
+  }, [seasonPlan.examTracks, selectedExamId]);
 
   async function refreshSeasonData() {
     const result = await refresh();
@@ -608,18 +596,20 @@ export default function PlannerOverviewPage() {
           </Link>
         </div>
 
-        {timelineTracks.length > 0 ? (
+        {seasonPlan.examTracks.length > 0 ? (
           <div className="mt-4 grid gap-4 lg:grid-cols-[0.95fr_1.4fr]">
             <div>
               <p className="planner-eyebrow px-1">{t.examList}</p>
-              <div className="mt-2 space-y-3">
-                {timelineTracks.map((track) => {
+              <div className="mt-2 space-y-3" role="listbox" aria-label={t.examList}>
+                {seasonPlan.examTracks.map((track) => {
                   const selected = selectedTrack?.examId === track.examId;
 
                   return (
                     <button
                       key={track.examId}
                       type="button"
+                      role="option"
+                      aria-selected={selected}
                       onClick={() => setManualSelectedExamId(track.examId)}
                       className={`w-full rounded-3xl border p-4 text-left transition ${
                         selected
