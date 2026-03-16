@@ -11,8 +11,14 @@ export function middleware(request: NextRequest) {
   }
 
   const requestHost = request.headers.get("host") ?? "";
+  const forwardedHost = request.headers.get("x-forwarded-host") ?? "";
   const nextUrl = request.nextUrl;
-  if (!shouldRedirectToCanonicalHost(requestHost)) {
+  const needsCanonicalRedirect =
+    shouldRedirectToCanonicalHost(requestHost) ||
+    shouldRedirectToCanonicalHost(forwardedHost) ||
+    shouldRedirectToCanonicalHost(nextUrl.hostname);
+
+  if (!needsCanonicalRedirect) {
     return NextResponse.next();
   }
 
