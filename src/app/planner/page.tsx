@@ -364,6 +364,7 @@ export default function PlannerOverviewPage() {
     if (!storageHydrated) return EMPTY_SEASON_PLAN;
     return buildSeasonPlan(exams, student?.weeklyHours ?? 10, focusProgress, seasonMode);
   }, [exams, student?.weeklyHours, focusProgress, seasonMode, storageHydrated]);
+  // The season engine is the source of truth for one rendered track per exam.
   const examTrackById = useMemo(
     () => new Map(seasonPlan.examTracks.map((track) => [track.examId, track])),
     [seasonPlan.examTracks],
@@ -378,6 +379,7 @@ export default function PlannerOverviewPage() {
   );
   const selectedTrack = useMemo(() => {
     if (!selectedExamId) return seasonPlan.examTracks[0] ?? null;
+    // Keep invalid or deleted exam links in an explicit empty state instead of silently switching exams.
     return seasonPlan.examTracks.find((track) => track.examId === selectedExamId) ?? null;
   }, [seasonPlan.examTracks, selectedExamId]);
 
