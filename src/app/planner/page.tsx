@@ -1,12 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { useSiteTheme } from "@/app/_hooks/use-site-theme";
 import { useUiLanguage } from "@/app/_hooks/use-ui-language";
 import { useAuthStudent } from "./_hooks/use-auth-student";
 import { usePlannerData } from "./_hooks/use-planner-data";
@@ -273,7 +271,6 @@ export default function PlannerOverviewPage() {
   const { student, loading } = useAuthStudent();
   const searchParams = useSearchParams();
   const { language } = useUiLanguage("en");
-  const { theme } = useSiteTheme("parrot");
   const t = COPY[language] ?? COPY.en;
   const { subjects, exams, errors, refresh } = usePlannerData({
     enabled: Boolean(student?.id),
@@ -384,9 +381,6 @@ export default function PlannerOverviewPage() {
         ? t.riskMedium
         : t.riskHigh;
 
-  const mascotName = theme === "parrot" ? "Aero the Parrot" : "Nami the Dolphin";
-  const mascotImage = theme === "parrot" ? "/mascots/parrot.svg" : "/mascots/dolphin.svg";
-
   return (
     <main className="space-y-5 sm:space-y-6">
       <section className="planner-panel planner-hero overflow-hidden">
@@ -397,9 +391,6 @@ export default function PlannerOverviewPage() {
             </p>
             <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-900">{t.title}</h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-700">{t.subtitle}</p>
-            <p className="mt-2 text-sm text-slate-700">
-              Mascot coach: <strong>{mascotName}</strong>
-            </p>
             <p className="mt-1 text-xs text-slate-500">{t.allExamsShown}</p>
           </div>
           <div className="planner-card max-w-sm bg-white/90">
@@ -436,26 +427,34 @@ export default function PlannerOverviewPage() {
           </div>
           <div className="planner-card bg-white/90">
             <p className="planner-eyebrow">{t.weeklyPages}</p>
-            <p className="text-2xl font-black text-slate-900">{seasonPlan.weeklyPagesTarget}</p>
+            <p className="text-lg font-semibold text-slate-700">{seasonPlan.weeklyPagesTarget}</p>
           </div>
           <div className="planner-card bg-white/90">
             <p className="planner-eyebrow">{t.risk}</p>
             <p className="text-2xl font-black text-slate-900">{riskLabel}</p>
           </div>
         </div>
-        <div className="planner-card mt-4 flex items-center gap-3 bg-white/90">
-          <Image
-            src={mascotImage}
-            alt={mascotName}
-            width={56}
-            height={56}
-            className="h-14 w-14 animate-[floaty_3.5s_ease-in-out_infinite]"
-          />
-          <p className="text-sm text-slate-700">
+        <div className="planner-card mt-4 bg-white/90">
+          <p className="planner-eyebrow">{language === "en" ? "Streak log" : "Registro streak"}</p>
+          <p className="mt-1 text-sm text-slate-700">
             {language === "en"
-              ? "Mascot reaction: complete quests to unlock cheerful break reminders."
-              : "Reazione mascotte: completa missioni per sbloccare reminder e ricompense."}
+              ? "Steady progress summary for today and this season."
+              : "Riepilogo progressi stabile per oggi e per la stagione."}
           </p>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-xl bg-slate-50 p-2">
+              <p className="planner-eyebrow">{t.streakLabel}</p>
+              <p className="text-lg font-semibold text-slate-900">{focusStats.streak}d</p>
+            </div>
+            <div className="rounded-xl bg-slate-50 p-2">
+              <p className="planner-eyebrow">{t.sessionsLabel}</p>
+              <p className="text-lg font-semibold text-slate-900">{focusStats.sessionsCompleted}</p>
+            </div>
+            <div className="rounded-xl bg-slate-50 p-2">
+              <p className="planner-eyebrow">{t.xpLabel}</p>
+              <p className="text-lg font-semibold text-slate-900">{focusStats.xp + simXpReward}</p>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -517,8 +516,11 @@ export default function PlannerOverviewPage() {
                         {missionTrack ? ` (${missionTrack.completionPercent}%)` : ""}
                       </p>
                     ) : null}
-                    <p className="mt-3 text-sm text-slate-700">
-                      <strong>{mission.pages} pages</strong> - <strong>{mission.minutes} min</strong>
+                    <p className="mt-3 text-sm font-semibold text-slate-800">
+                      {mission.minutes} {t.minutesUnit}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {mission.pages} {t.pagesUnit}
                     </p>
                     <p className="text-xs text-indigo-700">Reward: +{mission.xp} XP</p>
                     <button
