@@ -24,7 +24,7 @@ type CreatedSubject = {
   name: string;
 };
 
-type SubjectHint = {
+type ExamHint = {
   workloadMode: "light" | "standard" | "deep";
   summaryCoverage: number;
 };
@@ -167,7 +167,7 @@ const COPY = {
 } as const;
 
 const EXAM_HINTS_STORAGE_KEY = "studyapp_exam_hints";
-const EMPTY_EXAM_HINTS: Record<string, SubjectHint> = {};
+const EMPTY_EXAM_HINTS: Record<string, ExamHint> = {};
 
 const HYDRATION_SUBSCRIBE = () => () => {};
 const getHydratedSnapshot = () => true;
@@ -210,14 +210,14 @@ function buildCascadeConfirmMessage(
   ].join("\n");
 }
 
-function getInitialExamHints(): Record<string, SubjectHint> {
+function getInitialExamHints(): Record<string, ExamHint> {
   if (typeof window === "undefined") return EMPTY_EXAM_HINTS;
 
   const raw = localStorage.getItem(EXAM_HINTS_STORAGE_KEY);
   if (!raw) return EMPTY_EXAM_HINTS;
 
   try {
-    return JSON.parse(raw) as Record<string, SubjectHint>;
+    return JSON.parse(raw) as Record<string, ExamHint>;
   } catch {
     return EMPTY_EXAM_HINTS;
   }
@@ -234,7 +234,7 @@ export default function PlannerSubjectsPage() {
   const [focusProgress, setFocusProgress] = useState<FocusProgressMap>(() =>
     readFocusProgress(),
   );
-  const [examHints, setExamHints] = useState<Record<string, SubjectHint>>(
+  const [examHints, setExamHints] = useState<Record<string, ExamHint>>(
     () => getInitialExamHints(),
   );
   const storageHydrated = useSyncExternalStore(
@@ -343,13 +343,18 @@ export default function PlannerSubjectsPage() {
     setMessage(`${t.subjectDeleted}: ${subjectName}`);
   }
 
-  function setExamHint(examId: string, patch: Partial<SubjectHint>) {
+  function setExamHint(examId: string, patch: Partial<ExamHint>) {
+    const normalizedPatch: Partial<ExamHint> = { ...patch };
+    if (normalizedPatch.summaryCoverage !== undefined) {
+      const v = Number(normalizedPatch.summaryCoverage);
+      normalizedPatch.summaryCoverage = Number.isFinite(v) ? Math.min(100, Math.max(0, v)) : 0;
+    }
     setExamHints((current) => ({
       ...current,
       [examId]: {
         workloadMode: current[examId]?.workloadMode ?? "standard",
         summaryCoverage: current[examId]?.summaryCoverage ?? 30,
-        ...patch,
+        ...normalizedPatch,
       },
     }));
     setMessage(t.hintSaved);
@@ -568,7 +573,7 @@ export default function PlannerSubjectsPage() {
                                     value={examHint.workloadMode}
                                     onChange={(event) =>
                                       setExamHint(track.examId, {
-                                        workloadMode: event.target.value as SubjectHint["workloadMode"],
+                                        workloadMode: event.target.value as ExamHint["workloadMode"],
                                       })
                                     }
                                     className="planner-input py-0.5 text-xs normal-case text-slate-800"
