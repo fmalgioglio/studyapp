@@ -22,6 +22,8 @@ type SubjectAffinity = {
   effortSubjects: string[];
 };
 
+type AffinityRole = "easy" | "effort" | "none";
+
 type FeedbackState =
   | {
       kind: "success" | "error";
@@ -139,7 +141,7 @@ export default function PlannerStudentsPage() {
     setFeedback(null);
 
     if (!student) {
-      showError("No account context found.");
+      showError("Please sign in again to continue.");
       return;
     }
 
@@ -167,38 +169,31 @@ export default function PlannerStudentsPage() {
     notifyDataRevision();
   }
 
-  function toggleAffinity(
-    key: keyof SubjectAffinity,
-    subject: (typeof SUBJECT_AFFINITY_OPTIONS)[number],
-  ) {
+  function setAffinityRole(subject: SubjectAffinityOption, role: AffinityRole) {
     setAffinityDraft((current) => {
       const base = current ?? savedAffinity;
-      const oppositeKey = key === "easiestSubjects" ? "effortSubjects" : "easiestSubjects";
-      const nextSelected = [...base[key]];
-      const nextOpposite = [...base[oppositeKey]];
-      const selectedIndex = nextSelected.indexOf(subject);
+      let easiest = base.easiestSubjects.filter((entry) => entry !== subject);
+      let effort = base.effortSubjects.filter((entry) => entry !== subject);
 
-      if (selectedIndex >= 0) {
-        nextSelected.splice(selectedIndex, 1);
-      } else {
-        if (nextSelected.length >= AFFINITY_LIMIT) return base;
-        nextSelected.push(subject);
-        const oppositeIndex = nextOpposite.indexOf(subject);
-        if (oppositeIndex >= 0) {
-          nextOpposite.splice(oppositeIndex, 1);
+      if (role === "easy") {
+        if (easiest.length >= AFFINITY_LIMIT) {
+          return base;
         }
+        easiest = [...easiest, subject];
+      }
+
+      if (role === "effort") {
+        if (effort.length >= AFFINITY_LIMIT) {
+          return base;
+        }
+        effort = [...effort, subject];
       }
 
       return normalizeAffinity(
-        key === "easiestSubjects"
-          ? {
-              easiestSubjects: nextSelected,
-              effortSubjects: nextOpposite,
-            }
-          : {
-              easiestSubjects: nextOpposite,
-              effortSubjects: nextSelected,
-            },
+        {
+          easiestSubjects: easiest,
+          effortSubjects: effort,
+        },
       );
     });
   }
@@ -207,7 +202,7 @@ export default function PlannerStudentsPage() {
     setFeedback(null);
 
     if (!student) {
-      showError("No account context found.");
+      showError("Please sign in again to continue.");
       return;
     }
 
@@ -363,72 +358,58 @@ export default function PlannerStudentsPage() {
       </section>
 
       <section className="planner-panel">
-        <h2 className="text-lg font-bold text-slate-900">Subject Affinity Onboarding</h2>
+        <h2 className="text-lg font-bold text-slate-900">Study preferences</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Pick your natural strengths and effort-heavy subjects so StudyApp can prepare a basic
-          preference profile.
+          Mark up to three easier subjects and up to three effort-heavy subjects.
         </p>
 
-        <div className="mt-5 space-y-5">
-          <article>
-            <div className="flex items-baseline justify-between gap-2">
-              <p className="text-sm font-semibold text-slate-900">
-                Which subjects feel easiest or most natural to you?
-              </p>
-              <span className="text-xs font-medium text-slate-500">
-                {easiestCount}/{AFFINITY_LIMIT}
-              </span>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {SUBJECT_AFFINITY_OPTIONS.map((subjectName) => {
-                const selected = affinity.easiestSubjects.includes(subjectName);
-                return (
-                  <button
-                    key={`easy-${subjectName}`}
-                    type="button"
-                    onClick={() => toggleAffinity("easiestSubjects", subjectName)}
-                    className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
-                      selected
-                        ? "border-emerald-300 bg-emerald-50 text-emerald-800"
-                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-                    }`}
-                  >
-                    {subjectName}
-                  </button>
-                );
-              })}
-            </div>
-          </article>
+        <div className="mt-5 space-y-4">
+          <div className="grid grid-cols-[1fr_auto_auto] gap-2 border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <p>Subject</p>
+            <p className="text-center">Easy</p>
+            <p className="text-center">Effort</p>
+          </div>
 
-          <article>
-            <div className="flex items-baseline justify-between gap-2">
-              <p className="text-sm font-semibold text-slate-900">
-                Which subjects usually require more effort from you?
-              </p>
-              <span className="text-xs font-medium text-slate-500">
-                {effortCount}/{AFFINITY_LIMIT}
-              </span>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {SUBJECT_AFFINITY_OPTIONS.map((subjectName) => {
-                const selected = affinity.effortSubjects.includes(subjectName);
-                return (
+          <div className="space-y-2">
+            {SUBJECT_AFFINITY_OPTIONS.map((subjectName) => {
+              const isEasy = affinity.easiestSubjects.includes(subjectName);
+              const isEffort = affinity.effortSubjects.includes(subjectName);
+              return (
+                <div
+                  key={subjectName}
+                  className="grid grid-cols-[1fr_auto_auto] items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
+                >
+                  <p className="text-sm font-medium text-slate-800">{subjectName}</p>
                   <button
-                    key={`effort-${subjectName}`}
                     type="button"
-                    onClick={() => toggleAffinity("effortSubjects", subjectName)}
-                    className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
-                      selected
-                        ? "border-amber-300 bg-amber-50 text-amber-900"
-                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                    onClick={() => setAffinityRole(subjectName, isEasy ? "none" : "easy")}
+                    className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
+                      isEasy
+                        ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
                     }`}
                   >
-                    {subjectName}
+                    Easy
                   </button>
-                );
-              })}
-            </div>
-          </article>
+                  <button
+                    type="button"
+                    onClick={() => setAffinityRole(subjectName, isEffort ? "none" : "effort")}
+                    className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
+                      isEffort
+                        ? "border-amber-300 bg-amber-50 text-amber-900"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                    }`}
+                  >
+                    Effort
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          <p className="text-xs text-slate-500">
+            Easy: {easiestCount}/{AFFINITY_LIMIT} · Effort-heavy: {effortCount}/{AFFINITY_LIMIT}
+          </p>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-xs text-slate-500">
