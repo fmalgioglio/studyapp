@@ -6,7 +6,6 @@ import { PlannerTabsNav } from "./_components/planner-tabs-nav";
 import { LogoutButton } from "./_components/logout-button";
 
 const plannerLinks = [
-  { href: "/planner/students", label: "Profile" },
   { href: "/planner", label: "Season" },
   { href: "/planner/focus", label: "Focus Arena" },
   { href: "/planner/subjects", label: "Subject Hub" },
@@ -60,6 +59,15 @@ export default async function PlannerLayout({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <PlannerTabsNav links={plannerLinks} />
             <LogoutButton />
+          </div>
+          <div className="mt-3 flex items-center justify-end gap-2 border-t border-slate-100 pt-2.5">
+            <span className="text-xs font-medium text-slate-500">Account</span>
+            <Link
+              href="/planner/students"
+              className="text-xs font-medium text-slate-600 hover:text-slate-900"
+            >
+              Profile
+            </Link>
           </div>
         </div>
         {children}
