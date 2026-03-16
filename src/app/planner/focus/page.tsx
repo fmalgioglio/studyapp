@@ -82,7 +82,6 @@ const COPY = {
     start: "Start",
     pause: "Pause",
     stop: "Stop",
-    simulation: "Dev full run simulation",
     lockTitle: "Focus Lock Active",
     lockSubtitle: "Stay on task until timer ends.",
     exitLock: "Exit lock",
@@ -148,7 +147,6 @@ const COPY = {
     start: "Avvia",
     pause: "Pausa",
     stop: "Stop",
-    simulation: "Simulazione run completa (dev)",
     lockTitle: "Blocco Focus Attivo",
     lockSubtitle: "Resta sul task finche il timer termina.",
     exitLock: "Esci dal lock",
@@ -481,28 +479,6 @@ export default function PlannerFocusPage() {
     setMessage(t.paused);
   }
 
-  function runDevFullSimulation() {
-    const gainedXp = 180;
-    const today = getTodayIso();
-    setStats((current) => ({
-      xp: current.xp + gainedXp,
-      streak: Math.max(current.streak, 1),
-      sessionsCompleted: current.sessionsCompleted + 3,
-      lastCompletionDate: today,
-    }));
-
-    if (selectedExam) {
-      const simulatedPages = estimatePagesFromMinutes(selectedExam.subjectName, 120);
-      recordFocusProgress(selectedExam.examId, simulatedPages, 120, "Simulation run");
-      setMessage(
-        `${t.simulation}: +${gainedXp} XP, ${simulatedPages}p ${t.progressLogged}.`,
-      );
-    } else {
-      setMessage(`${t.simulation}: +${gainedXp} XP.`);
-    }
-    setRewardLine("Aero says: full run simulated, systems green.");
-  }
-
   return (
     <main className="space-y-5 sm:space-y-6">
       <section className="planner-panel planner-hero">
@@ -746,13 +722,6 @@ export default function PlannerFocusPage() {
             }`}
           >
             {t.addTenMinutes}
-          </button>
-          <button
-            type="button"
-            onClick={runDevFullSimulation}
-            className="planner-btn border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
-          >
-            {t.simulation}
           </button>
         </div>
       </section>
