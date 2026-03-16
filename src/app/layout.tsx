@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+import Script from "next/script";
 
 import { SiteNav } from "@/app/_components/site-nav";
 import "./globals.css";
@@ -27,6 +28,13 @@ export default async function RootLayout({
 }>) {
   return (
     <html lang="en">
+      {process.env.NODE_ENV !== "production" ? (
+        <head>
+          <Script id="canonical-localhost" strategy="beforeInteractive">
+            {`(function(){var host=window.location.hostname;if(host==='127.0.0.1'||host==='[::1]'){var url=new URL(window.location.href);url.hostname='localhost';window.location.replace(url.toString());}})();`}
+          </Script>
+        </head>
+      ) : null}
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
