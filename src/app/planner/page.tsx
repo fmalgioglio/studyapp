@@ -49,9 +49,19 @@ const COPY = {
     focused: "Focused",
     balanced: "Balanced",
     full: "Full session",
-    timeline: "Exam timeline explorer",
-    openInExams: "Manage in Exams page",
-    noTimeline: "Select an exam to view timeline details.",
+    timeline: "Exam plan",
+    openInExams: "Open in Exams",
+    timelineHint: "Review one exam at a time and keep the plan clear.",
+    examList: "Exam list",
+    planOverview: "Selected exam",
+    studyPace: "Study pace",
+    studyProgress: "Study progress",
+    recentStudy: "Recent study",
+    nextSteps: "Next steps",
+    completionLabel: "Completion",
+    lastUpdate: "Last update",
+    noStudyData: "No recent study recorded.",
+    noTimeline: "Select an exam to view the plan.",
     allExamsShown: "All exams are shown in Full session mode.",
     completed: "Completed",
     remaining: "Remaining",
@@ -111,9 +121,19 @@ const COPY = {
     focused: "Focalizzata",
     balanced: "Bilanciata",
     full: "Sessione completa",
-    timeline: "Timeline esame",
-    openInExams: "Gestisci nella pagina Esami",
-    noTimeline: "Seleziona un esame per vedere i dettagli timeline.",
+    timeline: "Piano esame",
+    openInExams: "Apri in Esami",
+    timelineHint: "Qui vedi un esame alla volta, con il piano essenziale.",
+    examList: "Elenco esami",
+    planOverview: "Esame selezionato",
+    studyPace: "Ritmo di studio",
+    studyProgress: "Avanzamento studio",
+    recentStudy: "Studio recente",
+    nextSteps: "Prossimi passi",
+    completionLabel: "Completamento",
+    lastUpdate: "Ultimo aggiornamento",
+    noStudyData: "Nessuna attività recente registrata.",
+    noTimeline: "Seleziona un esame per vedere il piano.",
     allExamsShown: "In modalita Sessione completa vedi tutti gli esami.",
     completed: "Completato",
     remaining: "Residuo",
@@ -211,6 +231,8 @@ function getQuestCompletions() {
 }
 
 type PlannerCopy = (typeof COPY)[keyof typeof COPY];
+type PlannerLanguage = keyof typeof COPY;
+type ExamTrack = SeasonPlan["examTracks"][number];
 
 function getProgressStateLabel(state: ExamProgressState, t: PlannerCopy) {
   if (state === "ready") return t.statusReady;
@@ -225,6 +247,55 @@ function getFocusContributionLabel(level: FocusContributionLevel, t: PlannerCopy
   if (level === "medium") return t.contributionMedium;
   if (level === "low") return t.contributionLow;
   return t.contributionNone;
+}
+
+function formatExamDate(dateIso: string, language: PlannerLanguage) {
+  const locale = language === "it" ? "it-IT" : "en-US";
+  return new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(dateIso));
+}
+
+function formatUpdatedAt(updatedAt: string, language: PlannerLanguage) {
+  if (!updatedAt) return "";
+
+  const locale = language === "it" ? "it-IT" : "en-US";
+  return new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(updatedAt));
+}
+
+function buildExamPlanSteps(track: ExamTrack, t: PlannerCopy, language: PlannerLanguage) {
+  if (language === "it") {
+    return [
+      track.remainingPages > 0
+        ? `${track.remainingPages} ${t.pagesUnit} da coprire prima della data d'esame.`
+        : `${track.completionPercent}% di ${t.completionLabel.toLowerCase()} e nessuna pagina residua nel piano attuale.`,
+      track.recommendedMinutesPerDay > 0 || track.recommendedPagesPerDay > 0
+        ? `${track.recommendedPagesPerDay} ${t.pagesUnit} e ${track.recommendedMinutesPerDay} ${t.minutesUnit} al giorno tengono il piano in linea.`
+        : `Non resta un target giornaliero per questo esame nel piano attuale.`,
+      track.sessionsCompleted === 0
+        ? `Nessuna sessione registrata finora. Inizia con un primo blocco su ${track.subjectName}.`
+        : `${track.sessionsCompleted} sessioni di studio già registrate per questo esame.`,
+    ];
+  }
+
+  return [
+    track.remainingPages > 0
+      ? `${track.remainingPages} ${t.pagesUnit} left to cover before the exam date.`
+      : `${track.completionPercent}% ${t.completionLabel.toLowerCase()} and no pages left in the current plan.`,
+    track.recommendedMinutesPerDay > 0 || track.recommendedPagesPerDay > 0
+      ? `${track.recommendedPagesPerDay} ${t.pagesUnit} and ${track.recommendedMinutesPerDay} ${t.minutesUnit} per day keep this plan on pace.`
+      : `No daily target remains for this exam in the current plan.`,
+    track.sessionsCompleted === 0
+      ? `No focus sessions logged yet. Start with one study block for ${track.subjectName}.`
+      : `${track.sessionsCompleted} study sessions already logged for this exam.`,
+  ];
 }
 
 function missionKey(examId: string, subjectName: string, pages: number, minutes: number) {
@@ -255,7 +326,8 @@ export default function PlannerOverviewPage() {
   const { student, loading } = useAuthStudent();
   const searchParams = useSearchParams();
   const { language } = useUiLanguage("en");
-  const t = COPY[language] ?? COPY.en;
+  const plannerLanguage: PlannerLanguage = language === "it" ? "it" : "en";
+  const t = COPY[plannerLanguage];
   const { subjects, exams, errors, refresh } = usePlannerData({
     enabled: Boolean(student?.id),
     subscribeToRevision: false,
@@ -295,22 +367,31 @@ export default function PlannerOverviewPage() {
     if (!storageHydrated) return EMPTY_SEASON_PLAN;
     return buildSeasonPlan(exams, student?.weeklyHours ?? 10, focusProgress, seasonMode);
   }, [exams, student?.weeklyHours, focusProgress, seasonMode, storageHydrated]);
+  const timelineTracks = useMemo(() => {
+    const seenExamIds = new Set<string>();
+
+    return seasonPlan.examTracks.filter((track) => {
+      if (seenExamIds.has(track.examId)) return false;
+      seenExamIds.add(track.examId);
+      return true;
+    });
+  }, [seasonPlan.examTracks]);
   const examTrackById = useMemo(
-    () => new Map(seasonPlan.examTracks.map((track) => [track.examId, track])),
-    [seasonPlan.examTracks],
+    () => new Map(timelineTracks.map((track) => [track.examId, track])),
+    [timelineTracks],
   );
   const completionByExamId = useMemo(
     () =>
-      seasonPlan.examTracks.reduce<Record<string, number>>((acc, track) => {
+      timelineTracks.reduce<Record<string, number>>((acc, track) => {
         acc[track.examId] = track.completionPercent;
         return acc;
       }, {}),
-    [seasonPlan.examTracks],
+    [timelineTracks],
   );
   const selectedTrack = useMemo(() => {
-    if (!selectedExamId) return seasonPlan.examTracks[0] ?? null;
-    return seasonPlan.examTracks.find((track) => track.examId === selectedExamId) ?? null;
-  }, [seasonPlan.examTracks, selectedExamId]);
+    if (!selectedExamId) return timelineTracks[0] ?? null;
+    return timelineTracks.find((track) => track.examId === selectedExamId) ?? timelineTracks[0] ?? null;
+  }, [timelineTracks, selectedExamId]);
 
   async function refreshSeasonData() {
     const result = await refresh();
@@ -515,7 +596,10 @@ export default function PlannerOverviewPage() {
 
       <section className="planner-panel">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-xl font-black text-slate-900">{t.timeline}</h2>
+          <div>
+            <h2 className="text-xl font-black text-slate-900">{t.timeline}</h2>
+            <p className="mt-1 text-sm text-slate-600">{t.timelineHint}</p>
+          </div>
           <Link
             href="/planner/exams"
             className="planner-btn planner-btn-secondary"
@@ -524,87 +608,206 @@ export default function PlannerOverviewPage() {
           </Link>
         </div>
 
-        <div className="mt-3 flex flex-wrap gap-2">
-          {seasonPlan.examTracks.map((track) => (
-            <button
-              key={track.examId}
-              type="button"
-              onClick={() => setManualSelectedExamId(track.examId)}
-              className={`planner-btn ${selectedTrack?.examId === track.examId ? "planner-btn-primary" : "planner-btn-secondary"}`}
-            >
-              {track.subjectName} ({track.completionPercent}%)
-            </button>
-          ))}
-        </div>
+        {timelineTracks.length > 0 ? (
+          <div className="mt-4 grid gap-4 lg:grid-cols-[0.95fr_1.4fr]">
+            <div>
+              <p className="planner-eyebrow px-1">{t.examList}</p>
+              <div className="mt-2 space-y-3">
+                {timelineTracks.map((track) => {
+                  const selected = selectedTrack?.examId === track.examId;
 
-        {selectedTrack ? (
-          <div className="mt-4 grid gap-3 md:grid-cols-4">
-            <div className="planner-card bg-slate-50">
-              <p className="planner-eyebrow">{t.examLabel}</p>
-              <p className="text-sm font-bold text-slate-900">{selectedTrack.examTitle}</p>
-            </div>
-            <div className="planner-card bg-slate-50">
-              <p className="planner-eyebrow">{t.daysLeft}</p>
-              <p className="text-xl font-black text-slate-900">{selectedTrack.daysLeft}</p>
-            </div>
-            <div className="planner-card bg-slate-50">
-              <p className="planner-eyebrow">{t.dailyTarget}</p>
-              <p className="text-xl font-black text-slate-900">{selectedTrack.recommendedPagesPerDay}p</p>
-            </div>
-            <div className="planner-card bg-slate-50">
-              <p className="planner-eyebrow">{t.dailyFocus}</p>
-              <p className="text-xl font-black text-slate-900">{selectedTrack.recommendedMinutesPerDay}m</p>
-            </div>
-            <div className="planner-card bg-slate-50">
-              <p className="planner-eyebrow">{t.readiness}</p>
-              <p
-                className={`mt-1 inline-flex rounded-full border px-2 py-0.5 text-sm font-semibold ${progressStateClasses(selectedTrack.progressState)}`}
-              >
-                {getProgressStateLabel(selectedTrack.progressState, t)}
-              </p>
-            </div>
+                  return (
+                    <button
+                      key={track.examId}
+                      type="button"
+                      onClick={() => setManualSelectedExamId(track.examId)}
+                      className={`w-full rounded-3xl border p-4 text-left transition ${
+                        selected
+                          ? "border-slate-300 bg-white shadow-sm ring-1 ring-slate-200"
+                          : "border-slate-200 bg-slate-50/80 hover:border-slate-300 hover:bg-white"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <span className="planner-chip border-slate-200 bg-slate-100 text-slate-700">
+                            {track.subjectName}
+                          </span>
+                          <p className="mt-3 text-base font-semibold text-slate-900">
+                            {track.examTitle}
+                          </p>
+                          <p className="mt-1 text-sm text-slate-600">
+                            {formatExamDate(track.examDate, plannerLanguage)}
+                          </p>
+                        </div>
+                        <span
+                          className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${progressStateClasses(track.progressState)}`}
+                        >
+                          {getProgressStateLabel(track.progressState, t)}
+                        </span>
+                      </div>
 
-            <div className="planner-card bg-slate-50">
-              <p className="planner-eyebrow">{t.completed}</p>
-              <p className="text-xl font-black text-slate-900">
-                {selectedTrack.completedPages}p ({selectedTrack.completionPercent}%)
-              </p>
-            </div>
-            <div className="planner-card bg-slate-50">
-              <p className="planner-eyebrow">{t.remaining}</p>
-              <p className="text-xl font-black text-slate-900">{selectedTrack.remainingPages}p</p>
-            </div>
-            <div className="planner-card bg-slate-50">
-              <p className="planner-eyebrow">{t.focusContribution}</p>
-              <p
-                className={`mt-1 inline-flex rounded-full border px-2 py-0.5 text-sm font-semibold ${focusContributionClasses(selectedTrack.focusContributionLevel)}`}
-              >
-                {getFocusContributionLabel(selectedTrack.focusContributionLevel, t)} (
-                {selectedTrack.focusContributionPercent}%)
-              </p>
-            </div>
-            <div className="planner-card bg-slate-50">
-              <p className="planner-eyebrow">{t.focusMinutes}</p>
-              <p className="text-xl font-black text-slate-900">{selectedTrack.minutesSpent}m</p>
-            </div>
-            <div className="planner-card bg-slate-50">
-              <p className="planner-eyebrow">{t.focusSessions}</p>
-              <p className="text-xl font-black text-slate-900">{selectedTrack.sessionsCompleted}</p>
-            </div>
-            <div className="planner-card bg-slate-50 md:col-span-2">
-              <p className="planner-eyebrow">{t.latestTopic}</p>
-              <p className="text-sm font-semibold text-slate-900">
-                {selectedTrack.lastTopic || t.noTopic}
-              </p>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                        <div>
+                          <p className="planner-eyebrow">{t.daysLeft}</p>
+                          <p className="mt-1 text-lg font-semibold text-slate-900">
+                            {track.daysLeft}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="planner-eyebrow">{t.completionLabel}</p>
+                          <p className="mt-1 text-lg font-semibold text-slate-900">
+                            {track.completionPercent}%
+                          </p>
+                        </div>
+                        <div>
+                          <p className="planner-eyebrow">{t.readiness}</p>
+                          <p className="mt-1 text-sm font-semibold text-slate-700">
+                            {getProgressStateLabel(track.progressState, t)}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            <div className="planner-card bg-slate-50 md:col-span-4">
-              <p className="planner-eyebrow">{t.milestones}</p>
-              <ul className="mt-2 list-disc pl-5 text-sm text-slate-700">
-                {selectedTrack.weeklyMilestones.map((milestone) => (
-                  <li key={milestone}>{milestone}</li>
-                ))}
-              </ul>
+            <div>
+              <p className="planner-eyebrow px-1">{t.planOverview}</p>
+              {selectedTrack ? (
+                <div className="mt-2 space-y-3">
+                  <article className="planner-card border border-slate-200 bg-white">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <span className="planner-chip border-slate-200 bg-slate-100 text-slate-700">
+                          {selectedTrack.subjectName}
+                        </span>
+                        <h3 className="mt-3 text-2xl font-black tracking-tight text-slate-900">
+                          {selectedTrack.examTitle}
+                        </h3>
+                        <p className="mt-2 text-sm text-slate-600">
+                          {formatExamDate(selectedTrack.examDate, plannerLanguage)}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <span
+                          className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${progressStateClasses(selectedTrack.progressState)}`}
+                        >
+                          {getProgressStateLabel(selectedTrack.progressState, t)}
+                        </span>
+                        <span
+                          className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${focusContributionClasses(selectedTrack.focusContributionLevel)}`}
+                        >
+                          {t.focusContribution}: {selectedTrack.focusContributionPercent}%
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                        <p className="planner-eyebrow">{t.daysLeft}</p>
+                        <p className="mt-1 text-2xl font-black text-slate-900">
+                          {selectedTrack.daysLeft}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                        <p className="planner-eyebrow">{t.completionLabel}</p>
+                        <p className="mt-1 text-2xl font-black text-slate-900">
+                          {selectedTrack.completionPercent}%
+                        </p>
+                      </div>
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                        <p className="planner-eyebrow">{t.focusContribution}</p>
+                        <p className="mt-1 text-lg font-semibold text-slate-900">
+                          {getFocusContributionLabel(selectedTrack.focusContributionLevel, t)}
+                        </p>
+                      </div>
+                    </div>
+                  </article>
+
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <article className="planner-card border border-slate-200 bg-slate-50/90">
+                      <p className="planner-eyebrow">{t.studyPace}</p>
+                      <div className="mt-3 space-y-3">
+                        <div>
+                          <p className="text-sm text-slate-500">{t.dailyTarget}</p>
+                          <p className="text-lg font-semibold text-slate-900">
+                            {selectedTrack.recommendedPagesPerDay} {t.pagesUnit}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-slate-500">{t.dailyFocus}</p>
+                          <p className="text-lg font-semibold text-slate-900">
+                            {selectedTrack.recommendedMinutesPerDay} {t.minutesUnit}
+                          </p>
+                        </div>
+                      </div>
+                    </article>
+
+                    <article className="planner-card border border-slate-200 bg-slate-50/90">
+                      <p className="planner-eyebrow">{t.studyProgress}</p>
+                      <div className="mt-3 space-y-3">
+                        <div>
+                          <p className="text-sm text-slate-500">{t.completed}</p>
+                          <p className="text-lg font-semibold text-slate-900">
+                            {selectedTrack.completedPages} {t.pagesUnit}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-slate-500">{t.remaining}</p>
+                          <p className="text-lg font-semibold text-slate-900">
+                            {selectedTrack.remainingPages} {t.pagesUnit}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-slate-500">{t.completionLabel}</p>
+                          <p className="text-lg font-semibold text-slate-900">
+                            {selectedTrack.completionPercent}%
+                          </p>
+                        </div>
+                      </div>
+                    </article>
+
+                    <article className="planner-card border border-slate-200 bg-slate-50/90">
+                      <p className="planner-eyebrow">{t.recentStudy}</p>
+                      <p className="mt-3 text-sm font-semibold text-slate-900">
+                        {selectedTrack.lastTopic || t.noStudyData}
+                      </p>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2 md:grid-cols-1 xl:grid-cols-2">
+                        <div>
+                          <p className="text-sm text-slate-500">{t.focusSessions}</p>
+                          <p className="text-lg font-semibold text-slate-900">
+                            {selectedTrack.sessionsCompleted}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-slate-500">{t.focusMinutes}</p>
+                          <p className="text-lg font-semibold text-slate-900">
+                            {selectedTrack.minutesSpent} {t.minutesUnit}
+                          </p>
+                        </div>
+                      </div>
+                      {selectedTrack.updatedAt ? (
+                        <p className="mt-4 text-xs text-slate-500">
+                          {t.lastUpdate}: {formatUpdatedAt(selectedTrack.updatedAt, plannerLanguage)}
+                        </p>
+                      ) : null}
+                    </article>
+                  </div>
+
+                  <article className="planner-card border border-slate-200 bg-white">
+                    <p className="planner-eyebrow">{t.nextSteps}</p>
+                    <ul className="mt-3 space-y-2 text-sm text-slate-700">
+                      {buildExamPlanSteps(selectedTrack, t, plannerLanguage).map((step) => (
+                        <li key={step} className="flex gap-2">
+                          <span className="mt-1 h-1.5 w-1.5 rounded-full bg-slate-400" />
+                          <span>{step}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </article>
+                </div>
+              ) : null}
             </div>
           </div>
         ) : (
