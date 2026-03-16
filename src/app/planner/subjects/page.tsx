@@ -60,13 +60,13 @@ const SUBJECT_PRESETS = [
 const COPY = {
   en: {
     title: "Subject Hub",
-    subtitle: "Subjects power organization and improve estimator quality.",
+    subtitle: "Use subjects to keep your study plan organized and easier to follow.",
     presets: "Quick presets",
     name: "Subject name",
     color: "Color label",
     add: "Add subject",
     subjectDashboard: "Subject dashboard",
-    noSubjects: "No subjects yet. Add one to unlock planning cards.",
+    noSubjects: "No subjects yet. Add one to start planning each exam clearly.",
     studyPaceGuide: "Study pace guide",
     linkedExams: "Exams linked",
     closestDeadline: "Closest deadline",
@@ -116,7 +116,7 @@ const COPY = {
   },
   it: {
     title: "Hub Materie",
-    subtitle: "Le materie migliorano organizzazione e qualita delle stime.",
+    subtitle: "Le materie aiutano a mantenere il piano di studio ordinato e chiaro.",
     presets: "Preset rapidi",
     name: "Nome materia",
     color: "Colore",
@@ -168,7 +168,7 @@ const COPY = {
     standardGuide:
       "Percorso bilanciato per la maggior parte degli studenti.",
     deepGuide:
-      "Carico giornaliero alto per scadenze strette, piu rischio fatica.",
+      "Carico giornaliero alto per scadenze strette, con maggiore rischio di affaticamento.",
   },
 } as const;
 
