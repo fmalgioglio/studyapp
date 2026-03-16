@@ -11,7 +11,6 @@ const plannerLinks = [
   { href: "/planner/focus", label: "Focus Arena" },
   { href: "/planner/subjects", label: "Subject Hub" },
   { href: "/planner/exams", label: "Exams" },
-  { href: "/planner/estimate", label: "Quick Estimate" },
 ] as const;
 
 export default async function PlannerLayout({

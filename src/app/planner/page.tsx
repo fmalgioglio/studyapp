@@ -37,11 +37,9 @@ const COPY = {
       "Plan all exams in one weekly board, complete quests, and keep momentum with rewarding loops.",
     todayQuests: "Today quests",
     weeklyBoard: "Weekly board",
-    socialArena: "Subject cohort arena",
     riskLow: "On Track",
     riskMedium: "Tight",
     riskHigh: "Critical",
-    runSimulation: "Run dev simulation",
     refresh: "Refresh season",
     noMissions: "Add exams to generate your first mission board.",
     markDone: "Mark done",
@@ -63,15 +61,11 @@ const COPY = {
     weekBudget: "Week budget",
     weeklyPages: "Weekly pages",
     risk: "Risk",
-    rankingMetric: "Ranking metric: XP + consistency score.",
-    momentum: "Momentum",
     loadingProfile: "Loading profile...",
     manageExams: "Manage Exams",
     manageExamsDesc: "Add all exams in your session.",
     subjectHub: "Subject Hub",
     subjectHubDesc: "Structure subjects for better algorithm fit",
-    estimator: "Quick Estimator",
-    estimatorDesc: "Run safe targets for each exam.",
     focusArena: "Focus Arena",
     focusArenaDesc: "Fixed blocks and reward reactions.",
     daysLeft: "Days left",
@@ -96,8 +90,6 @@ const COPY = {
     xpLabel: "XP",
     streakLabel: "Streak",
     sessionsLabel: "Sessions",
-    scoreLabel: "score",
-    consistencyLabel: "consistency",
     examLabel: "Exam",
   },
   it: {
@@ -107,11 +99,9 @@ const COPY = {
       "Pianifica tutti gli esami in una board settimanale, completa quest e mantieni il ritmo.",
     todayQuests: "Missioni di oggi",
     weeklyBoard: "Board settimanale",
-    socialArena: "Arena coorte materia",
     riskLow: "In carreggiata",
     riskMedium: "Tirato",
     riskHigh: "Critico",
-    runSimulation: "Simulazione dev",
     refresh: "Aggiorna stagione",
     noMissions: "Aggiungi esami per generare la prima board.",
     markDone: "Completa",
@@ -133,15 +123,11 @@ const COPY = {
     weekBudget: "Budget settimanale",
     weeklyPages: "Pagine settimanali",
     risk: "Rischio",
-    rankingMetric: "Metrica ranking: XP + consistenza.",
-    momentum: "Momentum",
     loadingProfile: "Caricamento profilo...",
     manageExams: "Gestisci Esami",
     manageExamsDesc: "Aggiungi tutti gli esami della sessione.",
     subjectHub: "Hub Materie",
     subjectHubDesc: "Struttura le materie per migliorare l'algoritmo",
-    estimator: "Stimatore Rapido",
-    estimatorDesc: "Esegui target sicuri per ogni esame.",
     focusArena: "Arena Focus",
     focusArenaDesc: "Blocchi fissi e ricompense.",
     daysLeft: "Giorni rimanenti",
@@ -166,8 +152,6 @@ const COPY = {
     xpLabel: "XP",
     streakLabel: "Streak",
     sessionsLabel: "Sessioni",
-    scoreLabel: "punteggio",
-    consistencyLabel: "costanza",
     examLabel: "Esame",
   },
 } as const;
@@ -291,7 +275,6 @@ export default function PlannerOverviewPage() {
   );
   const [seasonMode, setSeasonMode] = useState<"focused" | "balanced" | "full">("full");
   const [manualSelectedExamId, setManualSelectedExamId] = useState<string | null>(null);
-  const [simXpReward, setSimXpReward] = useState(0);
   const [message, setMessage] = useState("");
   const dataErrorMessage = errors.subjects ?? errors.exams ?? "";
   const selectedExamId = manualSelectedExamId ?? searchParams.get("exam");
@@ -345,33 +328,11 @@ export default function PlannerOverviewPage() {
     const next = { ...questCompletions, [key]: true };
     setQuestCompletions(next);
     const completedCount = Object.values(next).filter(Boolean).length;
-    setSimXpReward((current) => current + xp);
     if (completedCount % 2 === 0) {
       setMessage(`${language === "en" ? "Quest complete" : "Quest completata"}: +${xp} XP. ${t.breakReminder}`);
     } else {
       setMessage(`${language === "en" ? "Quest complete" : "Quest completata"}: +${xp} XP.`);
     }
-  }
-
-  function runSimulation() {
-    const quests = seasonPlan.todayMissions;
-    if (quests.length === 0) {
-      setMessage(language === "en" ? "No missions available for simulation yet." : "Nessuna missione disponibile per la simulazione.");
-      return;
-    }
-
-    const xp = quests.reduce((acc, quest) => acc + quest.xp, 0);
-    const completed = { ...questCompletions };
-    quests.forEach((quest) => {
-      completed[missionKey(quest.examId, quest.subjectName, quest.pages, quest.minutes)] = true;
-    });
-    setQuestCompletions(completed);
-    setSimXpReward((current) => current + xp);
-    setMessage(
-      language === "en"
-        ? `Simulation complete: ${quests.length} quests cleared, +${xp} XP.`
-        : `Simulazione completata: ${quests.length} missioni completate, +${xp} XP.`,
-    );
   }
 
   const riskLabel =
@@ -452,13 +413,13 @@ export default function PlannerOverviewPage() {
             </div>
             <div className="rounded-xl bg-slate-50 p-2">
               <p className="planner-eyebrow">{t.xpLabel}</p>
-              <p className="text-lg font-semibold text-slate-900">{focusStats.xp + simXpReward}</p>
+              <p className="text-lg font-semibold text-slate-900">{focusStats.xp}</p>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+      <section>
         <div className="planner-panel">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-xl font-black text-slate-900">{t.todayQuests}</h2>
@@ -469,13 +430,6 @@ export default function PlannerOverviewPage() {
                 className="planner-btn planner-btn-secondary"
               >
                 {t.refresh}
-              </button>
-              <button
-                type="button"
-                onClick={runSimulation}
-                className="planner-btn planner-btn-accent"
-              >
-                {t.runSimulation}
               </button>
             </div>
           </div>
@@ -547,44 +501,6 @@ export default function PlannerOverviewPage() {
               })}
             </div>
           )}
-        </div>
-
-        <div className="space-y-4">
-          <section className="planner-panel">
-            <h2 className="text-xl font-black text-slate-900">{t.socialArena}</h2>
-            <p className="mt-1 text-sm text-slate-600">{t.rankingMetric}</p>
-            <ul className="mt-3 space-y-2">
-              {seasonPlan.leaderboardPreview.map((entry) => (
-                <li
-                  key={entry.name}
-                  className="planner-card-soft flex items-center justify-between"
-                >
-                  <span className="text-sm font-semibold text-slate-800">{entry.name}</span>
-                  <span className="text-xs text-slate-600">
-                    {entry.score} {t.scoreLabel} ({entry.xp} {t.xpLabel}, {entry.consistency}% {t.consistencyLabel})
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          <section className="planner-panel">
-            <h2 className="text-lg font-black text-slate-900">{t.momentum}</h2>
-            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-              <div className="planner-card-soft p-2">
-                <p className="planner-eyebrow">{t.xpLabel}</p>
-                <p className="text-xl font-black text-slate-900">{focusStats.xp + simXpReward}</p>
-              </div>
-              <div className="planner-card-soft p-2">
-                <p className="planner-eyebrow">{t.streakLabel}</p>
-                <p className="text-xl font-black text-slate-900">{focusStats.streak}d</p>
-              </div>
-              <div className="planner-card-soft p-2">
-                <p className="planner-eyebrow">{t.sessionsLabel}</p>
-                <p className="text-xl font-black text-slate-900">{focusStats.sessionsCompleted}</p>
-              </div>
-            </div>
-          </section>
         </div>
       </section>
 
@@ -696,7 +612,7 @@ export default function PlannerOverviewPage() {
         )}
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Link
           href="/planner/exams"
           className="planner-card transition hover:-translate-y-1 hover:shadow-md"
@@ -712,13 +628,6 @@ export default function PlannerOverviewPage() {
           <p className="mt-1 text-sm text-slate-600">
             {t.subjectHubDesc} ({subjects.length} loaded).
           </p>
-        </Link>
-        <Link
-          href="/planner/estimate"
-          className="planner-card transition hover:-translate-y-1 hover:shadow-md"
-        >
-          <h3 className="font-bold text-slate-900">{t.estimator}</h3>
-          <p className="mt-1 text-sm text-slate-600">{t.estimatorDesc}</p>
         </Link>
         <Link
           href="/planner/focus"
