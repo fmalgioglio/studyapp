@@ -76,6 +76,7 @@ const COPY = {
     openTimeline: "Open timeline",
     workloadMode: "Workload mode",
     summaryCoverage: "Summary coverage %",
+    noLinkedExamsHint: "Link an exam to apply workload settings per exam.",
     loading: "Loading account...",
     noAccount: "No account context found.",
     subjectCreated: "Subject created",
@@ -128,6 +129,7 @@ const COPY = {
     openTimeline: "Apri timeline",
     workloadMode: "Modalita carico",
     summaryCoverage: "Copertura riassunti %",
+    noLinkedExamsHint: "Collega un esame per applicare le impostazioni di carico per esame.",
     loading: "Caricamento account...",
     noAccount: "Contesto account non trovato.",
     subjectCreated: "Materia creata",
@@ -164,8 +166,8 @@ const COPY = {
   },
 } as const;
 
-const SUBJECT_HINTS_STORAGE_KEY = "studyapp_subject_hints";
-const EMPTY_SUBJECT_HINTS: Record<string, SubjectHint> = {};
+const EXAM_HINTS_STORAGE_KEY = "studyapp_exam_hints";
+const EMPTY_EXAM_HINTS: Record<string, SubjectHint> = {};
 
 const HYDRATION_SUBSCRIBE = () => () => {};
 const getHydratedSnapshot = () => true;
@@ -208,16 +210,16 @@ function buildCascadeConfirmMessage(
   ].join("\n");
 }
 
-function getInitialSubjectHints(): Record<string, SubjectHint> {
-  if (typeof window === "undefined") return EMPTY_SUBJECT_HINTS;
+function getInitialExamHints(): Record<string, SubjectHint> {
+  if (typeof window === "undefined") return EMPTY_EXAM_HINTS;
 
-  const raw = localStorage.getItem(SUBJECT_HINTS_STORAGE_KEY);
-  if (!raw) return EMPTY_SUBJECT_HINTS;
+  const raw = localStorage.getItem(EXAM_HINTS_STORAGE_KEY);
+  if (!raw) return EMPTY_EXAM_HINTS;
 
   try {
     return JSON.parse(raw) as Record<string, SubjectHint>;
   } catch {
-    return EMPTY_SUBJECT_HINTS;
+    return EMPTY_EXAM_HINTS;
   }
 }
 
@@ -232,8 +234,8 @@ export default function PlannerSubjectsPage() {
   const [focusProgress, setFocusProgress] = useState<FocusProgressMap>(() =>
     readFocusProgress(),
   );
-  const [subjectHints, setSubjectHints] = useState<Record<string, SubjectHint>>(
-    () => getInitialSubjectHints(),
+  const [examHints, setExamHints] = useState<Record<string, SubjectHint>>(
+    () => getInitialExamHints(),
   );
   const storageHydrated = useSyncExternalStore(
     HYDRATION_SUBSCRIBE,
@@ -251,8 +253,8 @@ export default function PlannerSubjectsPage() {
 
   useEffect(() => {
     if (!storageHydrated) return;
-    localStorage.setItem(SUBJECT_HINTS_STORAGE_KEY, JSON.stringify(subjectHints));
-  }, [storageHydrated, subjectHints]);
+    localStorage.setItem(EXAM_HINTS_STORAGE_KEY, JSON.stringify(examHints));
+  }, [storageHydrated, examHints]);
 
   useEffect(() => {
     return subscribeDataRevision((source) => {
@@ -341,12 +343,12 @@ export default function PlannerSubjectsPage() {
     setMessage(`${t.subjectDeleted}: ${subjectName}`);
   }
 
-  function setSubjectHint(subjectId: string, patch: Partial<SubjectHint>) {
-    setSubjectHints((current) => ({
+  function setExamHint(examId: string, patch: Partial<SubjectHint>) {
+    setExamHints((current) => ({
       ...current,
-      [subjectId]: {
-        workloadMode: current[subjectId]?.workloadMode ?? "standard",
-        summaryCoverage: current[subjectId]?.summaryCoverage ?? 30,
+      [examId]: {
+        workloadMode: current[examId]?.workloadMode ?? "standard",
+        summaryCoverage: current[examId]?.summaryCoverage ?? 30,
         ...patch,
       },
     }));
@@ -480,11 +482,6 @@ export default function PlannerSubjectsPage() {
                 (acc, track) => acc + track.minutesSpent,
                 0,
               );
-              const hint = subjectHints[subject.id] ?? {
-                workloadMode: "standard",
-                summaryCoverage: 30,
-              };
-
               return (
                 <article key={subject.id} className="planner-card bg-slate-50">
                   <div className="flex items-center justify-between gap-2">
@@ -546,57 +543,62 @@ export default function PlannerSubjectsPage() {
                       {t.examsPerSubject}
                     </p>
                     {linkedTracks.length === 0 ? (
-                      <p className="mt-1 text-xs text-slate-600">{t.noDeadline}</p>
+                      <p className="mt-1 text-xs text-slate-500">{t.noLinkedExamsHint}</p>
                     ) : (
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {linkedTracks.map((track) => (
-                            <Link
-                              key={track.examId}
-                              href={`/planner?exam=${track.examId}`}
-                              className={`planner-chip min-h-0 rounded-lg border px-2 py-1 text-xs ${progressStateClasses(track.progressState)}`}
-                            >
-                              {track.examTitle} ({track.completionPercent}%)
-                              {" - "}
-                              {progressStateLabel(track.progressState, t)}
-                            </Link>
-                          ))}
+                      <div className="mt-1 space-y-2">
+                        {linkedTracks.map((track) => {
+                          const examHint = examHints[track.examId] ?? {
+                            workloadMode: "standard" as const,
+                            summaryCoverage: 30,
+                          };
+                          return (
+                            <div key={track.examId} className="rounded border border-slate-200 p-2">
+                              <Link
+                                href={`/planner?exam=${track.examId}`}
+                                className={`planner-chip min-h-0 rounded-lg border px-2 py-1 text-xs ${progressStateClasses(track.progressState)}`}
+                              >
+                                {track.examTitle} ({track.completionPercent}%)
+                                {" - "}
+                                {progressStateLabel(track.progressState, t)}
+                              </Link>
+                              <div className="mt-1.5 flex flex-wrap gap-2">
+                                <label className="flex items-center gap-1 text-xs text-slate-500">
+                                  {t.workloadMode}
+                                  <select
+                                    value={examHint.workloadMode}
+                                    onChange={(event) =>
+                                      setExamHint(track.examId, {
+                                        workloadMode: event.target.value as SubjectHint["workloadMode"],
+                                      })
+                                    }
+                                    className="planner-input py-0.5 text-xs normal-case text-slate-800"
+                                  >
+                                    <option value="light">{t.light}</option>
+                                    <option value="standard">{t.standard}</option>
+                                    <option value="deep">{t.deep}</option>
+                                  </select>
+                                </label>
+                                <label className="flex items-center gap-1 text-xs text-slate-500">
+                                  {t.summaryCoverage}
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    value={examHint.summaryCoverage}
+                                    onChange={(event) =>
+                                      setExamHint(track.examId, {
+                                        summaryCoverage: Number(event.target.value),
+                                      })
+                                    }
+                                    className="planner-input w-16 py-0.5 text-xs normal-case text-slate-800"
+                                  />
+                                </label>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
-                  </div>
-
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                    <label className="planner-card-soft bg-white p-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      {t.workloadMode}
-                      <select
-                        value={hint.workloadMode}
-                        onChange={(event) =>
-                          setSubjectHint(subject.id, {
-                            workloadMode: event.target.value as SubjectHint["workloadMode"],
-                          })
-                        }
-                        className="planner-input mt-1 normal-case text-sm text-slate-800"
-                      >
-                        <option value="light">{t.light}</option>
-                        <option value="standard">{t.standard}</option>
-                        <option value="deep">{t.deep}</option>
-                      </select>
-                    </label>
-
-                    <label className="planner-card-soft bg-white p-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      {t.summaryCoverage}
-                      <input
-                        type="number"
-                        min={0}
-                        max={90}
-                        value={hint.summaryCoverage}
-                        onChange={(event) =>
-                          setSubjectHint(subject.id, {
-                            summaryCoverage: Number(event.target.value),
-                          })
-                        }
-                        className="planner-input mt-1 normal-case text-sm text-slate-800"
-                      />
-                    </label>
                   </div>
                 </article>
               );
