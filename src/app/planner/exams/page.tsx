@@ -20,6 +20,7 @@ import {
   subscribeDataRevision,
   type FocusProgressMap,
 } from "@/app/planner/_lib/focus-progress";
+import { readExamHints, type ExamHintsMap } from "@/app/planner/_lib/exam-hints";
 import {
   buildExamProgressSnapshot,
   type ExamProgressState,
@@ -321,13 +322,14 @@ export default function PlannerExamsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [pagesTouched, setPagesTouched] = useState(false);
   const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
+  const [examHints] = useState<ExamHintsMap>(() => readExamHints());
 
   const dataErrorMessage = errors.subjects ?? errors.exams ?? "";
   const activeNotebook = activeNotebookCase(materialType, t);
   const selectedSubjectId = subjectMode === "existing" ? subjectId || subjects[0]?.id || "" : "";
   const examTracks = useMemo(
-    () => buildExamProgressSnapshot(exams, focusProgress),
-    [exams, focusProgress],
+    () => buildExamProgressSnapshot(exams, focusProgress, examHints),
+    [examHints, exams, focusProgress],
   );
   const examById = useMemo(() => new Map(exams.map((exam) => [exam.id, exam])), [exams]);
 

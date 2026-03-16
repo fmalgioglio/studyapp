@@ -1,3 +1,5 @@
+import type { ExamHint, ExamHintsMap } from "./exam-hints";
+
 type ExamLite = {
   id: string;
   title: string;
@@ -67,6 +69,17 @@ function inferExamPages(exam: ExamLite) {
     (title.includes("advanced") ? 40 : 0) +
     (title.includes("midterm") ? -15 : 0);
   return Math.round(clamp(base + intensityBonus, 110, 680));
+}
+
+function resolveWorkloadPaceMultiplier(workloadMode: ExamHint["workloadMode"] | undefined) {
+  if (workloadMode === "light") return 0.85;
+  if (workloadMode === "deep") return 1.2;
+  return 1;
+}
+
+function resolveSummaryLoadFactor(summaryCoverage: number | undefined) {
+  const normalizedSummaryCoverage = clamp(Number(summaryCoverage ?? 30), 0, 100);
+  return 1 - normalizedSummaryCoverage / 250;
 }
 
 function daysUntil(dateIso: string, now: Date) {
@@ -153,12 +166,14 @@ export type ExamProgressSnapshot = {
 export function buildExamProgressSnapshot(
   exams: ExamLite[],
   progress: SeasonProgressInput = {},
+  examHints: ExamHintsMap = {},
   now = new Date(),
 ): ExamProgressSnapshot[] {
   return exams
     .map((exam) => {
       const estimatedPages = inferExamPages(exam);
       const subjectPace = inferSubjectPace(exam.subject.name);
+      const examHint = examHints[exam.id];
       const examProgress = progress[exam.id];
       const completedPages = Math.round(clamp(examProgress?.pagesCompleted ?? 0, 0, estimatedPages));
       const daysLeft = daysUntil(exam.examDate, now);
@@ -179,9 +194,23 @@ export function buildExamProgressSnapshot(
         minutesSpent,
         sessionsCompleted,
       );
-      const pagesPerDay = remainingPages / Math.max(daysLeft, 1);
-      const recommendedPagesPerDay =
+      const adjustedRemainingPages = Math.max(
+        0,
+        Math.round(remainingPages * resolveSummaryLoadFactor(examHint?.summaryCoverage)),
+      );
+      const pagesPerDay = adjustedRemainingPages / Math.max(daysLeft, 1);
+      const baselineRecommendedPagesPerDay =
         remainingPages === 0 ? 0 : Math.max(2, Math.round(pagesPerDay * 1.08));
+      const recommendedPagesPerDay =
+        baselineRecommendedPagesPerDay === 0
+          ? 0
+          : Math.max(
+              1,
+              Math.round(
+                baselineRecommendedPagesPerDay *
+                  resolveWorkloadPaceMultiplier(examHint?.workloadMode),
+              ),
+            );
       const recommendedMinutesPerDay =
         recommendedPagesPerDay === 0
           ? 0
@@ -260,11 +289,12 @@ export function buildSeasonPlan(
   exams: ExamLite[],
   weeklyHours: number,
   progress: SeasonProgressInput = {},
+  examHints: ExamHintsMap = {},
   mode: "focused" | "balanced" | "full" = "balanced",
   now = new Date(),
 ): SeasonPlan {
   const examLimit = mode === "focused" ? 6 : mode === "balanced" ? 12 : Number.MAX_SAFE_INTEGER;
-  const activeExams = buildExamProgressSnapshot(exams, progress, now).slice(0, examLimit);
+  const activeExams = buildExamProgressSnapshot(exams, progress, examHints, now).slice(0, examLimit);
 
   const weeklyMinutesBudget = Math.round(clamp(weeklyHours * 60, 120, 4200));
   const dailyMinutesBudget = Math.round(weeklyMinutesBudget / 7);

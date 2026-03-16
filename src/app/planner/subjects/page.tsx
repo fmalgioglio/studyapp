@@ -12,6 +12,12 @@ import {
   type FocusProgressMap,
 } from "@/app/planner/_lib/focus-progress";
 import {
+  normalizeExamHint,
+  readExamHints,
+  writeExamHints,
+  type ExamHint,
+} from "@/app/planner/_lib/exam-hints";
+import {
   buildExamProgressSnapshot,
   type ExamProgressState,
 } from "@/app/planner/_lib/season-engine";
@@ -22,11 +28,6 @@ import { useAuthStudent } from "../_hooks/use-auth-student";
 type CreatedSubject = {
   id: string;
   name: string;
-};
-
-type ExamHint = {
-  workloadMode: "light" | "standard" | "deep";
-  summaryCoverage: number;
 };
 
 type SubjectDeleteRelationCounts = {
@@ -172,9 +173,6 @@ const COPY = {
   },
 } as const;
 
-const EXAM_HINTS_STORAGE_KEY = "studyapp_exam_hints";
-const EMPTY_EXAM_HINTS: Record<string, ExamHint> = {};
-
 const HYDRATION_SUBSCRIBE = () => () => {};
 const getHydratedSnapshot = () => true;
 const getHydratedServerSnapshot = () => false;
@@ -216,19 +214,6 @@ function buildCascadeConfirmMessage(
   ].join("\n");
 }
 
-function getInitialExamHints(): Record<string, ExamHint> {
-  if (typeof window === "undefined") return EMPTY_EXAM_HINTS;
-
-  const raw = localStorage.getItem(EXAM_HINTS_STORAGE_KEY);
-  if (!raw) return EMPTY_EXAM_HINTS;
-
-  try {
-    return JSON.parse(raw) as Record<string, ExamHint>;
-  } catch {
-    return EMPTY_EXAM_HINTS;
-  }
-}
-
 export default function PlannerSubjectsPage() {
   const { student, loading } = useAuthStudent();
   const { language } = useUiLanguage("en");
@@ -240,9 +225,7 @@ export default function PlannerSubjectsPage() {
   const [focusProgress, setFocusProgress] = useState<FocusProgressMap>(() =>
     readFocusProgress(),
   );
-  const [examHints, setExamHints] = useState<Record<string, ExamHint>>(
-    () => getInitialExamHints(),
-  );
+  const [examHints, setExamHints] = useState<Record<string, ExamHint>>(() => readExamHints());
   const storageHydrated = useSyncExternalStore(
     HYDRATION_SUBSCRIBE,
     getHydratedSnapshot,
@@ -253,13 +236,13 @@ export default function PlannerSubjectsPage() {
   const [message, setMessage] = useState("");
   const dataErrorMessage = errors.subjects ?? errors.exams ?? "";
   const examTracks = useMemo(
-    () => buildExamProgressSnapshot(exams, focusProgress),
-    [exams, focusProgress],
+    () => buildExamProgressSnapshot(exams, focusProgress, examHints),
+    [examHints, exams, focusProgress],
   );
 
   useEffect(() => {
     if (!storageHydrated) return;
-    localStorage.setItem(EXAM_HINTS_STORAGE_KEY, JSON.stringify(examHints));
+    writeExamHints(examHints);
   }, [storageHydrated, examHints]);
 
   useEffect(() => {
@@ -350,18 +333,9 @@ export default function PlannerSubjectsPage() {
   }
 
   function setExamHint(examId: string, patch: Partial<ExamHint>) {
-    const normalizedPatch: Partial<ExamHint> = { ...patch };
-    if (normalizedPatch.summaryCoverage !== undefined) {
-      const v = Number(normalizedPatch.summaryCoverage);
-      normalizedPatch.summaryCoverage = Number.isFinite(v) ? Math.min(100, Math.max(0, v)) : 0;
-    }
     setExamHints((current) => ({
       ...current,
-      [examId]: {
-        workloadMode: current[examId]?.workloadMode ?? "standard",
-        summaryCoverage: current[examId]?.summaryCoverage ?? 30,
-        ...normalizedPatch,
-      },
+      [examId]: normalizeExamHint(current[examId], patch),
     }));
     setMessage(t.studySettingsSaved);
   }

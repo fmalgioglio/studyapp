@@ -8,6 +8,7 @@ import { useSearchParams } from "next/navigation";
 import { useUiLanguage } from "@/app/_hooks/use-ui-language";
 import { useAuthStudent } from "./_hooks/use-auth-student";
 import { usePlannerData } from "./_hooks/use-planner-data";
+import { readExamHints, type ExamHintsMap } from "./_lib/exam-hints";
 import {
   buildSeasonPlan,
   type ExamProgressState,
@@ -334,6 +335,7 @@ export default function PlannerOverviewPage() {
   const [focusProgress, setFocusProgress] = useState<FocusProgressMap>(() =>
     readFocusProgress(),
   );
+  const [examHints] = useState<ExamHintsMap>(() => readExamHints());
   const [questCompletions, setQuestCompletions] = useState<Record<string, boolean>>(
     () => getQuestCompletions(),
   );
@@ -362,8 +364,14 @@ export default function PlannerOverviewPage() {
 
   const seasonPlan = useMemo(() => {
     if (!storageHydrated) return EMPTY_SEASON_PLAN;
-    return buildSeasonPlan(exams, student?.weeklyHours ?? 10, focusProgress, seasonMode);
-  }, [exams, student?.weeklyHours, focusProgress, seasonMode, storageHydrated]);
+    return buildSeasonPlan(
+      exams,
+      student?.weeklyHours ?? 10,
+      focusProgress,
+      examHints,
+      seasonMode,
+    );
+  }, [exams, student?.weeklyHours, focusProgress, examHints, seasonMode, storageHydrated]);
   // The season engine is the source of truth for one rendered track per exam.
   const examTrackById = useMemo(
     () => new Map(seasonPlan.examTracks.map((track) => [track.examId, track])),

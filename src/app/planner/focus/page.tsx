@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { useUiLanguage } from "@/app/_hooks/use-ui-language";
+import { readExamHints, type ExamHintsMap } from "@/app/planner/_lib/exam-hints";
 import {
   readFocusProgress,
   recordFocusProgress,
@@ -281,6 +282,7 @@ export default function PlannerFocusPage() {
   const [focusProgress, setFocusProgress] = useState<FocusProgressMap>(() =>
     readFocusProgress(),
   );
+  const [examHints] = useState<ExamHintsMap>(() => readExamHints());
   const hasHydratedClientState = useSyncExternalStore(
     HYDRATION_SUBSCRIBE,
     getHydratedSnapshot,
@@ -292,8 +294,8 @@ export default function PlannerFocusPage() {
   const secondsLeft = focusSecondsLeft % 60;
   const { xp, streak, sessionsCompleted } = stats;
   const examTracks = useMemo(
-    () => buildExamProgressSnapshot(exams, focusProgress),
-    [exams, focusProgress],
+    () => buildExamProgressSnapshot(exams, focusProgress, examHints),
+    [examHints, exams, focusProgress],
   );
   const resolvedSelectedExamId = useMemo(() => {
     if (selectedExamId && examTracks.some((track) => track.examId === selectedExamId)) {
