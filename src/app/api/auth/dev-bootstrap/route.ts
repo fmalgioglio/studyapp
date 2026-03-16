@@ -2,6 +2,11 @@ import { cookies } from "next/headers";
 import { Prisma } from "@/generated/prisma/client";
 
 import { prisma } from "@/server/db/client";
+import {
+  getDevBootstrapEmail,
+  getDevBootstrapPassword,
+  isDevBootstrapEnabled,
+} from "@/server/auth/dev-bootstrap";
 import { hashPassword } from "@/server/auth/password";
 import {
   createSessionToken,
@@ -10,9 +15,8 @@ import {
 } from "@/server/auth/session";
 import { apiError, apiSuccess, getErrorDetails } from "@/server/http/response";
 
-const DEV_BOOTSTRAP_EMAIL =
-  process.env.DEV_BOOTSTRAP_EMAIL ?? "dev@studyapp.local";
-const DEV_BOOTSTRAP_PASSWORD = process.env.DEV_BOOTSTRAP_PASSWORD ?? "";
+const DEV_BOOTSTRAP_EMAIL = getDevBootstrapEmail();
+const DEV_BOOTSTRAP_PASSWORD = getDevBootstrapPassword();
 const DEV_BOOTSTRAP_FULL_NAME = "StudyApp Local Dev";
 const DEV_BOOTSTRAP_WEEKLY_HOURS = 12;
 
@@ -44,19 +48,8 @@ async function upsertDevBootstrapStudent(includePasswordHash: boolean) {
 }
 
 export async function POST() {
-  const enabled =
-    process.env.NODE_ENV !== "production" &&
-    process.env.ENABLE_DEV_BOOTSTRAP === "true";
-
-  if (!enabled) {
+  if (!isDevBootstrapEnabled()) {
     return apiError("Not found", 404);
-  }
-
-  if (!DEV_BOOTSTRAP_PASSWORD || DEV_BOOTSTRAP_PASSWORD.length < 8) {
-    return apiError(
-      "Dev bootstrap is enabled but DEV_BOOTSTRAP_PASSWORD is missing or too short.",
-      500,
-    );
   }
 
   try {
