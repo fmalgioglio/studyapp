@@ -69,6 +69,16 @@ const COPY = {
     pagesInput: "Pages completed this run (optional)",
     topicPlaceholder: "Chapter / mission / topic",
     timer: "Timer",
+    engineSuggested: "Engine suggested",
+    engineSuggestedApply: "Use suggested",
+    engineSuggestedHint: "Auto target from exam track baseline.",
+    engineSuggestedMissing: "Select an exam to unlock the suggested timer.",
+    engineSuggestedApplied: "Engine timer applied",
+    addTenMinutes: "+10 min",
+    liveControls: "Live controls",
+    pagesQuick: "Pages quick adjust",
+    pagesMinusOne: "-1 page",
+    pagesPlusOne: "+1 page",
     start: "Start",
     pause: "Pause",
     stop: "Stop",
@@ -125,6 +135,16 @@ const COPY = {
     pagesInput: "Pagine completate in questa run (opzionale)",
     topicPlaceholder: "Capitolo / missione / topic",
     timer: "Timer",
+    engineSuggested: "Suggerito dal motore",
+    engineSuggestedApply: "Usa suggerito",
+    engineSuggestedHint: "Target automatico dal baseline della traccia esame.",
+    engineSuggestedMissing: "Seleziona un esame per sbloccare il timer suggerito.",
+    engineSuggestedApplied: "Timer del motore applicato",
+    addTenMinutes: "+10 min",
+    liveControls: "Controlli live",
+    pagesQuick: "Regolazione rapida pagine",
+    pagesMinusOne: "-1 pagina",
+    pagesPlusOne: "+1 pagina",
     start: "Avvia",
     pause: "Pausa",
     stop: "Stop",
@@ -224,6 +244,10 @@ function estimatePagesFromMinutes(subjectName: string, minutes: number) {
   return Math.max(1, Math.round(pages));
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
 type FocusCopy = (typeof COPY)[keyof typeof COPY];
 
 function progressStateLabel(state: ExamProgressState, t: FocusCopy) {
@@ -284,7 +308,19 @@ export default function PlannerFocusPage() {
     () => examTracks.find((track) => track.examId === resolvedSelectedExamId) ?? null,
     [examTracks, resolvedSelectedExamId],
   );
+  const suggestedFocusMinutes = useMemo(() => {
+    if (!selectedExam) return null;
+    const baselineMinutes = Number(selectedExam.recommendedMinutesPerDay);
+    if (!Number.isFinite(baselineMinutes) || baselineMinutes <= 0) return null;
+    const roundedToFive = Math.round(baselineMinutes / 5) * 5;
+    return clamp(roundedToFive, 20, 120);
+  }, [selectedExam]);
   const selectedExamDaysLeft = selectedExam ? selectedExam.daysLeft : null;
+  const pagesCompletedValue = useMemo(() => {
+    const parsed = Number(pagesCompletedInput);
+    if (!Number.isFinite(parsed)) return 0;
+    return Math.max(0, Math.round(parsed));
+  }, [pagesCompletedInput]);
 
   const mascotMood = useMemo(() => {
     if (focusRunning) return t.moodFocused;
@@ -418,6 +454,28 @@ export default function PlannerFocusPage() {
     setMessage(t.started);
   }
 
+  function applyEngineSuggestedTimer() {
+    if (focusRunning || suggestedFocusMinutes === null) return;
+    setFocusMinutes(suggestedFocusMinutes);
+    setFocusSecondsLeft(suggestedFocusMinutes * 60);
+    setMessage(`${t.engineSuggestedApplied}: ${suggestedFocusMinutes} min.`);
+  }
+
+  function addTenMinutes() {
+    if (!focusRunning) return;
+    setFocusMinutes((current) => current + 10);
+    setFocusSecondsLeft((current) => current + 10 * 60);
+  }
+
+  function adjustPagesCompleted(delta: number) {
+    if (!focusRunning) return;
+    setPagesCompletedInput((current) => {
+      const parsed = Number(current);
+      const normalized = Number.isFinite(parsed) ? Math.round(parsed) : 0;
+      return String(Math.max(0, normalized + delta));
+    });
+  }
+
   function pauseSession() {
     setFocusRunning(false);
     setMessage(t.paused);
@@ -537,6 +595,31 @@ export default function PlannerFocusPage() {
                 onChange={(event) => setPagesCompletedInput(event.target.value)}
                 className="planner-input"
               />
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className="planner-eyebrow">{t.pagesQuick}</span>
+                <button
+                  type="button"
+                  onClick={() => adjustPagesCompleted(-1)}
+                  disabled={!focusRunning || pagesCompletedValue <= 0}
+                  className={`planner-btn planner-btn-secondary px-3 py-1 text-xs ${
+                    !focusRunning || pagesCompletedValue <= 0
+                      ? "cursor-not-allowed opacity-60"
+                      : ""
+                  }`}
+                >
+                  {t.pagesMinusOne}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => adjustPagesCompleted(1)}
+                  disabled={!focusRunning}
+                  className={`planner-btn planner-btn-secondary px-3 py-1 text-xs ${
+                    !focusRunning ? "cursor-not-allowed opacity-60" : ""
+                  }`}
+                >
+                  {t.pagesPlusOne}
+                </button>
+              </div>
             </label>
             </div>
 
@@ -610,6 +693,28 @@ export default function PlannerFocusPage() {
           ))}
         </div>
 
+        <div className="mt-4 planner-card-soft bg-white px-3 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="planner-eyebrow">{t.engineSuggested}</p>
+            <button
+              type="button"
+              onClick={applyEngineSuggestedTimer}
+              disabled={focusRunning || suggestedFocusMinutes === null || !selectedExam}
+              className={`planner-btn planner-btn-secondary ${
+                focusRunning || suggestedFocusMinutes === null || !selectedExam
+                  ? "cursor-not-allowed opacity-60"
+                  : ""
+              }`}
+            >
+              {t.engineSuggestedApply}
+              {suggestedFocusMinutes !== null ? ` (${suggestedFocusMinutes} min)` : ""}
+            </button>
+          </div>
+          <p className="mt-1 text-xs text-slate-600">
+            {selectedExam ? t.engineSuggestedHint : t.engineSuggestedMissing}
+          </p>
+        </div>
+
         <div className="mt-4 flex flex-wrap gap-2">
           <button
             type="button"
@@ -631,6 +736,16 @@ export default function PlannerFocusPage() {
             className="planner-btn planner-btn-secondary"
           >
             {t.stop}
+          </button>
+          <button
+            type="button"
+            onClick={addTenMinutes}
+            disabled={!focusRunning}
+            className={`planner-btn planner-btn-secondary ${
+              !focusRunning ? "cursor-not-allowed opacity-60" : ""
+            }`}
+          >
+            {t.addTenMinutes}
           </button>
           <button
             type="button"
@@ -666,7 +781,40 @@ export default function PlannerFocusPage() {
             <p className="mt-4 text-5xl font-extrabold tracking-tight text-sky-700">
               {String(minutesLeft).padStart(2, "0")}:{String(secondsLeft).padStart(2, "0")}
             </p>
+            <p className="mt-2 text-xs text-slate-500">{t.liveControls}: {t.pagesQuick}</p>
             <div className="mt-4 flex justify-center gap-2">
+              <button
+                type="button"
+                onClick={addTenMinutes}
+                disabled={!focusRunning}
+                className={`planner-btn planner-btn-secondary ${
+                  !focusRunning ? "cursor-not-allowed opacity-60" : ""
+                }`}
+              >
+                {t.addTenMinutes}
+              </button>
+              <button
+                type="button"
+                onClick={() => adjustPagesCompleted(-1)}
+                disabled={!focusRunning || pagesCompletedValue <= 0}
+                className={`planner-btn planner-btn-secondary ${
+                  !focusRunning || pagesCompletedValue <= 0
+                    ? "cursor-not-allowed opacity-60"
+                    : ""
+                }`}
+              >
+                {t.pagesMinusOne}
+              </button>
+              <button
+                type="button"
+                onClick={() => adjustPagesCompleted(1)}
+                disabled={!focusRunning}
+                className={`planner-btn planner-btn-secondary ${
+                  !focusRunning ? "cursor-not-allowed opacity-60" : ""
+                }`}
+              >
+                {t.pagesPlusOne}
+              </button>
               <button
                 type="button"
                 onClick={pauseSession}
