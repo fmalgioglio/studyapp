@@ -38,6 +38,8 @@ model Student {
 
   subjects     Subject[]
   exams        Exam[]
+  examPlanStates ExamPlanState[]
+  examStudyLogs  ExamStudyLog[]
   sources      StudySource[]
   studySessions StudySession[]
 }
@@ -74,10 +76,49 @@ model Exam {
 
   student       Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
   subject       Subject     @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  planState     ExamPlanState?
+  studyLogs     ExamStudyLog[]
 
   @@index([studentId])
   @@index([subjectId])
   @@index([examDate])
+}
+
+model ExamPlanState {
+  id                         String   @id @default(cuid())
+  studentId                  String
+  examId                     String   @unique
+  intensityPreference        String?  @default("balanced")
+  summaryPreferencePct       Int      @default(30)
+  paceLocked                 Boolean  @default(false)
+  lastRecommendationSnapshot Json?
+  lastGeneratedAt            DateTime?
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  exam    Exam    @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+}
+
+model ExamStudyLog {
+  id             String   @id @default(cuid())
+  studentId       String
+  examId          String
+  minutesSpent    Int
+  pagesCompleted  Int      @default(0)
+  topic           String?
+  completedAt     DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  exam    Exam    @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([examId])
+  @@index([completedAt])
 }
 
 model StudySource {
