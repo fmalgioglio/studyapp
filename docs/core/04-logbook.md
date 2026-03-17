@@ -4887,3 +4887,66 @@ pm run lint\ ? 0 errors, 0 warnings.
 
 - First command/file: add `/api/planner/overview`, `/api/exam-plans`, and `/api/exam-study-logs` on top of `src/server/services/exam-plan-engine.ts`.
 - Next owner: Builder.
+
+---
+
+## Entry - PLANNER-UX-COACH-001 Exam-First Planner Surfaces
+
+- Date: 2026-03-17
+- Task ID: PLANNER-UX-COACH-001
+- Role: Planner + Builder + Reviewer
+- Owner: Codex
+
+### Decisions Taken
+
+- Moved planner homepage to an exam-first coaching surface driven by the new overview API.
+- Kept the weekly board in product as a secondary collapsible view.
+- Moved focus logging to persisted study logs and simplified subjects into a context surface instead of a local hint editor.
+
+### What Was Done
+
+- Added slice spec:
+  - `docs/specs/PLANNER-UX-COACH-001.md`
+- Added planner APIs:
+  - `src/app/api/planner/overview/route.ts`
+  - `src/app/api/exam-plans/route.ts`
+  - `src/app/api/exam-study-logs/route.ts`
+- Added validation for planner preferences and study-log writes:
+  - `src/server/validation/exam-plan.ts`
+- Extended exam reads with plan-state data:
+  - `src/app/api/exams/route.ts`
+- Added overview client hook and updated planner surfaces:
+  - `src/app/planner/_hooks/use-planner-overview.ts`
+  - `src/app/planner/page.tsx`
+  - `src/app/planner/focus/page.tsx`
+  - `src/app/planner/subjects/page.tsx`
+  - `src/app/planner/_components/weekly-board-section.tsx`
+  - `src/app/planner/exams/page.tsx`
+- Rewrote top-level home/profile copy to be more student-facing:
+  - `src/app/home-page-client.tsx`
+  - `src/app/planner/students/page.tsx`
+
+### Evidence
+
+- Lint: `npm run lint` passed after API and UX changes.
+- Build: `npm run build` passed after API and UX changes.
+- Tests: no dedicated automated route or E2E suite added in this slice.
+- Manual checks:
+  - build output confirms `/api/planner/overview`, `/api/exam-plans`, and `/api/exam-study-logs`
+  - focus page now posts persisted study logs instead of local-only progress
+  - planner homepage renders from overview hook instead of client season engine
+
+### Residual Risks
+
+- Exams page still carries some detailed workload wording that can be softened further in a later copy-only pass.
+- Home/profile copy is improved, but not every legacy planner string was rewritten in this slice.
+
+### Assumptions
+
+- Slice 3 is accepted when the main daily planner loop is API-driven and student-facing, even if some secondary wording remains.
+- The new planner overview API remains the primary source for planner and focus surfaces going forward.
+
+### Next Action (Concrete)
+
+- First command/file: add Playwright, seeded student fixtures, and engine/API coverage for QA foundation.
+- Next owner: Builder.

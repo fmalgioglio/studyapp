@@ -242,26 +242,26 @@ export default function PlannerStudentsPage() {
     (easiestCount > 0 ? 25 : 0) +
     (effortCount > 0 ? 25 : 0);
   const recommendations: string[] = [];
-  if (!resolvedName.trim()) recommendations.push("Add your full name.");
-  if (resolvedWeeklyHours < 6) recommendations.push("Set at least 6 weekly study hours.");
-  if (easiestCount === 0) recommendations.push("Pick at least one easy subject.");
-  if (effortCount === 0) recommendations.push("Pick at least one effort-heavy subject.");
+  if (!resolvedName.trim()) recommendations.push("Add your name so the planner feels personal.");
+  if (resolvedWeeklyHours < 6) recommendations.push("Set a realistic weekly study budget.");
+  if (easiestCount === 0) recommendations.push("Choose one subject that usually feels easier.");
+  if (effortCount === 0) recommendations.push("Choose one subject that usually needs more effort.");
 
   return (
     <main className="space-y-5 sm:space-y-6">
       <section className="planner-panel planner-hero">
-        <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Profile</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Study profile</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Keep profile data light, then expand only the parts you want to tune.
+          Save only what helps the planner set a better weekly rhythm.
         </p>
       </section>
 
       <section className="planner-panel">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-base font-semibold text-slate-900">Learning profile</h2>
+            <h2 className="text-base font-semibold text-slate-900">Planner profile</h2>
             <p className="mt-0.5 text-sm text-slate-500">
-              {studyContext ?? "No context selected"} · {profileScore}% complete
+              {studyContext ?? "No context selected"} | {profileScore}% complete
             </p>
           </div>
           <div className="flex items-center gap-1.5">
@@ -312,7 +312,7 @@ export default function PlannerStudentsPage() {
           <div>
             <h2 className="text-lg font-bold text-slate-900">Profile details</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Core account and capacity settings stay collapsed until needed.
+              Name and weekly hours are enough for the planner to start well.
             </p>
           </div>
           <button
@@ -401,7 +401,7 @@ export default function PlannerStudentsPage() {
           <div>
             <h2 className="text-lg font-bold text-slate-900">Study preferences</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Mark the subjects that usually feel lighter and the ones that need more deliberate effort.
+              Mark the subjects that usually feel easier and the ones that need more deliberate effort.
             </p>
           </div>
           <button
@@ -415,10 +415,10 @@ export default function PlannerStudentsPage() {
 
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
           <article className="planner-card bg-emerald-50/70">
-            <p className="planner-eyebrow text-emerald-700">Naturally lighter</p>
+            <p className="planner-eyebrow text-emerald-700">Feels easier</p>
             <p className="mt-1 text-sm text-slate-700">
               {affinity.easiestSubjects.length > 0
-                ? affinity.easiestSubjects.join(" · ")
+                ? affinity.easiestSubjects.join(" | ")
                 : "No easier subjects selected yet."}
             </p>
             <p className="mt-3 text-xs font-semibold text-emerald-800">
@@ -429,8 +429,8 @@ export default function PlannerStudentsPage() {
             <p className="planner-eyebrow text-amber-700">Needs more effort</p>
             <p className="mt-1 text-sm text-slate-700">
               {affinity.effortSubjects.length > 0
-                ? affinity.effortSubjects.join(" · ")
-                : "No effort-heavy subjects selected yet."}
+                ? affinity.effortSubjects.join(" | ")
+                : "No needs more effort subjects selected yet."}
             </p>
             <p className="mt-3 text-xs font-semibold text-amber-900">
               {effortCount}/{AFFINITY_LIMIT} selected
@@ -485,7 +485,7 @@ export default function PlannerStudentsPage() {
 
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="text-xs text-slate-500">
-                Saved profile: {savedAffinity.easiestSubjects.length} easy / {savedAffinity.effortSubjects.length} effort-heavy
+                Saved profile: {savedAffinity.easiestSubjects.length} easy / {savedAffinity.effortSubjects.length} needs more effort
               </div>
               <button
                 type="button"
@@ -514,3 +514,4 @@ export default function PlannerStudentsPage() {
     </main>
   );
 }
+
