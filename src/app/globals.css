@@ -628,6 +628,54 @@ textarea:focus {
     color: inherit;
     padding-inline: 0.1rem;
   }
+
+  .install-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.65rem 0.9rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(var(--accent-rgb), 0.4);
+    background: rgba(37, 99, 235, 0.08);
+    color: #0f172a;
+    font-size: 0.84rem;
+  }
+
+  .install-banner-title {
+    font-weight: 700;
+    margin: 0;
+  }
+
+  .install-banner-subtitle {
+    margin: 0;
+    font-size: 0.75rem;
+    color: #475569;
+  }
+
+  .install-banner-actions {
+    display: inline-flex;
+    gap: 0.35rem;
+  }
+
+  .install-banner-btn {
+    border-radius: 999px;
+    border: 1px solid transparent;
+    padding: 0.35rem 0.9rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+
+  .install-banner-btn-primary {
+    background: var(--accent);
+    color: #ffffff;
+  }
+
+  .install-banner-btn-ghost {
+    background: transparent;
+    border-color: rgba(15, 23, 42, 0.2);
+    color: #0f172a;
+  }
 }
 
 @media (min-width: 768px) {

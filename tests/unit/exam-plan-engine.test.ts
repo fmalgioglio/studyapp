@@ -120,4 +120,49 @@ describe("buildPlannerOverview", () => {
       effort.examRecommendations[0]?.affinityImpact.explanation?.toLowerCase(),
     ).toContain("extra");
   });
+
+  it("uses linked materials for self-study targets when explicit workload is missing", () => {
+    const overview = buildPlannerOverview({
+      weeklyHours: 6,
+      subjectAffinity: null,
+      now: new Date("2026-03-17T10:00:00.000Z"),
+      exams: [
+        {
+          id: "exam-4",
+          title: "Spanish conversation",
+          examDate: "2026-06-01T09:00:00.000Z",
+          assessmentType: "SELF_STUDY",
+          status: "ACTIVE",
+          importance: "MEDIUM",
+          workloadReadiness: "unknown",
+          materialType: "notes",
+          workloadPayload: null,
+          subject: {
+            id: "subject-4",
+            name: "Spanish",
+          },
+          planState: null,
+          studyLogs: [],
+          studyMaterials: [
+            {
+              id: "material-1",
+              studentId: "student-1",
+              examId: "exam-4",
+              subjectId: "subject-4",
+              type: "OPEN_RESOURCE",
+              origin: "OPEN_VERIFIED",
+              title: "Open speaking drills",
+              verificationLevel: "OFFICIAL",
+              estimatedScopePages: 48,
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(overview.examRecommendations[0]?.scopeSource).toBe("linked_materials");
+    expect(overview.examRecommendations[0]?.planMode).toBe("retention");
+    expect(overview.examRecommendations[0]?.linkedMaterialsCount).toBe(1);
+    expect(overview.examRecommendations[0]?.confidence).toBe("medium");
+  });
 });

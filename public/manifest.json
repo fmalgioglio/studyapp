@@ -1,0 +1,39 @@
+{
+  "name": "StudyApp",
+  "short_name": "StudyApp",
+  "description": "Adaptive study planner for exams, tests, interrogations, and self-study.",
+  "start_url": "/?source=pwa",
+  "display": "standalone",
+  "scope": "/",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f172a",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/pwa-icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/pwa-icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Open planner",
+      "short_name": "Planner",
+      "description": "Jump to today's study focus",
+      "url": "/planner"
+    },
+    {
+      "name": "Log a session",
+      "short_name": "Focus",
+      "description": "Record a study block",
+      "url": "/planner/focus"
+    }
+  ]
+}

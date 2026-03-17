@@ -36,12 +36,15 @@ const COPY = {
     timer: "Timer",
     suggested: "Suggested from plan",
     suggestedHint: "Uses the daily target from the selected exam plan.",
+    availableTime: "Time available today",
     start: "Start",
     pause: "Pause",
-    stop: "Stop",
+    stop: "Log partial",
+    skip: "Skip today",
     addTenMinutes: "+10 min",
     completed: "Session completed",
-    stopped: "Session stopped early.",
+    stopped: "Partial session saved.",
+    skipped: "Session skipped. The planner will stay cautious.",
     paused: "Session paused.",
     started: "Session started.",
     noExam: "No exams yet. Add one in Exams first.",
@@ -66,12 +69,15 @@ const COPY = {
     timer: "Timer",
     suggested: "Suggerito dal piano",
     suggestedHint: "Usa il target giornaliero del piano dell'esame selezionato.",
+    availableTime: "Tempo disponibile oggi",
     start: "Avvia",
     pause: "Pausa",
-    stop: "Stop",
+    stop: "Salva parziale",
+    skip: "Salta oggi",
     addTenMinutes: "+10 min",
     completed: "Sessione completata",
-    stopped: "Sessione interrotta prima del termine.",
+    stopped: "Sessione parziale salvata.",
+    skipped: "Sessione saltata. Il planner resta prudente.",
     paused: "Sessione in pausa.",
     started: "Sessione avviata.",
     noExam: "Nessun esame. Aggiungine uno nella pagina Esami.",
@@ -139,6 +145,7 @@ export default function PlannerFocusPage() {
   const [message, setMessage] = useState("");
   const [stats, setStats] = useState<FocusStats>(() => getInitialFocusStats());
   const [selectedExamId, setSelectedExamId] = useState("");
+  const [availableTimeMinutes, setAvailableTimeMinutes] = useState("60");
   const [topic, setTopic] = useState("");
   const [pagesCompleted, setPagesCompleted] = useState("");
 
@@ -159,10 +166,10 @@ export default function PlannerFocusPage() {
     : null;
 
   const finishSession = useCallback(
-    async (completed: boolean) => {
+    async (outcome: "completed" | "partial" | "skipped") => {
       setFocusRunning(false);
-      if (!completed) {
-        setMessage(t.stopped);
+      if (outcome === "skipped") {
+        setMessage(t.skipped);
         return;
       }
 
@@ -171,7 +178,12 @@ export default function PlannerFocusPage() {
         return;
       }
 
-      const { totalXp } = calculateFocusSessionXp(focusMinutes, stats.streak);
+      const elapsedMinutes = Math.max(
+        1,
+        focusMinutes - Math.ceil(focusSecondsLeft / 60),
+      );
+      const loggedMinutes = outcome === "completed" ? focusMinutes : elapsedMinutes;
+      const { totalXp } = calculateFocusSessionXp(loggedMinutes, stats.streak);
       const today = getTodayIso();
       const yesterday = getYesterdayIso();
 
@@ -198,7 +210,7 @@ export default function PlannerFocusPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           examId: selectedExam.examId,
-          minutesSpent: focusMinutes,
+          minutesSpent: loggedMinutes,
           pagesCompleted: normalizedPages,
           topic: topic.trim() || selectedExam.examTitle,
           completedAt: new Date().toISOString(),
@@ -218,7 +230,16 @@ export default function PlannerFocusPage() {
         `${t.completed}: +${totalXp} XP • ${focusMinutes} ${t.minutes} • ${normalizedPages} ${t.pages}`,
       );
     },
-    [focusMinutes, pagesCompleted, refresh, selectedExam, stats.streak, t, topic],
+    [
+      focusMinutes,
+      focusSecondsLeft,
+      pagesCompleted,
+      refresh,
+      selectedExam,
+      stats.streak,
+      t,
+      topic,
+    ],
   );
 
   useEffect(() => {
@@ -227,7 +248,7 @@ export default function PlannerFocusPage() {
       setFocusSecondsLeft((current) => {
         if (current <= 1) {
           clearInterval(timer);
-          void finishSession(true);
+          void finishSession("completed");
           return 0;
         }
         return current - 1;
@@ -292,6 +313,21 @@ export default function PlannerFocusPage() {
                       {exam.examTitle} - {exam.subjectName}
                     </option>
                   ))}
+                </select>
+              </label>
+
+              <label className="planner-field">
+                <span className="planner-eyebrow mb-1 block">{t.availableTime}</span>
+                <select
+                  value={availableTimeMinutes}
+                  onChange={(event) => setAvailableTimeMinutes(event.target.value)}
+                  className="planner-input"
+                >
+                  <option value="30">30 min</option>
+                  <option value="45">45 min</option>
+                  <option value="60">60 min</option>
+                  <option value="90">90 min</option>
+                  <option value="120">120 min</option>
                 </select>
               </label>
 
@@ -390,10 +426,17 @@ export default function PlannerFocusPage() {
               </button>
               <button
                 type="button"
-                onClick={() => void finishSession(false)}
+                onClick={() => void finishSession("partial")}
                 className="planner-btn planner-btn-secondary"
               >
                 {t.stop}
+              </button>
+              <button
+                type="button"
+                onClick={() => void finishSession("skipped")}
+                className="planner-btn planner-btn-secondary"
+              >
+                {t.skip}
               </button>
               <button
                 type="button"
@@ -410,8 +453,12 @@ export default function PlannerFocusPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setFocusMinutes(suggestedMinutes);
-                    setFocusSecondsLeft(suggestedMinutes * 60);
+                    const cappedMinutes = Math.min(
+                      suggestedMinutes,
+                      Number(availableTimeMinutes),
+                    );
+                    setFocusMinutes(cappedMinutes);
+                    setFocusSecondsLeft(cappedMinutes * 60);
                   }}
                   className="planner-btn planner-btn-secondary"
                 >

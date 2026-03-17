@@ -5123,3 +5123,67 @@ pm run lint\ ? 0 errors, 0 warnings.
 
 - First command/file: update `src/app/planner/exams/page.tsx` to expose target types, status actions, and linked materials.
 - Next owner: Builder.
+
+---
+
+## Entry - PHASE-6-STUDENT-PRODUCTIZATION-002 UX + PWA
+
+- Date: 2026-03-17
+- Task ID: PHASE-6-STUDENT-PRODUCTIZATION-002
+- Role: Builder + Reviewer
+- Owner: Codex
+
+### Decisions Taken
+
+- Kept the existing planner surfaces but upgraded them into target-oriented flows instead of rewriting navigation or routes.
+- Moved material management into a dedicated planner component so search/link/upload logic stays isolated from the large targets page.
+- Shipped PWA shell support now, while keeping store-native packaging out of scope.
+
+### What Was Done
+
+- Added target material manager UI with rights-safe search, user links, uploads, refresh, and removal:
+  - `src/app/planner/_components/target-material-manager.tsx`
+- Expanded target management UX:
+  - `src/app/planner/exams/page.tsx`
+  - create targets with type and importance
+  - edit title/date/type/status/importance inline
+  - quick postpone and complete actions
+  - per-target materials panel
+- Expanded planner/focus/profile UX:
+  - `src/app/planner/page.tsx`
+  - `src/app/planner/focus/page.tsx`
+  - `src/app/planner/students/page.tsx`
+- Added PWA shell assets and install prompt wiring:
+  - `src/app/layout.tsx`
+  - `src/app/globals.css`
+  - `src/app/_components/install-prompt.tsx`
+  - `src/app/_hooks/use-install-prompt.ts`
+  - `public/manifest.json`
+  - `public/icons/pwa-icon.svg`
+- Added Phase 6 tests:
+  - `tests/unit/exam-plan-engine.test.ts`
+  - `tests/api/materials-search.route.test.ts`
+
+### Evidence
+
+- Lint: `npm run lint` passed.
+- Build: `npm run build` passed.
+- Tests: `npm run test:unit` passed.
+- Manual checks:
+  - production build exposes the new materials routes and planner surfaces
+  - manifest/install prompt files are present and linked from the root layout
+
+### Residual Risks
+
+- Planner and focus copy still mix some older exam-first wording with the new target-first behavior.
+- No Phase 6 browser E2E scenario has been added yet for materials upload/search or target postpone/complete actions.
+
+### Assumptions
+
+- The current product can ship as web + PWA first while native-store packaging remains a later phase.
+- User uploads staying in the database are acceptable for this limited rollout phase.
+
+### Next Action (Concrete)
+
+- First command/file: add a Playwright scenario covering target postpone plus rights-safe material linking.
+- Next owner: QA/Reliability.

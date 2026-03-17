@@ -9,6 +9,7 @@ import {
   type BookSearchItem,
   type BookSearchSource,
 } from "@/app/planner/_components/book-search-typeahead";
+import { TargetMaterialManager } from "@/app/planner/_components/target-material-manager";
 import {
   usePlannerData,
   type PlannerExam,
@@ -30,6 +31,11 @@ import type {
   ExamWorkloadApproximateScopeUnit,
   ExamWorkloadMaterialShape,
 } from "@/lib/exam-workload-contract";
+import type {
+  AssessmentType,
+  ExamStatus,
+  StudyTargetImportance,
+} from "@/lib/study-domain";
 import {
   focusContributionClasses,
   progressStateClasses,
@@ -396,6 +402,20 @@ function truncateText(value: string, maxLength: number) {
   return `${value.slice(0, maxLength)}…`;
 }
 
+function formatEnumLabel(value: string | null | undefined) {
+  if (!value) return "Not set";
+  return value
+    .toLowerCase()
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function addDaysToDate(dateIso: string, days: number) {
+  const base = new Date(`${dateIso}T12:00:00.000Z`);
+  base.setUTCDate(base.getUTCDate() + days);
+  return base.toISOString().slice(0, 10);
+}
+
 export default function PlannerExamsPage() {
   const { student, loading } = useAuthStudent();
   const { language } = useUiLanguage("en");
@@ -424,6 +444,8 @@ export default function PlannerExamsPage() {
   const [newSubjectColor, setNewSubjectColor] = useState("");
   const [examTitle, setExamTitle] = useState("");
   const [examDate, setExamDate] = useState("");
+  const [assessmentType, setAssessmentType] = useState<AssessmentType>("EXAM");
+  const [importance, setImportance] = useState<StudyTargetImportance>("MEDIUM");
   const [targetGrade, setTargetGrade] = useState("");
   const [workloadReadiness, setWorkloadReadiness] = useState<WorkloadReadiness>("known");
   const [materialType, setMaterialType] = useState<MaterialType>("book");
@@ -459,6 +481,13 @@ export default function PlannerExamsPage() {
   const [editSelectedBook, setEditSelectedBook] = useState<BookSearchItem | null>(null);
   const [editNotesSummary, setEditNotesSummary] = useState("");
   const [editMaterialDetails, setEditMaterialDetails] = useState("");
+  const [editTitle, setEditTitle] = useState("");
+  const [editExamDate, setEditExamDate] = useState("");
+  const [editAssessmentType, setEditAssessmentType] = useState<AssessmentType>("EXAM");
+  const [editStatus, setEditStatus] = useState<ExamStatus>("ACTIVE");
+  const [editImportance, setEditImportance] =
+    useState<StudyTargetImportance>("MEDIUM");
+  const [editTargetGrade, setEditTargetGrade] = useState("");
   const [editPagesTouched, setEditPagesTouched] = useState(false);
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [message, setMessage] = useState("");
@@ -516,6 +545,12 @@ export default function PlannerExamsPage() {
     if (!exam) return;
     const workloadPayload = exam.workloadPayload;
     setEditingExamId(examId);
+    setEditTitle(exam.title);
+    setEditExamDate(exam.examDate.slice(0, 10));
+    setEditAssessmentType((exam.assessmentType ?? "EXAM") as AssessmentType);
+    setEditStatus((exam.status ?? "ACTIVE") as ExamStatus);
+    setEditImportance((exam.importance ?? "MEDIUM") as StudyTargetImportance);
+    setEditTargetGrade(exam.targetGrade ?? "");
     setEditWorkloadReadiness((exam.workloadReadiness as WorkloadReadiness) ?? "unknown");
     setEditMaterialType((exam.materialType as MaterialType) ?? "book");
     setEditBookCoverageMode(
@@ -543,6 +578,12 @@ export default function PlannerExamsPage() {
 
   function closeEditWorkload() {
     setEditingExamId(null);
+    setEditTitle("");
+    setEditExamDate("");
+    setEditAssessmentType("EXAM");
+    setEditStatus("ACTIVE");
+    setEditImportance("MEDIUM");
+    setEditTargetGrade("");
     setEditBookCoverageMode("full_book");
     setEditBookPageStart("");
     setEditBookPageEnd("");
@@ -559,6 +600,15 @@ export default function PlannerExamsPage() {
   }
 
   async function saveEditWorkload(examId: string) {
+    if (!editTitle.trim()) {
+      setMessage("Add a title before saving.");
+      return;
+    }
+    if (editAssessmentType !== "SELF_STUDY" && !editExamDate) {
+      setMessage("Choose a target date before saving.");
+      return;
+    }
+
     setEditSubmitting(true);
     const workloadPayload: Record<string, unknown> = {};
     const normalizedPages = editTotalPages ? Number(editTotalPages) : undefined;
@@ -617,6 +667,12 @@ export default function PlannerExamsPage() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        title: editTitle.trim(),
+        examDate: editAssessmentType === "SELF_STUDY" ? null : editExamDate,
+        assessmentType: editAssessmentType,
+        status: editStatus,
+        importance: editImportance,
+        targetGrade: editTargetGrade.trim() || null,
         workloadReadiness: editWorkloadReadiness,
         materialType: editMaterialType,
         workloadPayload,
@@ -704,7 +760,7 @@ export default function PlannerExamsPage() {
       return;
     }
 
-    if (!examDate) {
+    if (assessmentType !== "SELF_STUDY" && !examDate) {
       setMessage(t.noDate);
       return;
     }
@@ -765,7 +821,9 @@ export default function PlannerExamsPage() {
       body: JSON.stringify({
         subjectId: nextSubjectId,
         title: examTitle.trim(),
-        examDate,
+        examDate: assessmentType === "SELF_STUDY" ? undefined : examDate,
+        assessmentType,
+        importance,
         targetGrade: targetGrade.trim() || undefined,
         workloadReadiness,
         materialType,
@@ -786,6 +844,8 @@ export default function PlannerExamsPage() {
     setNewSubjectColor("");
     setExamTitle("");
     setExamDate("");
+    setAssessmentType("EXAM");
+    setImportance("MEDIUM");
     setTargetGrade("");
     setWorkloadReadiness("known");
     setMaterialType("book");
@@ -838,6 +898,40 @@ export default function PlannerExamsPage() {
         );
       }
     });
+  }
+
+  async function patchExam(
+    id: string,
+    payload: Partial<{
+      title: string;
+      examDate: string | null;
+      assessmentType: AssessmentType;
+      status: ExamStatus;
+      importance: StudyTargetImportance;
+      targetGrade: string | null;
+    }>,
+    successMessage: string,
+  ) {
+    const response = await requestJson<PlannerExam>(`/api/exams?id=${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok || !response.payload.data) {
+      setMessage(response.payload.error ?? t.createError);
+      return;
+    }
+
+    upsertExam(response.payload.data);
+    setMessage(successMessage);
+    notifyDataRevision();
+    void refresh({ force: true });
+  }
+
+  function handleMaterialsChanged() {
+    notifyDataRevision();
+    void refresh({ force: true });
   }
 
   return (
@@ -935,7 +1029,7 @@ export default function PlannerExamsPage() {
               ) : null}
             </section>
 
-            <section className="grid gap-3 md:grid-cols-4">
+            <section className="grid gap-3 md:grid-cols-5">
               <label className="planner-field">
                 <span className="planner-eyebrow mb-1 block">{t.examTitle}</span>
                 <input
@@ -950,7 +1044,7 @@ export default function PlannerExamsPage() {
               <label className="planner-field">
                 <span className="planner-eyebrow mb-1 block">{t.examDate}</span>
                 <input
-                  required
+                  required={assessmentType !== "SELF_STUDY"}
                   type="date"
                   value={examDate}
                   onChange={(event) => setExamDate(event.target.value)}
@@ -958,7 +1052,38 @@ export default function PlannerExamsPage() {
                 />
               </label>
 
-              <label className="planner-field md:col-span-2">
+              <label className="planner-field">
+                <span className="planner-eyebrow mb-1 block">Target type</span>
+                <select
+                  value={assessmentType}
+                  onChange={(event) =>
+                    setAssessmentType(event.target.value as AssessmentType)
+                  }
+                  className="planner-input"
+                >
+                  <option value="EXAM">Exam</option>
+                  <option value="TEST">Test</option>
+                  <option value="ORAL">Oral</option>
+                  <option value="SELF_STUDY">Self study</option>
+                </select>
+              </label>
+
+              <label className="planner-field">
+                <span className="planner-eyebrow mb-1 block">Importance</span>
+                <select
+                  value={importance}
+                  onChange={(event) =>
+                    setImportance(event.target.value as StudyTargetImportance)
+                  }
+                  className="planner-input"
+                >
+                  <option value="LOW">Low</option>
+                  <option value="MEDIUM">Medium</option>
+                  <option value="HIGH">High</option>
+                </select>
+              </label>
+
+              <label className="planner-field">
                 <span className="planner-eyebrow mb-1 block">{t.targetGrade}</span>
                 <input
                   type="text"
@@ -1318,6 +1443,15 @@ export default function PlannerExamsPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-semibold text-slate-900">{track.examTitle}</p>
                         <span className="planner-chip bg-white text-slate-700">
+                          {formatEnumLabel(examMeta?.assessmentType)}
+                        </span>
+                        <span className="planner-chip bg-white text-slate-700">
+                          {formatEnumLabel(examMeta?.status)}
+                        </span>
+                        <span className="planner-chip bg-white text-slate-700">
+                          {formatEnumLabel(examMeta?.importance)}
+                        </span>
+                        <span className="planner-chip bg-white text-slate-700">
                           {examMeta?.workloadReadiness === "known"
                             ? t.workloadKnownChip
                             : t.workloadUnknownChip}
@@ -1363,6 +1497,11 @@ export default function PlannerExamsPage() {
                               ? t.scopeApproximate
                               : t.scopeInferred}
                         </span>
+                        {examMeta?.studyMaterials?.length ? (
+                          <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 font-semibold text-slate-700">
+                            {examMeta.studyMaterials.length} materials
+                          </span>
+                        ) : null}
                       </div>
                       {workloadPayload ? (
                         <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-600">
@@ -1468,6 +1607,41 @@ export default function PlannerExamsPage() {
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
+                        onClick={() =>
+                          void patchExam(
+                            track.examId,
+                            { examDate: addDaysToDate(track.examDate.slice(0, 10), 7), status: "POSTPONED" },
+                            "Target postponed by 7 days.",
+                          )
+                        }
+                        className="planner-btn planner-btn-secondary min-h-0 py-1.5"
+                      >
+                        +7d
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void patchExam(
+                            track.examId,
+                            { examDate: addDaysToDate(track.examDate.slice(0, 10), 14), status: "POSTPONED" },
+                            "Target postponed by 14 days.",
+                          )
+                        }
+                        className="planner-btn planner-btn-secondary min-h-0 py-1.5"
+                      >
+                        +14d
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void patchExam(track.examId, { status: "COMPLETED" }, "Target completed.")
+                        }
+                        className="planner-btn planner-btn-secondary min-h-0 py-1.5"
+                      >
+                        Complete
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => openEditWorkload(track.examId)}
                         className="planner-btn planner-btn-secondary min-h-0 py-1.5"
                       >
@@ -1491,7 +1665,81 @@ export default function PlannerExamsPage() {
                   </div>
                   {editingExamId === track.examId ? (
                     <div className="mt-3 w-full space-y-3 border-t border-slate-200 pt-3">
-                      <p className="planner-eyebrow">{t.editWorkload}</p>
+                      <p className="planner-eyebrow">Target details and workload</p>
+                      <div className="grid gap-3 md:grid-cols-3">
+                        <label className="planner-field md:col-span-3">
+                          <span className="planner-eyebrow mb-1 block">Title</span>
+                          <input
+                            type="text"
+                            value={editTitle}
+                            onChange={(event) => setEditTitle(event.target.value)}
+                            className="planner-input"
+                          />
+                        </label>
+                        <label className="planner-field">
+                          <span className="planner-eyebrow mb-1 block">Target date</span>
+                          <input
+                            type="date"
+                            value={editAssessmentType === "SELF_STUDY" ? "" : editExamDate}
+                            onChange={(event) => setEditExamDate(event.target.value)}
+                            className="planner-input"
+                            disabled={editAssessmentType === "SELF_STUDY"}
+                          />
+                        </label>
+                        <label className="planner-field">
+                          <span className="planner-eyebrow mb-1 block">Target type</span>
+                          <select
+                            value={editAssessmentType}
+                            onChange={(event) =>
+                              setEditAssessmentType(event.target.value as AssessmentType)
+                            }
+                            className="planner-input"
+                          >
+                            <option value="EXAM">Exam</option>
+                            <option value="TEST">Test</option>
+                            <option value="ORAL">Oral</option>
+                            <option value="SELF_STUDY">Self study</option>
+                          </select>
+                        </label>
+                        <label className="planner-field">
+                          <span className="planner-eyebrow mb-1 block">Status</span>
+                          <select
+                            value={editStatus}
+                            onChange={(event) =>
+                              setEditStatus(event.target.value as ExamStatus)
+                            }
+                            className="planner-input"
+                          >
+                            <option value="ACTIVE">Active</option>
+                            <option value="POSTPONED">Postponed</option>
+                            <option value="COMPLETED">Completed</option>
+                            <option value="CANCELLED">Cancelled</option>
+                          </select>
+                        </label>
+                        <label className="planner-field">
+                          <span className="planner-eyebrow mb-1 block">Importance</span>
+                          <select
+                            value={editImportance}
+                            onChange={(event) =>
+                              setEditImportance(event.target.value as StudyTargetImportance)
+                            }
+                            className="planner-input"
+                          >
+                            <option value="LOW">Low</option>
+                            <option value="MEDIUM">Medium</option>
+                            <option value="HIGH">High</option>
+                          </select>
+                        </label>
+                        <label className="planner-field">
+                          <span className="planner-eyebrow mb-1 block">{t.targetGrade}</span>
+                          <input
+                            type="text"
+                            value={editTargetGrade}
+                            onChange={(event) => setEditTargetGrade(event.target.value)}
+                            className="planner-input"
+                          />
+                        </label>
+                      </div>
                       <div className="grid gap-3 md:grid-cols-2">
                         <label className="planner-field">
                           <span className="planner-eyebrow mb-1 block">{t.workloadStatus}</span>
@@ -1716,6 +1964,16 @@ export default function PlannerExamsPage() {
                       </div>
                     </div>
                   ) : null}
+                  <div className="mt-3 border-t border-slate-200 pt-3">
+                    <TargetMaterialManager
+                      examId={track.examId}
+                      subjectId={examMeta?.subject.id ?? ""}
+                      subjectName={track.subjectName}
+                      examTitle={track.examTitle}
+                      initialMaterials={examMeta?.studyMaterials ?? []}
+                      onChange={handleMaterialsChanged}
+                    />
+                  </div>
                 </li>
               );
             })}

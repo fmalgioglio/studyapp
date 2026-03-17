@@ -1,9 +1,10 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import Script from "next/script";
 
 import { SiteNav } from "@/app/_components/site-nav";
+import InstallPrompt from "@/app/_components/install-prompt";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -19,6 +20,15 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "StudyApp",
   description: "Gamified study planning for students",
+  icons: [
+    { rel: "icon", url: "/icons/pwa-icon.svg", type: "image/svg+xml" },
+    { rel: "apple-touch-icon", url: "/icons/pwa-icon.svg", sizes: "192x192" },
+  ],
+  manifest: "/manifest.json",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0f172a",
 };
 
 export default async function RootLayout({
@@ -28,13 +38,15 @@ export default async function RootLayout({
 }>) {
   return (
     <html lang="en">
-      {process.env.NODE_ENV !== "production" ? (
-        <head>
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#0f172a" />
+        {process.env.NODE_ENV !== "production" ? (
           <Script id="canonical-localhost" strategy="beforeInteractive">
             {`(function(){var host=window.location.hostname;if(host==='127.0.0.1'||host==='::1'||host==='[::1]'){var url=new URL(window.location.href);url.hostname='localhost';window.location.replace(url.toString());}})();`}
           </Script>
-        </head>
-      ) : null}
+        ) : null}
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
@@ -46,6 +58,7 @@ export default async function RootLayout({
                 StudyApp
               </Link>
               <SiteNav />
+              <InstallPrompt />
             </div>
           </header>
           <div className="flex-1">

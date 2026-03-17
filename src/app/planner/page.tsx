@@ -145,6 +145,13 @@ function riskLabel(value: ExamPaceRecommendation["risk"], t: PlannerCopy) {
   return t.riskLow;
 }
 
+function formatPlannerLabel(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 export default function PlannerOverviewPage() {
   const { student, loading: loadingStudent } = useAuthStudent();
   const searchParams = useSearchParams();
@@ -387,6 +394,15 @@ export default function PlannerOverviewPage() {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <span className="planner-chip border-slate-200 bg-white text-slate-700">
+                        {formatPlannerLabel(selectedExam.assessmentType)}
+                      </span>
+                      <span className="planner-chip border-slate-200 bg-white text-slate-700">
+                        {formatPlannerLabel(selectedExam.status)}
+                      </span>
+                      <span className="planner-chip border-slate-200 bg-white text-slate-700">
+                        {formatPlannerLabel(selectedExam.planMode)}
+                      </span>
+                      <span className="planner-chip border-slate-200 bg-white text-slate-700">
                         {t.confidence}: {confidenceLabel(selectedExam.confidence, t)}
                       </span>
                       <span className="planner-chip border-slate-200 bg-white text-slate-700">
@@ -423,11 +439,31 @@ export default function PlannerOverviewPage() {
                         {selectedExam.affinityImpact.label}
                       </p>
                     </div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                      <p className="planner-eyebrow">Materials</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">
+                        {selectedExam.linkedMaterialsCount} linked
+                      </p>
+                    </div>
                   </div>
                 </article>
 
                 <article className="planner-card border border-slate-200 bg-white">
                   <p className="planner-eyebrow">{t.whyThisPlan}</p>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                      <p className="planner-eyebrow">Allocation</p>
+                      <p className="mt-1 text-sm text-slate-700">
+                        {selectedExam.allocationReason}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                      <p className="planner-eyebrow">{t.confidence}</p>
+                      <p className="mt-1 text-sm text-slate-700">
+                        {selectedExam.confidenceReason}
+                      </p>
+                    </div>
+                  </div>
                   <ul className="mt-3 space-y-2 text-sm text-slate-700">
                     {selectedExam.explanationBullets.map((item) => (
                       <li key={item} className="flex gap-2">
@@ -436,6 +472,17 @@ export default function PlannerOverviewPage() {
                       </li>
                     ))}
                   </ul>
+                  <div className="mt-4">
+                    <p className="planner-eyebrow">Risk drivers</p>
+                    <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                      {selectedExam.riskDrivers.map((item) => (
+                        <li key={item} className="flex gap-2">
+                          <span className="mt-1 h-1.5 w-1.5 rounded-full bg-slate-400" />
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </article>
 
                 <article className="planner-card border border-slate-200 bg-white">

@@ -245,6 +245,10 @@ export default function PlannerStudentsPage() {
 
   const resolvedName = fullNameDraft ?? student?.fullName ?? "";
   const resolvedWeeklyHours = weeklyHoursDraft ?? student?.weeklyHours ?? 0;
+  const resolvedEducationLevel =
+    educationLevelDraft ?? student?.educationLevel ?? "INDEPENDENT";
+  const resolvedSchoolProfile =
+    schoolProfileDraft ?? student?.schoolProfile ?? "SELF_STUDY";
   const profileScore =
     (resolvedName.trim().length > 0 ? 25 : 0) +
     (resolvedWeeklyHours >= 6 ? 25 : 0) +
@@ -333,7 +337,7 @@ export default function PlannerStudentsPage() {
           </button>
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
           <article className="planner-card bg-slate-50/80">
             <p className="planner-eyebrow">Name</p>
             <p className="mt-1 text-base font-semibold text-slate-900">
@@ -352,6 +356,15 @@ export default function PlannerStudentsPage() {
               {resolvedWeeklyHours} hours
             </p>
           </article>
+          <article className="planner-card bg-slate-50/80">
+            <p className="planner-eyebrow">Study path</p>
+            <p className="mt-1 text-base font-semibold text-slate-900">
+              {resolvedEducationLevel.toLowerCase().replace(/_/g, " ")}
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              {resolvedSchoolProfile.toLowerCase().replace(/_/g, " ")}
+            </p>
+          </article>
         </div>
 
         {profileExpanded ? (
@@ -364,7 +377,7 @@ export default function PlannerStudentsPage() {
               </div>
             </div>
           ) : (
-            <form className="mt-4 grid gap-3 md:grid-cols-3" onSubmit={saveProfile}>
+            <form className="mt-4 grid gap-3 md:grid-cols-4" onSubmit={saveProfile}>
               <label className="planner-field space-y-1">
                 <span className="planner-eyebrow mb-1 block">Email</span>
                 <input
@@ -394,9 +407,40 @@ export default function PlannerStudentsPage() {
                   className="planner-input"
                 />
               </label>
+              <label className="planner-field space-y-1">
+                <span className="planner-eyebrow mb-1 block">Education level</span>
+                <select
+                  value={educationLevelDraft ?? student?.educationLevel ?? "INDEPENDENT"}
+                  onChange={(event) =>
+                    setEducationLevelDraft(event.target.value as EducationLevel)
+                  }
+                  className="planner-input"
+                >
+                  <option value="HIGH_SCHOOL">High school</option>
+                  <option value="UNIVERSITY">University</option>
+                  <option value="INDEPENDENT">Independent</option>
+                </select>
+              </label>
+              <label className="planner-field space-y-1">
+                <span className="planner-eyebrow mb-1 block">School profile</span>
+                <select
+                  value={schoolProfileDraft ?? student?.schoolProfile ?? "SELF_STUDY"}
+                  onChange={(event) =>
+                    setSchoolProfileDraft(event.target.value as SchoolProfile)
+                  }
+                  className="planner-input"
+                >
+                  <option value="LICEO">Liceo</option>
+                  <option value="TECHNICAL">Technical</option>
+                  <option value="PROFESSIONAL">Professional</option>
+                  <option value="UNIVERSITY">University</option>
+                  <option value="SELF_STUDY">Self study</option>
+                  <option value="OTHER">Other</option>
+                </select>
+              </label>
               <button
                 type="submit"
-                className="planner-btn planner-btn-accent w-full md:col-span-3"
+                className="planner-btn planner-btn-accent w-full md:col-span-4"
               >
                 Save profile
               </button>
