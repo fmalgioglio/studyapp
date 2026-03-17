@@ -387,7 +387,8 @@ export default function PlannerOverviewPage() {
   const t = COPY[plannerLanguage];
   const { subjects, exams, errors, refresh } = usePlannerData({
     enabled: Boolean(student?.id),
-    subscribeToRevision: false,
+    studentId: student?.id,
+    subscribeToRevision: true,
   });
 
   const [focusStats] = useState<FocusStats>(() => getFocusStats());

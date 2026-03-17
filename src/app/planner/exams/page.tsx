@@ -384,9 +384,19 @@ export default function PlannerExamsPage() {
   const { student, loading } = useAuthStudent();
   const { language } = useUiLanguage("en");
   const t = COPY[language] ?? COPY.en;
-  const { subjects, exams, errors, refresh, refreshing } = usePlannerData({
+  const {
+    subjects,
+    exams,
+    errors,
+    refresh,
+    refreshing,
+    upsertSubject,
+    upsertExam,
+    removeExam,
+  } = usePlannerData({
     enabled: Boolean(student?.id),
-    subscribeToRevision: false,
+    studentId: student?.id,
+    subscribeToRevision: true,
   });
 
   const [focusProgress, setFocusProgress] = useState<FocusProgressMap>(() =>
@@ -471,6 +481,7 @@ export default function PlannerExamsPage() {
       throw new Error(payload.error ?? t.subjectCreateError);
     }
 
+    upsertSubject(payload.data);
     return payload.data;
   }
 
@@ -602,15 +613,18 @@ export default function PlannerExamsPage() {
       return;
     }
 
+    if (payload.data) {
+      upsertExam(payload.data);
+    }
     closeEditWorkload();
     setMessage(`${t.saveWorkload} ✓`);
-    const refreshResult = await refresh({ force: true });
-    if (!refreshResult.ok && !refreshResult.skipped) {
-      setMessage(refreshResult.errors.exams ?? t.loadExamsError);
-      return;
-    }
     setCurrentTimeMs(Date.now());
     notifyDataRevision();
+    void refresh({ force: true }).then((refreshResult) => {
+      if (!refreshResult.ok && !refreshResult.skipped) {
+        setMessage(refreshResult.errors.exams ?? t.loadExamsError);
+      }
+    });
   }
 
   async function createExam(event: FormEvent) {
@@ -717,6 +731,7 @@ export default function PlannerExamsPage() {
       return;
     }
 
+    upsertExam(payload.data);
     setSubjectMode("existing");
     setSubjectId(nextSubjectId);
     setNewSubjectName("");
@@ -739,13 +754,17 @@ export default function PlannerExamsPage() {
     setMaterialDetails("");
     setPagesTouched(false);
     setMessage(`${t.created}: ${payload.data.title}`);
-    const refreshResult = await refresh({ force: true });
-    if (!refreshResult.ok && !refreshResult.skipped) {
-      setMessage(refreshResult.errors.exams ?? refreshResult.errors.subjects ?? t.loadExamsError);
-      return;
-    }
     setCurrentTimeMs(Date.now());
     notifyDataRevision();
+    void refresh({ force: true }).then((refreshResult) => {
+      if (!refreshResult.ok && !refreshResult.skipped) {
+        setMessage(
+          refreshResult.errors.exams ??
+            refreshResult.errors.subjects ??
+            t.loadExamsError,
+        );
+      }
+    });
   }
 
   async function deleteExam(id: string) {
@@ -758,14 +777,19 @@ export default function PlannerExamsPage() {
       return;
     }
 
+    removeExam(id);
     setMessage(t.deleted);
-    const refreshResult = await refresh({ force: true });
-    if (!refreshResult.ok && !refreshResult.skipped) {
-      setMessage(refreshResult.errors.exams ?? refreshResult.errors.subjects ?? t.loadExamsError);
-      return;
-    }
     setCurrentTimeMs(Date.now());
     notifyDataRevision();
+    void refresh({ force: true }).then((refreshResult) => {
+      if (!refreshResult.ok && !refreshResult.skipped) {
+        setMessage(
+          refreshResult.errors.exams ??
+            refreshResult.errors.subjects ??
+            t.loadExamsError,
+        );
+      }
+    });
   }
 
   return (

@@ -4780,3 +4780,55 @@ pm run lint\ ? 0 errors, 0 warnings.
 
 - First command/file: run one authenticated browser pass through `/planner`, `/planner/exams`, and `/planner/subjects` using the dev-entry button.
 - Next owner: QA/Release gate owner.
+
+---
+
+## Entry - CORE-PLANNER-RECOVERY-001 Immediate Freshness Recovery
+
+- Date: 2026-03-17
+- Task ID: CORE-PLANNER-RECOVERY-001
+- Role: Planner + Builder + Reviewer
+- Owner: Codex
+
+### Decisions Taken
+
+- Kept slice 1 strictly on freshness/data-flow recovery with no schema or engine changes.
+- Made planner cache student-scoped instead of one shared session snapshot.
+- Used optimistic hook methods already present in the planner data hook instead of adding a second mutation path.
+
+### What Was Done
+
+- Added slice spec:
+  - `docs/specs/CORE-PLANNER-RECOVERY-001.md`
+- Reworked planner cache behavior:
+  - `src/app/planner/_hooks/use-planner-data.ts`
+  - cache is now keyed by student
+  - session storage key is student-scoped
+  - cache state resets safely on auth changes
+- Enabled revision subscriptions and optimistic local commits on core planner surfaces:
+  - `src/app/planner/page.tsx`
+  - `src/app/planner/exams/page.tsx`
+  - `src/app/planner/subjects/page.tsx`
+- Replaced create/edit/delete refresh-only flows with optimistic local commit + forced background sync.
+
+### Evidence
+
+- Lint: `npm run lint` passed.
+- Build: `npm run build` passed.
+- Tests: no dedicated automated test suite added in this slice.
+- Manual checks: code-path review confirms immediate upsert/remove behavior and student-scoped cache separation.
+
+### Residual Risks
+
+- Brief optimistic divergence is still possible if a follow-up forced refresh fails after a successful mutation.
+- Focus page still has its own cache path and is not part of this freshness slice.
+
+### Assumptions
+
+- Reviewer gate for slice 1 accepts lint/build plus deterministic code-path validation in this session.
+- Freshness guarantees are required for planner, exams, and subjects first.
+
+### Next Action (Concrete)
+
+- First command/file: open `prisma/schema.prisma` and add `ExamPlanState` plus `ExamStudyLog` for slice 2.
+- Next owner: Builder.

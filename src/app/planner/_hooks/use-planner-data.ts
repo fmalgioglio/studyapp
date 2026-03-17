@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { subscribeDataRevision } from "../_lib/focus-progress";
 import { requestJson } from "../_lib/client-api";
@@ -65,6 +65,7 @@ type RefreshOptions = {
 
 type UsePlannerDataOptions = {
   enabled: boolean;
+  studentId?: string | null;
   subscribeToRevision?: boolean;
 };
 
@@ -75,9 +76,11 @@ type RemoveSubjectOptions = {
 const MIN_REFRESH_INTERVAL_MS = 900;
 const REVISION_DEBOUNCE_MS = 240;
 const PLANNER_CACHE_TTL_MS = 45_000;
-const PLANNER_STORAGE_KEY = "studyapp_planner_cache_v1";
+const PLANNER_STORAGE_PREFIX = "studyapp_planner_cache_v2";
+const ANON_CACHE_KEY = "__anonymous__";
 
 type PlannerCacheState = {
+  studentId: string | null;
   subjects: PlannerSubject[];
   exams: PlannerExam[];
   errors: PlannerDataErrors;
@@ -85,40 +88,64 @@ type PlannerCacheState = {
   fetchedAt: number;
 };
 
-const plannerCache: PlannerCacheState = {
+const emptyPlannerCache = (studentId: string | null): PlannerCacheState => ({
+  studentId,
   subjects: [],
   exams: [],
   errors: {},
   loaded: false,
   fetchedAt: 0,
-};
+});
 
-let plannerInFlight: Promise<PlannerDataRefreshResult> | null = null;
+const plannerCacheByStudent = new Map<string, PlannerCacheState>();
+const plannerInFlightByStudent = new Map<string, Promise<PlannerDataRefreshResult>>();
 
-function hasFreshPlannerCache() {
-  return (
-    plannerCache.loaded && Date.now() - plannerCache.fetchedAt < PLANNER_CACHE_TTL_MS
-  );
+function resolveStudentCacheKey(studentId?: string | null) {
+  return studentId?.trim() || ANON_CACHE_KEY;
 }
 
-function readStoredPlannerCache() {
+function buildStorageKey(studentKey: string) {
+  return `${PLANNER_STORAGE_PREFIX}:${studentKey}`;
+}
+
+function getPlannerCache(studentId?: string | null) {
+  const studentKey = resolveStudentCacheKey(studentId);
+  const existing = plannerCacheByStudent.get(studentKey);
+  if (existing) {
+    return existing;
+  }
+  const next = emptyPlannerCache(studentId ?? null);
+  plannerCacheByStudent.set(studentKey, next);
+  return next;
+}
+
+function hasFreshPlannerCache(cache: PlannerCacheState) {
+  return cache.loaded && Date.now() - cache.fetchedAt < PLANNER_CACHE_TTL_MS;
+}
+
+function readStoredPlannerCache(studentId?: string | null) {
   if (typeof window === "undefined") return null;
+  const storageKey = buildStorageKey(resolveStudentCacheKey(studentId));
   try {
-    const raw = window.sessionStorage.getItem(PLANNER_STORAGE_KEY);
+    const raw = window.sessionStorage.getItem(storageKey);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as PlannerCacheState;
     if (!parsed.loaded || typeof parsed.fetchedAt !== "number") return null;
     if (Date.now() - parsed.fetchedAt > PLANNER_CACHE_TTL_MS) return null;
-    return parsed;
+    return {
+      ...parsed,
+      studentId: studentId ?? null,
+    };
   } catch {
     return null;
   }
 }
 
-function writeStoredPlannerCache(value: PlannerCacheState) {
+function writeStoredPlannerCache(cache: PlannerCacheState) {
   if (typeof window === "undefined") return;
+  const storageKey = buildStorageKey(resolveStudentCacheKey(cache.studentId));
   try {
-    window.sessionStorage.setItem(PLANNER_STORAGE_KEY, JSON.stringify(value));
+    window.sessionStorage.setItem(storageKey, JSON.stringify(cache));
   } catch {
     // no-op
   }
@@ -131,38 +158,55 @@ function sortExamsByDate(exams: PlannerExam[]) {
 }
 
 export function usePlannerData(options: UsePlannerDataOptions) {
-  const { enabled, subscribeToRevision = false } = options;
+  const { enabled, studentId, subscribeToRevision = false } = options;
+  const studentKey = useMemo(() => resolveStudentCacheKey(studentId), [studentId]);
   const mountedRef = useRef(true);
   const refreshSequenceRef = useRef(0);
-  const hasLoadedOnceRef = useRef(plannerCache.loaded);
+  const hasLoadedOnceRef = useRef(getPlannerCache(studentId).loaded);
   const lastRefreshAtRef = useRef(0);
   const revisionTimerRef = useRef<number | null>(null);
+  const currentStudentKeyRef = useRef(studentKey);
 
-  const [subjects, setSubjects] = useState<PlannerSubject[]>(plannerCache.subjects);
-  const [exams, setExams] = useState<PlannerExam[]>(plannerCache.exams);
-  const [errors, setErrors] = useState<PlannerDataErrors>(plannerCache.errors);
-  const [loading, setLoading] = useState(enabled && !plannerCache.loaded);
+  const [subjects, setSubjects] = useState<PlannerSubject[]>(() => getPlannerCache(studentId).subjects);
+  const [exams, setExams] = useState<PlannerExam[]>(() => getPlannerCache(studentId).exams);
+  const [errors, setErrors] = useState<PlannerDataErrors>(() => getPlannerCache(studentId).errors);
+  const [loading, setLoading] = useState(
+    enabled && !getPlannerCache(studentId).loaded,
+  );
   const [refreshing, setRefreshing] = useState(false);
+
+  const syncFromCache = useCallback(
+    (cache: PlannerCacheState) => {
+      if (!mountedRef.current) return;
+      setSubjects(cache.subjects);
+      setExams(cache.exams);
+      setErrors(cache.errors);
+      setLoading(false);
+    },
+    [],
+  );
 
   useEffect(() => {
     mountedRef.current = true;
-    const stored = readStoredPlannerCache();
+    currentStudentKeyRef.current = studentKey;
+
+    const cache = getPlannerCache(studentId);
+    const stored = readStoredPlannerCache(studentId);
     if (stored) {
-      plannerCache.subjects = stored.subjects;
-      plannerCache.exams = stored.exams;
-      plannerCache.errors = stored.errors;
-      plannerCache.loaded = stored.loaded;
-      plannerCache.fetchedAt = stored.fetchedAt;
-      setSubjects(stored.subjects);
-      setExams(stored.exams);
-      setErrors(stored.errors);
-      setLoading(false);
-      hasLoadedOnceRef.current = true;
+      cache.subjects = stored.subjects;
+      cache.exams = stored.exams;
+      cache.errors = stored.errors;
+      cache.loaded = stored.loaded;
+      cache.fetchedAt = stored.fetchedAt;
     }
+
+    hasLoadedOnceRef.current = cache.loaded;
+    syncFromCache(cache);
+
     return () => {
       mountedRef.current = false;
     };
-  }, []);
+  }, [studentId, studentKey, syncFromCache]);
 
   const commitLocalData = useCallback(
     (nextState: {
@@ -172,33 +216,34 @@ export function usePlannerData(options: UsePlannerDataOptions) {
     }) => {
       refreshSequenceRef.current += 1;
 
-      const nextSubjects = nextState.subjects ?? plannerCache.subjects;
-      const nextExams = nextState.exams ?? plannerCache.exams;
-      const nextErrors = nextState.errors ?? plannerCache.errors;
+      const cache = getPlannerCache(studentId);
+      const nextSubjects = nextState.subjects ?? cache.subjects;
+      const nextExams = nextState.exams ?? cache.exams;
+      const nextErrors = nextState.errors ?? cache.errors;
 
-      plannerCache.subjects = nextSubjects;
-      plannerCache.exams = nextExams;
-      plannerCache.errors = nextErrors;
-      plannerCache.loaded = true;
-      plannerCache.fetchedAt = Date.now();
-      writeStoredPlannerCache(plannerCache);
+      cache.subjects = nextSubjects;
+      cache.exams = nextExams;
+      cache.errors = nextErrors;
+      cache.loaded = true;
+      cache.fetchedAt = Date.now();
+      writeStoredPlannerCache(cache);
       hasLoadedOnceRef.current = true;
 
+      if (currentStudentKeyRef.current !== studentKey) return;
       if (!mountedRef.current) return;
       setSubjects(nextSubjects);
       setExams(nextExams);
       setErrors(nextErrors);
       setLoading(false);
     },
-    [],
+    [studentId, studentKey],
   );
 
   const upsertSubject = useCallback(
     (subject: PlannerSubject) => {
-      const existingIndex = plannerCache.subjects.findIndex(
-        (item) => item.id === subject.id,
-      );
-      const nextSubjects = [...plannerCache.subjects];
+      const cache = getPlannerCache(studentId);
+      const existingIndex = cache.subjects.findIndex((item) => item.id === subject.id);
+      const nextSubjects = [...cache.subjects];
       if (existingIndex >= 0) {
         nextSubjects[existingIndex] = {
           ...nextSubjects[existingIndex],
@@ -208,23 +253,22 @@ export function usePlannerData(options: UsePlannerDataOptions) {
         nextSubjects.push(subject);
       }
 
-      const nextErrors = { ...plannerCache.errors };
+      const nextErrors = { ...cache.errors };
       delete nextErrors.subjects;
       commitLocalData({ subjects: nextSubjects, errors: nextErrors });
     },
-    [commitLocalData],
+    [commitLocalData, studentId],
   );
 
   const removeSubject = useCallback(
     (subjectId: string, options: RemoveSubjectOptions = {}) => {
+      const cache = getPlannerCache(studentId);
       const { removeLinkedExams = true } = options;
-      const nextSubjects = plannerCache.subjects.filter(
-        (subject) => subject.id !== subjectId,
-      );
+      const nextSubjects = cache.subjects.filter((subject) => subject.id !== subjectId);
       const nextExams = removeLinkedExams
-        ? plannerCache.exams.filter((exam) => exam.subject.id !== subjectId)
-        : plannerCache.exams;
-      const nextErrors = { ...plannerCache.errors };
+        ? cache.exams.filter((exam) => exam.subject.id !== subjectId)
+        : cache.exams;
+      const nextErrors = { ...cache.errors };
       delete nextErrors.subjects;
       delete nextErrors.exams;
       commitLocalData({
@@ -233,15 +277,14 @@ export function usePlannerData(options: UsePlannerDataOptions) {
         errors: nextErrors,
       });
     },
-    [commitLocalData],
+    [commitLocalData, studentId],
   );
 
   const upsertExam = useCallback(
     (exam: PlannerExam) => {
-      const existingIndex = plannerCache.exams.findIndex(
-        (item) => item.id === exam.id,
-      );
-      const nextExams = [...plannerCache.exams];
+      const cache = getPlannerCache(studentId);
+      const existingIndex = cache.exams.findIndex((item) => item.id === exam.id);
+      const nextExams = [...cache.exams];
       if (existingIndex >= 0) {
         nextExams[existingIndex] = {
           ...nextExams[existingIndex],
@@ -250,60 +293,54 @@ export function usePlannerData(options: UsePlannerDataOptions) {
       } else {
         nextExams.push(exam);
       }
-      const nextErrors = { ...plannerCache.errors };
+      const nextErrors = { ...cache.errors };
       delete nextErrors.exams;
       commitLocalData({
         exams: sortExamsByDate(nextExams),
         errors: nextErrors,
       });
     },
-    [commitLocalData],
+    [commitLocalData, studentId],
   );
 
   const removeExam = useCallback(
     (examId: string) => {
-      const nextExams = plannerCache.exams.filter((exam) => exam.id !== examId);
-      const nextErrors = { ...plannerCache.errors };
+      const cache = getPlannerCache(studentId);
+      const nextExams = cache.exams.filter((exam) => exam.id !== examId);
+      const nextErrors = { ...cache.errors };
       delete nextErrors.exams;
       commitLocalData({ exams: nextExams, errors: nextErrors });
     },
-    [commitLocalData],
+    [commitLocalData, studentId],
   );
 
   const refresh = useCallback(
     async (refreshOptions: RefreshOptions = {}): Promise<PlannerDataRefreshResult> => {
       const { force = false } = refreshOptions;
-      if (!enabled) {
+      if (!enabled || !studentId) {
         return { ok: false, errors: {}, skipped: true };
       }
 
+      const cache = getPlannerCache(studentId);
       const now = Date.now();
       if (!force && now - lastRefreshAtRef.current < MIN_REFRESH_INTERVAL_MS) {
         return { ok: false, errors: {}, skipped: true };
       }
 
-      if (!force && hasFreshPlannerCache()) {
-        if (mountedRef.current) {
-          setSubjects(plannerCache.subjects);
-          setExams(plannerCache.exams);
-          setErrors(plannerCache.errors);
-          setLoading(false);
-        }
+      if (!force && hasFreshPlannerCache(cache)) {
+        syncFromCache(cache);
         return {
-          ok: !plannerCache.errors.subjects && !plannerCache.errors.exams,
-          errors: plannerCache.errors,
+          ok: !cache.errors.subjects && !cache.errors.exams,
+          errors: cache.errors,
           skipped: true,
         };
       }
 
-      if (plannerInFlight && !force) {
-        const pending = await plannerInFlight;
-        if (mountedRef.current) {
-          setSubjects(plannerCache.subjects);
-          setExams(plannerCache.exams);
-          setErrors(plannerCache.errors);
-          setLoading(false);
-        }
+      const inFlightRequest = plannerInFlightByStudent.get(studentKey);
+      if (inFlightRequest && !force) {
+        const pending = await inFlightRequest;
+        const latestCache = getPlannerCache(studentId);
+        syncFromCache(latestCache);
         return pending;
       }
 
@@ -312,7 +349,7 @@ export function usePlannerData(options: UsePlannerDataOptions) {
           const sequence = refreshSequenceRef.current + 1;
           refreshSequenceRef.current = sequence;
 
-          if (mountedRef.current) {
+          if (mountedRef.current && currentStudentKeyRef.current === studentKey) {
             setRefreshing(true);
             if (!hasLoadedOnceRef.current) {
               setLoading(true);
@@ -323,91 +360,93 @@ export function usePlannerData(options: UsePlannerDataOptions) {
           const examsRequest = requestJson<PlannerExam[]>("/api/exams");
           const subjectsRes = await subjectsRequest;
 
-          if (!mountedRef.current || sequence !== refreshSequenceRef.current) {
+          if (
+            !mountedRef.current ||
+            sequence !== refreshSequenceRef.current ||
+            currentStudentKeyRef.current !== studentKey
+          ) {
             return { ok: false, errors: {}, skipped: true };
           }
 
-          const nextErrors: PlannerDataErrors = { ...plannerCache.errors };
+          const nextErrors: PlannerDataErrors = { ...cache.errors };
 
           if (subjectsRes.ok && subjectsRes.payload.data) {
-            plannerCache.subjects = subjectsRes.payload.data;
+            cache.subjects = subjectsRes.payload.data;
             delete nextErrors.subjects;
           } else {
             nextErrors.subjects = subjectsRes.payload.error ?? "Failed to load subjects";
           }
 
-          plannerCache.errors = nextErrors;
-          plannerCache.loaded = true;
-          plannerCache.fetchedAt = Date.now();
-          writeStoredPlannerCache(plannerCache);
+          cache.errors = nextErrors;
+          cache.loaded = true;
+          cache.fetchedAt = Date.now();
+          writeStoredPlannerCache(cache);
           hasLoadedOnceRef.current = true;
-          if (mountedRef.current) {
-            setSubjects(plannerCache.subjects);
-            setErrors(nextErrors);
-            setLoading(false);
-          }
+          syncFromCache(cache);
 
           const examsRes = await examsRequest;
-          if (!mountedRef.current || sequence !== refreshSequenceRef.current) {
+          if (
+            !mountedRef.current ||
+            sequence !== refreshSequenceRef.current ||
+            currentStudentKeyRef.current !== studentKey
+          ) {
             return { ok: false, errors: {}, skipped: true };
           }
 
           if (examsRes.ok && examsRes.payload.data) {
-            plannerCache.exams = examsRes.payload.data;
+            cache.exams = sortExamsByDate(examsRes.payload.data);
             delete nextErrors.exams;
           } else {
             nextErrors.exams = examsRes.payload.error ?? "Failed to load exams";
           }
 
-          plannerCache.errors = nextErrors;
-          plannerCache.loaded = true;
-          plannerCache.fetchedAt = Date.now();
-          writeStoredPlannerCache(plannerCache);
+          cache.errors = nextErrors;
+          cache.loaded = true;
+          cache.fetchedAt = Date.now();
+          writeStoredPlannerCache(cache);
           hasLoadedOnceRef.current = true;
           lastRefreshAtRef.current = Date.now();
-          if (mountedRef.current) {
-            setSubjects(plannerCache.subjects);
-            setExams(plannerCache.exams);
-            setErrors(nextErrors);
-          }
+          syncFromCache(cache);
+
           return {
             ok: !nextErrors.subjects && !nextErrors.exams,
             errors: nextErrors,
             skipped: false,
           };
         } finally {
-          if (mountedRef.current) {
+          if (mountedRef.current && currentStudentKeyRef.current === studentKey) {
             setLoading(false);
             setRefreshing(false);
           }
         }
       })();
 
-      plannerInFlight = runRefresh;
+      plannerInFlightByStudent.set(studentKey, runRefresh);
       try {
         return await runRefresh;
       } finally {
-        if (plannerInFlight === runRefresh) {
-          plannerInFlight = null;
+        if (plannerInFlightByStudent.get(studentKey) === runRefresh) {
+          plannerInFlightByStudent.delete(studentKey);
         }
       }
     },
-    [enabled],
+    [enabled, studentId, studentKey, syncFromCache],
   );
 
   useEffect(() => {
-    if (!enabled) return;
-    if (hasFreshPlannerCache()) return;
+    if (!enabled || !studentId) return;
+    const cache = getPlannerCache(studentId);
+    if (hasFreshPlannerCache(cache)) return;
     const timeoutId = window.setTimeout(() => {
       void refresh();
     }, 0);
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [enabled, refresh]);
+  }, [enabled, refresh, studentId]);
 
   useEffect(() => {
-    if (!enabled || !subscribeToRevision) return;
+    if (!enabled || !studentId || !subscribeToRevision) return;
     const unsubscribe = subscribeDataRevision((source) => {
       if (source === "focus_progress") {
         return;
@@ -428,7 +467,7 @@ export function usePlannerData(options: UsePlannerDataOptions) {
       }
       unsubscribe();
     };
-  }, [enabled, refresh, subscribeToRevision]);
+  }, [enabled, refresh, studentId, subscribeToRevision]);
 
   return {
     subjects,

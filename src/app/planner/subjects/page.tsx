@@ -4,7 +4,10 @@ import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { useUiLanguage } from "@/app/_hooks/use-ui-language";
-import { usePlannerData } from "@/app/planner/_hooks/use-planner-data";
+import {
+  usePlannerData,
+  type PlannerSubject,
+} from "@/app/planner/_hooks/use-planner-data";
 import {
   notifyDataRevision,
   readFocusProgress,
@@ -25,10 +28,7 @@ import { progressStateClasses } from "@/app/planner/_lib/status-ui";
 import { requestJson } from "../_lib/client-api";
 import { useAuthStudent } from "../_hooks/use-auth-student";
 
-type CreatedSubject = {
-  id: string;
-  name: string;
-};
+type CreatedSubject = PlannerSubject;
 
 type SubjectDeleteRelationCounts = {
   exams: number;
@@ -218,9 +218,10 @@ export default function PlannerSubjectsPage() {
   const { student, loading } = useAuthStudent();
   const { language } = useUiLanguage("en");
   const t = COPY[language] ?? COPY.en;
-  const { subjects, exams, errors, refresh } = usePlannerData({
+  const { subjects, exams, errors, refresh, upsertSubject, removeSubject } = usePlannerData({
     enabled: Boolean(student?.id),
-    subscribeToRevision: false,
+    studentId: student?.id,
+    subscribeToRevision: true,
   });
   const [focusProgress, setFocusProgress] = useState<FocusProgressMap>(() =>
     readFocusProgress(),
@@ -269,13 +270,18 @@ export default function PlannerSubjectsPage() {
       return;
     }
 
+    upsertSubject(payload.data);
     setMessage(`${t.subjectCreated}: ${payload.data.name}`);
-    const refreshResult = await refresh();
-    if (!refreshResult.ok && !refreshResult.skipped) {
-      setMessage(refreshResult.errors.subjects ?? refreshResult.errors.exams ?? "Failed to load subjects");
-      return;
-    }
     notifyDataRevision();
+    void refresh({ force: true }).then((refreshResult) => {
+      if (!refreshResult.ok && !refreshResult.skipped) {
+        setMessage(
+          refreshResult.errors.subjects ??
+            refreshResult.errors.exams ??
+            "Failed to load subjects",
+        );
+      }
+    });
   }
 
   async function createSubject(event: FormEvent) {
@@ -323,13 +329,18 @@ export default function PlannerSubjectsPage() {
       }
     }
 
-    const refreshResult = await refresh({ force: true });
+    removeSubject(subjectId, { removeLinkedExams: true });
     notifyDataRevision();
-    if (!refreshResult.ok && !refreshResult.skipped) {
-      setMessage(refreshResult.errors.subjects ?? refreshResult.errors.exams ?? t.loadExamsError);
-      return;
-    }
     setMessage(`${t.subjectDeleted}: ${subjectName}`);
+    void refresh({ force: true }).then((refreshResult) => {
+      if (!refreshResult.ok && !refreshResult.skipped) {
+        setMessage(
+          refreshResult.errors.subjects ??
+            refreshResult.errors.exams ??
+            t.loadExamsError,
+        );
+      }
+    });
   }
 
   function setExamHint(examId: string, patch: Partial<ExamHint>) {
