@@ -1,5 +1,7 @@
 $ErrorActionPreference = "Stop"
 
+$turbopackCachePath = Join-Path (Get-Location) ".next\\dev\\cache\\turbopack"
+
 function Get-PrismaDevPort {
   $envText = Get-Content ".env" -Raw
   $match = [regex]::Match($envText, 'DATABASE_URL\s*=\s*"prisma\+postgres://localhost:(\d+)/')
@@ -52,5 +54,9 @@ if (-not (Test-PortListening -Port $prismaPort)) {
 Write-Host "Canonical local origin: http://localhost:3000"
 Write-Host "No Python or venv is required for the StudyApp local flow."
 Write-Host "If DEV_BOOTSTRAP_ENABLED=true, use the Enter dev app button on / or /login."
+if (Test-Path $turbopackCachePath) {
+  Write-Host "Resetting stale Turbopack dev cache..."
+  Remove-Item -Recurse -Force $turbopackCachePath
+}
 Write-Host "Starting Next dev server with loopback access on port 3000..."
-npx next dev --hostname 0.0.0.0 -p 3000
+npx next dev --hostname :: -p 3000

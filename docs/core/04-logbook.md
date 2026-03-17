@@ -5010,3 +5010,49 @@ pm run lint\ ? 0 errors, 0 warnings.
 
 - First command/file: add one follow-up Playwright scenario for persisted study logging on `/planner/focus`.
 - Next owner: QA/Reliability.
+
+---
+
+## Entry - DEV-LOCALHOST-004 Localhost Startup Recovery
+
+- Date: 2026-03-17
+- Task ID: DEV-LOCALHOST-004
+- Role: Builder + Reviewer
+- Owner: Codex
+
+### Decisions Taken
+
+- Treated the localhost issue as a local dev-flow fix, not a product slice.
+- Switched the direct dev bind to IPv6 loopback-compatible startup so `localhost` no longer depends on IPv4 fallback.
+- Added proactive Turbopack cache reset to avoid repeated local startup failures on Windows.
+
+### What Was Done
+
+- Updated direct dev script:
+  - `package.json`
+- Updated the local startup script:
+  - `scripts/start-local-dev.ps1`
+
+### Evidence
+
+- Lint: not required for script-only local runtime fix.
+- Build: not required for script-only local runtime fix.
+- Tests:
+  - `Test-NetConnection localhost -Port 3000` confirmed a local listener was active during diagnosis.
+- Manual checks:
+  - diagnosed current server behavior as IPv4-only on `127.0.0.1:3000` while `localhost` attempted `::1`
+  - confirmed recent dev-server traffic was reaching the app on port 3000
+
+### Residual Risks
+
+- The currently running dev process must be restarted to pick up the new bind/cache behavior.
+- Existing stale local Node processes can still confuse port ownership until they are stopped.
+
+### Assumptions
+
+- Local development should prioritize `http://localhost:3000` as the canonical entrypoint.
+
+### Next Action (Concrete)
+
+- First command/file: stop the old dev process and run `npm run dev` again.
+- Next owner: Local developer.
