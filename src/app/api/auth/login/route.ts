@@ -30,6 +30,9 @@ export async function POST(request: Request) {
         email: true,
         fullName: true,
         weeklyHours: true,
+        educationLevel: true,
+        schoolProfile: true,
+        subjectAffinity: true,
         passwordHash: true,
       },
     });
@@ -52,6 +55,9 @@ export async function POST(request: Request) {
       email: student.email,
       fullName: student.fullName,
       weeklyHours: student.weeklyHours,
+      educationLevel: student.educationLevel,
+      schoolProfile: student.schoolProfile,
+      subjectAffinity: student.subjectAffinity,
     });
   } catch (error) {
     return apiError("Login failed", 500, getErrorDetails(error));

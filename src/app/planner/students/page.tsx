@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 
 import { notifyDataRevision } from "@/app/planner/_lib/focus-progress";
+import type { EducationLevel, SchoolProfile } from "@/lib/study-domain";
 import { requestJson } from "../_lib/client-api";
 import { syncAuthStudentCache, useAuthStudent } from "../_hooks/use-auth-student";
 
@@ -11,6 +12,8 @@ type Student = {
   email: string;
   fullName: string | null;
   weeklyHours: number;
+  educationLevel: EducationLevel;
+  schoolProfile: SchoolProfile;
   subjectAffinity?: {
     easiestSubjects: string[];
     effortSubjects: string[];
@@ -101,6 +104,8 @@ export default function PlannerStudentsPage() {
   const [feedback, setFeedback] = useState<FeedbackState>(null);
   const [profileExpanded, setProfileExpanded] = useState(false);
   const [preferencesExpanded, setPreferencesExpanded] = useState(false);
+  const [educationLevelDraft, setEducationLevelDraft] = useState<EducationLevel | null>(null);
+  const [schoolProfileDraft, setSchoolProfileDraft] = useState<SchoolProfile | null>(null);
   const [studyContext, setStudyContext] = useState<StudyContext | null>(() => {
     try {
       const stored = localStorage.getItem(STUDY_CONTEXT_STORAGE_KEY);
@@ -156,6 +161,8 @@ export default function PlannerStudentsPage() {
       body: JSON.stringify({
         fullName: fullName || undefined,
         weeklyHours,
+        educationLevel: educationLevelDraft ?? student.educationLevel,
+        schoolProfile: schoolProfileDraft ?? student.schoolProfile,
       }),
     });
 
@@ -168,6 +175,8 @@ export default function PlannerStudentsPage() {
     syncAuthStudentCache(payload.data);
     setFullNameDraft(payload.data.fullName ?? "");
     setWeeklyHoursDraft(payload.data.weeklyHours);
+    setEducationLevelDraft(payload.data.educationLevel);
+    setSchoolProfileDraft(payload.data.schoolProfile);
     notifyDataRevision();
   }
 

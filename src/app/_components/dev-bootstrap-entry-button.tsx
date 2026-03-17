@@ -2,19 +2,11 @@
 
 import { useState } from "react";
 
-import { syncAuthStudentCache } from "@/app/planner/_hooks/use-auth-student";
+import {
+  syncAuthStudentCache,
+  type AuthStudent,
+} from "@/app/planner/_hooks/use-auth-student";
 import { requestJson } from "@/app/planner/_lib/client-api";
-
-type DevBootstrapStudent = {
-  id: string;
-  email: string;
-  fullName: string | null;
-  weeklyHours: number;
-  subjectAffinity?: {
-    easiestSubjects: string[];
-    effortSubjects: string[];
-  } | null;
-};
 
 type DevBootstrapEntryButtonProps = {
   className?: string;
@@ -30,7 +22,7 @@ export function DevBootstrapEntryButton({
     setLoading(true);
     setError("");
 
-    const bootstrapResult = await requestJson<DevBootstrapStudent>(
+    const bootstrapResult = await requestJson<AuthStudent>(
       "/api/auth/dev-bootstrap",
       {
         method: "POST",
@@ -44,7 +36,7 @@ export function DevBootstrapEntryButton({
       return;
     }
 
-    const meResult = await requestJson<DevBootstrapStudent>("/api/auth/me");
+    const meResult = await requestJson<AuthStudent>("/api/auth/me");
 
     if (!meResult.ok || !meResult.payload.data) {
       setLoading(false);

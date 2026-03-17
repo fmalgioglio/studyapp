@@ -8,6 +8,7 @@ import type {
   EngineExamRecord,
   ExamPaceRecommendation,
   ExamPlanAdjustment,
+  ExamPlanMode,
   ExamPlanIntensityPreference,
   ExamPlanningConfidence,
   ExamPlanningRisk,
@@ -40,6 +41,19 @@ const APPROXIMATE_SCOPE_FACTORS = {
   slides: 2,
   handouts: 12,
   items: 8,
+} as const;
+
+const ASSESSMENT_URGENCY_FACTORS = {
+  EXAM: 1,
+  TEST: 1.15,
+  ORAL: 1.08,
+  SELF_STUDY: 0.72,
+} as const;
+
+const IMPORTANCE_FACTORS = {
+  LOW: 0.88,
+  MEDIUM: 1,
+  HIGH: 1.16,
 } as const;
 
 function clamp(value: number, min: number, max: number) {
@@ -104,6 +118,23 @@ function resolveApproximateScopePages(exam: EngineExamRecord) {
   }
 
   return basePages;
+}
+
+function resolveLinkedMaterialScopePages(exam: EngineExamRecord) {
+  const materialPages = (exam.studyMaterials ?? [])
+    .map((material) =>
+      typeof material.estimatedScopePages === "number" &&
+      Number.isFinite(material.estimatedScopePages)
+        ? Math.max(1, Math.round(material.estimatedScopePages))
+        : 0,
+    )
+    .filter((value) => value > 0);
+
+  if (materialPages.length === 0) {
+    return undefined;
+  }
+
+  return materialPages.reduce((sum, value) => sum + value, 0);
 }
 
 function resolveBookRangePages(exam: EngineExamRecord) {
@@ -171,11 +202,55 @@ function resolveExamScope(exam: EngineExamRecord): {
     };
   }
 
+  const linkedMaterialPages = resolveLinkedMaterialScopePages(exam);
+  if (linkedMaterialPages) {
+    return {
+      pages: clamp(linkedMaterialPages, 10, 20_000),
+      source: "linked_materials",
+      confidence: "medium",
+    };
+  }
+
   return {
     pages: inferFallbackScopePages(exam.title, exam.subject.name),
     source: "fallback_inference",
     confidence: "low",
   };
+}
+
+function resolveAssessmentType(exam: EngineExamRecord) {
+  if (
+    exam.assessmentType === "EXAM" ||
+    exam.assessmentType === "TEST" ||
+    exam.assessmentType === "ORAL" ||
+    exam.assessmentType === "SELF_STUDY"
+  ) {
+    return exam.assessmentType;
+  }
+  return "EXAM";
+}
+
+function resolveStatus(exam: EngineExamRecord) {
+  if (
+    exam.status === "ACTIVE" ||
+    exam.status === "POSTPONED" ||
+    exam.status === "COMPLETED" ||
+    exam.status === "CANCELLED"
+  ) {
+    return exam.status;
+  }
+  return "ACTIVE";
+}
+
+function resolveImportance(exam: EngineExamRecord) {
+  if (
+    exam.importance === "LOW" ||
+    exam.importance === "MEDIUM" ||
+    exam.importance === "HIGH"
+  ) {
+    return exam.importance;
+  }
+  return "MEDIUM";
 }
 
 function resolveIntensityPreference(
@@ -221,6 +296,16 @@ function resolveUrgency(daysLeft: number): ExamPlanningUrgency {
   return "low";
 }
 
+function resolvePlanMode(
+  assessmentType: ReturnType<typeof resolveAssessmentType>,
+  daysLeft: number,
+): ExamPlanMode {
+  if (assessmentType === "SELF_STUDY") return "retention";
+  if (assessmentType === "ORAL") return "revision";
+  if (assessmentType === "TEST" && daysLeft <= 14) return "sprint";
+  return "steady";
+}
+
 function createBoardDays(now: Date): PlannerBoardDay[] {
   const start = new Date(now);
   const day = start.getDay();
@@ -254,8 +339,17 @@ export function buildPlannerOverview(input: {
   const affinity = normalizeSubjectAffinity(input.subjectAffinity);
   const weeklyMinutesBudget = Math.round(clamp(input.weeklyHours * 60, 120, 4200));
 
-  const enriched = input.exams
+  const activeExams = input.exams.filter((exam) => {
+    const status = resolveStatus(exam);
+    return status === "ACTIVE" || status === "POSTPONED";
+  });
+  const completedTargets = input.exams.filter((exam) => resolveStatus(exam) === "COMPLETED");
+
+  const enriched = activeExams
     .map((exam) => {
+      const assessmentType = resolveAssessmentType(exam);
+      const status = resolveStatus(exam);
+      const importance = resolveImportance(exam);
       const examDate = new Date(exam.examDate).toISOString();
       const scope = resolveExamScope(exam);
       const minutesSpent = (exam.studyLogs ?? []).reduce(
@@ -289,6 +383,8 @@ export function buildPlannerOverview(input: {
       const intensityFactor = resolveIntensityFactor(intensityPreference);
       const affinityAdjustment = getSubjectAffinityAdjustment(exam.subject.name, affinity);
       const affinityFactors = getSubjectAffinityFactors(affinityAdjustment);
+      const assessmentUrgencyFactor = ASSESSMENT_URGENCY_FACTORS[assessmentType];
+      const importanceFactor = IMPORTANCE_FACTORS[importance];
       const adjustedRemainingPages = Math.max(
         0,
         Math.round(remainingPages * (1 - summaryPreferencePct / 250)),
@@ -300,6 +396,8 @@ export function buildPlannerOverview(input: {
         baselinePagesPerDay *
         (1 + 10 / Math.max(daysLeft, 3)) *
         subjectPace.complexity *
+        assessmentUrgencyFactor *
+        importanceFactor *
         affinityFactors.urgencyWeightMultiplier *
         intensityFactor.weeklyAllocationFactor;
       const dailyTargetPages = Math.max(
@@ -323,6 +421,9 @@ export function buildPlannerOverview(input: {
 
       return {
         exam,
+        assessmentType,
+        status,
+        importance,
         examDate,
         scope,
         subjectPace,
@@ -344,6 +445,8 @@ export function buildPlannerOverview(input: {
         dailyTargetPages,
         dailyTargetMinutes,
         estimatedMinutesForExam,
+        planMode: resolvePlanMode(assessmentType, daysLeft),
+        linkedMaterialsCount: exam.studyMaterials?.length ?? 0,
       };
     })
     .sort((a, b) => {
@@ -377,6 +480,25 @@ export function buildPlannerOverview(input: {
       "en",
     );
 
+    const riskDrivers = [
+      `${entry.daysLeft} days left`,
+      entry.scope.source === "linked_materials"
+        ? "plan is using linked material estimates"
+        : `${entry.scope.pages} pages in scope`,
+      entry.importance === "HIGH"
+        ? "high importance target"
+        : entry.importance === "LOW"
+          ? "lower importance target"
+          : "standard importance target",
+      entry.assessmentType === "ORAL"
+        ? "oral assessment favors revision rhythm"
+        : entry.assessmentType === "TEST"
+          ? "short assessment favors compressed pacing"
+          : entry.assessmentType === "SELF_STUDY"
+            ? "self-study keeps a retention rhythm"
+            : "full exam pacing",
+    ];
+
     const paceLabel =
       risk === "high"
         ? `${entry.intensityFactor.label} rescue`
@@ -389,6 +511,8 @@ export function buildPlannerOverview(input: {
         ? `${entry.scope.pages} pages from defined material scope`
         : entry.scope.source === "approximate_workload"
           ? `${entry.scope.pages} pages from mixed or approximate material scope`
+          : entry.scope.source === "linked_materials"
+            ? `${entry.scope.pages} pages estimated from linked materials`
           : `${entry.scope.pages} fallback pages while workload is still incomplete`;
 
     return {
@@ -397,7 +521,11 @@ export function buildPlannerOverview(input: {
       subjectId: entry.exam.subject.id,
       subjectName: entry.exam.subject.name,
       examDate: entry.examDate,
+      assessmentType: entry.assessmentType,
+      status: entry.status,
+      importance: entry.importance,
       daysLeft: entry.daysLeft,
+      planMode: entry.planMode,
       paceLabel,
       paceDescription:
         risk === "high"
@@ -418,6 +546,23 @@ export function buildPlannerOverview(input: {
       weeklyAllocationHours,
       dailyTargetPages: entry.dailyTargetPages,
       dailyTargetMinutes: entry.dailyTargetMinutes,
+      allocationReason:
+        entry.assessmentType === "TEST"
+          ? "This target gets extra weekly time because tests need faster compression near the date."
+          : entry.assessmentType === "ORAL"
+            ? "This target favors recurring revision blocks to support recall and speaking confidence."
+            : entry.assessmentType === "SELF_STUDY"
+              ? "This target uses a lighter retention rhythm because it has no hard assessment date."
+              : "This target gets weekly time according to scope, urgency, and your study fit.",
+      confidenceReason:
+        entry.scope.source === "verified_workload"
+          ? "Confidence is high because the workload is explicitly defined."
+          : entry.scope.source === "linked_materials"
+            ? "Confidence is medium because the planner is relying on linked material estimates."
+            : entry.scope.source === "approximate_workload"
+              ? "Confidence is medium because some material scope is approximate."
+              : "Confidence is low because the planner is using fallback inference.",
+      riskDrivers,
       summaryPreferencePct: entry.summaryPreferencePct,
       intensityPreference: entry.intensityPreference,
       paceLocked: Boolean(entry.exam.planState?.paceLocked),
@@ -440,6 +585,7 @@ export function buildPlannerOverview(input: {
           ? new Date(entry.lastLog.completedAt).toISOString()
           : "",
       },
+      linkedMaterialsCount: entry.linkedMaterialsCount,
       explanationBullets: [
         `${entry.scope.pages} pages are currently counted for this exam.`,
         `${entry.daysLeft} days remain until the exam date.`,
@@ -558,6 +704,8 @@ export function buildPlannerOverview(input: {
   return {
     summary: {
       totalExams: recommendations.length,
+      activeTargets: recommendations.length,
+      completedTargets: completedTargets.length,
       weeklyMinutesBudget,
       plannedWeeklyMinutes: weeklyBoard.reduce((acc, day) => acc + day.totalMinutes, 0),
       verifiedScopeCoveragePct,

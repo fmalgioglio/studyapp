@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  EDUCATION_LEVELS,
+  SCHOOL_PROFILES,
+} from "@/lib/study-domain";
 
 export const SUBJECT_AFFINITY_OPTIONS = [
   "Mathematics",
@@ -29,6 +33,8 @@ export const createStudentSchema = z.object({
     .min(2, "fullName must be at least 2 characters")
     .optional(),
   weeklyHours: z.number().int().min(1).max(80).optional(),
+  educationLevel: z.enum(EDUCATION_LEVELS).optional(),
+  schoolProfile: z.enum(SCHOOL_PROFILES).optional(),
   subjectAffinity: subjectAffinitySchema.optional(),
 });
 

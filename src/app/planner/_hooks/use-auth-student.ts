@@ -3,12 +3,15 @@
 import { useEffect, useState } from "react";
 
 import { requestJson } from "../_lib/client-api";
+import type { EducationLevel, SchoolProfile } from "@/lib/study-domain";
 
-type AuthStudent = {
+export type AuthStudent = {
   id: string;
   email: string;
   fullName: string | null;
   weeklyHours: number;
+  educationLevel: EducationLevel;
+  schoolProfile: SchoolProfile;
   subjectAffinity?: {
     easiestSubjects: string[];
     effortSubjects: string[];

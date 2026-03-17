@@ -25,6 +25,8 @@ export async function GET() {
         email: true,
         fullName: true,
         weeklyHours: true,
+        educationLevel: true,
+        schoolProfile: true,
         subjectAffinity: true,
       },
     });

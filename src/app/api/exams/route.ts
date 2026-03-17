@@ -8,7 +8,7 @@ import {
 } from "@/server/validation/exam-workload-normalization";
 import {
   createExamSchema,
-  updateExamWorkloadSchema,
+  updateExamSchema,
 } from "@/server/validation/exam";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +19,10 @@ function parseExamDate(value: string) {
     return new Date(`${value}T12:00:00.000Z`);
   }
   return new Date(value);
+}
+
+function getFlexibleTargetDate() {
+  return new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
 }
 
 export async function GET() {
@@ -37,10 +41,15 @@ export async function GET() {
         subjectId: true,
         title: true,
         examDate: true,
+        assessmentType: true,
+        status: true,
+        importance: true,
         targetGrade: true,
         workloadReadiness: true,
         materialType: true,
         workloadPayload: true,
+        completedAt: true,
+        rescheduledFromDate: true,
         createdAt: true,
         updatedAt: true,
         subject: {
@@ -56,6 +65,22 @@ export async function GET() {
             paceLocked: true,
             lastRecommendationSnapshot: true,
             lastGeneratedAt: true,
+          },
+        },
+        studyMaterials: {
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            type: true,
+            origin: true,
+            title: true,
+            url: true,
+            fileKey: true,
+            fileName: true,
+            verificationLevel: true,
+            estimatedScopePages: true,
+            licenseHint: true,
+            availabilityHint: true,
           },
         },
       },
@@ -115,7 +140,12 @@ export async function POST(request: Request) {
         studentId: session.uid,
         subjectId: parsed.data.subjectId,
         title: parsed.data.title,
-        examDate: parseExamDate(parsed.data.examDate),
+        examDate: parsed.data.examDate
+          ? parseExamDate(parsed.data.examDate)
+          : getFlexibleTargetDate(),
+        assessmentType: parsed.data.assessmentType ?? "EXAM",
+        status: parsed.data.status ?? "ACTIVE",
+        importance: parsed.data.importance ?? "MEDIUM",
         targetGrade: parsed.data.targetGrade,
         workloadReadiness,
         materialType,
@@ -127,10 +157,15 @@ export async function POST(request: Request) {
         subjectId: true,
         title: true,
         examDate: true,
+        assessmentType: true,
+        status: true,
+        importance: true,
         targetGrade: true,
         workloadReadiness: true,
         materialType: true,
         workloadPayload: true,
+        completedAt: true,
+        rescheduledFromDate: true,
         createdAt: true,
         updatedAt: true,
         subject: {
@@ -146,6 +181,22 @@ export async function POST(request: Request) {
             paceLocked: true,
             lastRecommendationSnapshot: true,
             lastGeneratedAt: true,
+          },
+        },
+        studyMaterials: {
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            type: true,
+            origin: true,
+            title: true,
+            url: true,
+            fileKey: true,
+            fileName: true,
+            verificationLevel: true,
+            estimatedScopePages: true,
+            licenseHint: true,
+            availabilityHint: true,
           },
         },
       },
@@ -169,7 +220,7 @@ export async function PATCH(request: Request) {
     return apiError("Exam id is required", 400);
   }
 
-  const parsed = updateExamWorkloadSchema.safeParse(await request.json());
+  const parsed = updateExamSchema.safeParse(await request.json());
 
   if (!parsed.success) {
     return apiError(
@@ -197,7 +248,55 @@ export async function PATCH(request: Request) {
       return apiError("Exam not found", 404);
     }
 
+    const currentExam = await prisma.exam.findFirst({
+      where: {
+        id: examId,
+        studentId: session.uid,
+      },
+      select: {
+        id: true,
+        examDate: true,
+        status: true,
+      },
+    });
+
+    if (!currentExam) {
+      return apiError("Exam not found", 404);
+    }
+
     const updateData: Prisma.ExamUpdateInput = {};
+
+    if ("title" in parsed.data) {
+      updateData.title = parsed.data.title;
+    }
+
+    if ("assessmentType" in parsed.data) {
+      updateData.assessmentType = parsed.data.assessmentType;
+    }
+
+    if ("importance" in parsed.data) {
+      updateData.importance = parsed.data.importance;
+    }
+
+    if ("targetGrade" in parsed.data) {
+      updateData.targetGrade = parsed.data.targetGrade ?? null;
+    }
+
+    if ("examDate" in parsed.data) {
+      const nextExamDate = parsed.data.examDate;
+      if (nextExamDate === null) {
+        updateData.examDate = getFlexibleTargetDate();
+      } else if (typeof nextExamDate === "string") {
+        updateData.examDate = parseExamDate(nextExamDate);
+      }
+      updateData.rescheduledFromDate = currentExam.examDate;
+    }
+
+    if ("status" in parsed.data) {
+      updateData.status = parsed.data.status;
+      updateData.completedAt =
+        parsed.data.status === "COMPLETED" ? new Date() : null;
+    }
 
     if ("workloadReadiness" in parsed.data) {
       updateData.workloadReadiness = parsed.data.workloadReadiness ?? null;
@@ -233,10 +332,15 @@ export async function PATCH(request: Request) {
         subjectId: true,
         title: true,
         examDate: true,
+        assessmentType: true,
+        status: true,
+        importance: true,
         targetGrade: true,
         workloadReadiness: true,
         materialType: true,
         workloadPayload: true,
+        completedAt: true,
+        rescheduledFromDate: true,
         createdAt: true,
         updatedAt: true,
         subject: {
@@ -252,6 +356,22 @@ export async function PATCH(request: Request) {
             paceLocked: true,
             lastRecommendationSnapshot: true,
             lastGeneratedAt: true,
+          },
+        },
+        studyMaterials: {
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            type: true,
+            origin: true,
+            title: true,
+            url: true,
+            fileKey: true,
+            fileName: true,
+            verificationLevel: true,
+            estimatedScopePages: true,
+            licenseHint: true,
+            availabilityHint: true,
           },
         },
       },

@@ -6,7 +6,10 @@ import { useRouter } from "next/navigation";
 
 import { DevBootstrapEntryButton } from "@/app/_components/dev-bootstrap-entry-button";
 import { useUiLanguage } from "@/app/_hooks/use-ui-language";
-import { syncAuthStudentCache } from "@/app/planner/_hooks/use-auth-student";
+import {
+  syncAuthStudentCache,
+  type AuthStudent,
+} from "@/app/planner/_hooks/use-auth-student";
 import { requestJson } from "@/app/planner/_lib/client-api";
 
 const COPY = {
@@ -81,12 +84,7 @@ export default function LoginPageClient({
     setError("");
     setLoading(true);
 
-    const { ok, payload } = await requestJson<{
-      id: string;
-      email: string;
-      fullName: string | null;
-      weeklyHours: number;
-    }>(
+    const { ok, payload } = await requestJson<AuthStudent>(
       "/api/auth/login",
       {
         method: "POST",

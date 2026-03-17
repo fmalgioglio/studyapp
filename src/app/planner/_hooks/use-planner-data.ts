@@ -9,6 +9,12 @@ import {
   type ExamWorkloadMaterialShape,
 } from "@/lib/exam-workload-contract";
 import type { ExamPaceRecommendation } from "@/lib/exam-plan";
+import type {
+  AssessmentType,
+  ExamStatus,
+  StudyMaterialRecord,
+  StudyTargetImportance,
+} from "@/lib/study-domain";
 
 export type PlannerSubject = {
   id: string;
@@ -22,6 +28,9 @@ export type PlannerExam = {
   id: string;
   title: string;
   examDate: string;
+  assessmentType?: AssessmentType | null;
+  status?: ExamStatus | null;
+  importance?: StudyTargetImportance | null;
   targetGrade?: string | null;
   workloadReadiness?: "known" | "unknown";
   materialType?: "book" | "notes" | "mixed" | null;
@@ -47,6 +56,8 @@ export type PlannerExam = {
     id: string;
     name: string;
   };
+  completedAt?: string | null;
+  rescheduledFromDate?: string | null;
   planState?: {
     intensityPreference?: string | null;
     summaryPreferencePct?: number | null;
@@ -54,6 +65,7 @@ export type PlannerExam = {
     lastRecommendationSnapshot?: ExamPaceRecommendation | null;
     lastGeneratedAt?: string | null;
   } | null;
+  studyMaterials?: StudyMaterialRecord[];
 };
 
 export type PlannerDataErrors = {

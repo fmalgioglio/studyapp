@@ -26,12 +26,72 @@ enum SessionStatus {
   SKIPPED
 }
 
+enum AssessmentType {
+  EXAM
+  TEST
+  ORAL
+  SELF_STUDY
+}
+
+enum ExamStatus {
+  ACTIVE
+  POSTPONED
+  COMPLETED
+  CANCELLED
+}
+
+enum StudyTargetImportance {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum EducationLevel {
+  HIGH_SCHOOL
+  UNIVERSITY
+  INDEPENDENT
+}
+
+enum SchoolProfile {
+  LICEO
+  TECHNICAL
+  PROFESSIONAL
+  UNIVERSITY
+  SELF_STUDY
+  OTHER
+}
+
+enum StudyMaterialType {
+  TEXTBOOK
+  NOTES
+  HANDOUTS
+  COURSE_LINK
+  PERSONAL_FILE
+  OPEN_RESOURCE
+}
+
+enum StudyMaterialOrigin {
+  OPEN_VERIFIED
+  OFFICIAL_SOURCE
+  USER_LINK
+  USER_UPLOAD
+}
+
+enum StudyMaterialVerificationLevel {
+  VERIFIED
+  OFFICIAL
+  USER_PROVIDED
+  DISCOVERED
+}
+
 model Student {
   id           String         @id @default(cuid())
   email        String         @unique
   passwordHash String?
   fullName     String?
   weeklyHours  Int            @default(10)
+  educationLevel EducationLevel @default(INDEPENDENT)
+  schoolProfile  SchoolProfile  @default(SELF_STUDY)
   subjectAffinity Json?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
@@ -40,6 +100,7 @@ model Student {
   exams        Exam[]
   examPlanStates ExamPlanState[]
   examStudyLogs  ExamStudyLog[]
+  studyMaterials StudyMaterial[]
   sources      StudySource[]
   studySessions StudySession[]
 }
@@ -54,6 +115,7 @@ model Subject {
 
   student      Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
   exams        Exam[]
+  studyMaterials StudyMaterial[]
   sources      StudySource[]
   studySessions StudySession[]
 
@@ -67,10 +129,15 @@ model Exam {
   subjectId     String
   title         String
   examDate      DateTime
+  assessmentType AssessmentType @default(EXAM)
+  status         ExamStatus     @default(ACTIVE)
+  importance     StudyTargetImportance @default(MEDIUM)
   targetGrade   String?
   workloadReadiness String?
   materialType      String?
   workloadPayload   Json?
+  completedAt   DateTime?
+  rescheduledFromDate DateTime?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
@@ -78,10 +145,12 @@ model Exam {
   subject       Subject     @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   planState     ExamPlanState?
   studyLogs     ExamStudyLog[]
+  studyMaterials StudyMaterial[]
 
   @@index([studentId])
   @@index([subjectId])
   @@index([examDate])
+  @@index([status])
 }
 
 model ExamPlanState {
@@ -138,6 +207,39 @@ model StudySource {
 
   @@index([studentId])
   @@index([subjectId])
+}
+
+model StudyMaterial {
+  id                String                         @id @default(cuid())
+  studentId         String
+  subjectId         String?
+  examId            String?
+  type              StudyMaterialType
+  origin            StudyMaterialOrigin
+  title             String
+  url               String?
+  fileKey           String?                        @unique
+  fileName          String?
+  fileMimeType      String?
+  fileSizeBytes     Int?
+  fileContent       Bytes?
+  licenseHint       String?
+  availabilityHint  String?
+  verificationLevel StudyMaterialVerificationLevel @default(USER_PROVIDED)
+  estimatedScopePages Int?
+  notes             String?
+  createdAt         DateTime                       @default(now())
+  updatedAt         DateTime                       @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  exam    Exam?    @relation(fields: [examId], references: [id], onDelete: SetNull)
+
+  @@index([studentId])
+  @@index([subjectId])
+  @@index([examId])
+  @@index([origin])
+  @@index([verificationLevel])
 }
 
 model StudySession {

@@ -2,6 +2,12 @@ import type {
   ExamWorkloadApproximateScopeUnit,
   ExamWorkloadMaterialShape,
 } from "./exam-workload-contract";
+import type {
+  AssessmentType,
+  ExamStatus,
+  StudyMaterialRecord,
+  StudyTargetImportance,
+} from "./study-domain";
 
 export type ExamPlanIntensityPreference =
   | "lighter"
@@ -11,6 +17,7 @@ export type ExamPlanIntensityPreference =
 export type ExamPlanningScopeSource =
   | "verified_workload"
   | "approximate_workload"
+  | "linked_materials"
   | "fallback_inference";
 
 export type ExamPlanningConfidence = "high" | "medium" | "low";
@@ -21,13 +28,19 @@ export type ExamPlanningUrgency = "low" | "medium" | "high";
 
 export type ExamPlanAdjustment = "none" | "preferred" | "effort";
 
+export type ExamPlanMode = "sprint" | "steady" | "revision" | "retention";
+
 export type ExamPaceRecommendation = {
   examId: string;
   examTitle: string;
   subjectId: string;
   subjectName: string;
   examDate: string;
+  assessmentType: AssessmentType;
+  status: ExamStatus;
+  importance: StudyTargetImportance;
   daysLeft: number;
+  planMode: ExamPlanMode;
   paceLabel: string;
   paceDescription: string;
   scopeSummary: string;
@@ -43,6 +56,9 @@ export type ExamPaceRecommendation = {
   weeklyAllocationHours: number;
   dailyTargetPages: number;
   dailyTargetMinutes: number;
+  allocationReason: string;
+  confidenceReason: string;
+  riskDrivers: string[];
   summaryPreferencePct: number;
   intensityPreference: ExamPlanIntensityPreference;
   paceLocked: boolean;
@@ -58,6 +74,7 @@ export type ExamPaceRecommendation = {
     lastTopic: string;
     lastCompletedAt: string;
   };
+  linkedMaterialsCount: number;
   explanationBullets: string[];
   nextSteps: string[];
 };
@@ -83,6 +100,8 @@ export type PlannerBoardDay = {
 export type PlannerOverview = {
   summary: {
     totalExams: number;
+    activeTargets: number;
+    completedTargets: number;
     weeklyMinutesBudget: number;
     plannedWeeklyMinutes: number;
     verifiedScopeCoveragePct: number;
@@ -140,6 +159,11 @@ export type EngineExamRecord = {
   id: string;
   title: string;
   examDate: string | Date;
+  assessmentType?: AssessmentType | null;
+  status?: ExamStatus | null;
+  importance?: StudyTargetImportance | null;
+  completedAt?: string | Date | null;
+  rescheduledFromDate?: string | Date | null;
   subject: {
     id: string;
     name: string;
@@ -149,4 +173,5 @@ export type EngineExamRecord = {
   workloadPayload?: ExamPlanWorkloadPayload | null;
   planState?: ExamPlanPreferenceState | null;
   studyLogs?: ExamStudyLogEntry[];
+  studyMaterials?: StudyMaterialRecord[];
 };

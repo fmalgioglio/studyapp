@@ -14,6 +14,7 @@ Use this file before changing architecture-sensitive areas.
 - Shared Domain Core:
   - `src/lib/workload-estimation-core.ts`
   - `src/lib/exam-plan.ts`
+  - `src/lib/study-domain.ts`
 - Data Layer:
   - Prisma client in `src/server/db/client.ts`
   - Schema in `prisma/schema.prisma`
@@ -29,6 +30,14 @@ Use this file before changing architecture-sensitive areas.
   - server-side recommendation source of truth: `src/server/services/exam-plan-engine.ts`
   - persisted planning state: `ExamPlanState`
   - persisted study activity: `ExamStudyLog`
+- Study target generalization direction:
+  - technical persistence remains on `Exam`
+  - product language may present `Exam` records as study targets (`EXAM`, `TEST`, `ORAL`, `SELF_STUDY`)
+  - target type/status/importance rules stay server-side and flow through shared planner contracts
+- Safe material discovery direction:
+  - rights-safe discovery and classification live in `src/server/services/material-discovery.ts`
+  - persisted user-linked materials live in `StudyMaterial`
+  - external materials are linked/classified, not re-hosted unless they are explicit user uploads
 - Canonical optional signals support non-book and approximate material without fake precision:
   - `materialShape` (`mini_handout`, `handout_set`, `slides`, `personal_notes`, `mixed`, `offline_approximate`)
   - `approximateScopeValue`
@@ -71,6 +80,10 @@ Use this file before changing architecture-sensitive areas.
 - Planner fallback behavior must stay explicit and conservative when canonical signals are absent or weak
 - New persisted planning preference or recommendation snapshot -> `ExamPlanState`, not UI-only local storage
 - New persisted study progress that changes planner recommendations -> `ExamStudyLog`, not UI-only local storage
+- New study target classification or profile context -> Prisma schema + `src/lib/study-domain.ts` + server validation in the same task
+- New material discovery behavior -> `src/server/services/material-discovery.ts`
+- New persisted material/link/upload metadata -> `StudyMaterial`, not ad-hoc JSON fields on `Exam`
+- PWA shell/install behavior -> `public/*`, `src/app/layout.tsx`, and lightweight client hooks/components only; never embed study business logic there
 
 ## Boundary Update Rule
 If architecture boundaries change, update this file in the same work session.

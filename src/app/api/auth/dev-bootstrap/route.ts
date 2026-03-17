@@ -19,6 +19,8 @@ const DEV_BOOTSTRAP_EMAIL = getDevBootstrapEmail();
 const DEV_BOOTSTRAP_PASSWORD = getDevBootstrapPassword();
 const DEV_BOOTSTRAP_FULL_NAME = "StudyApp Local Dev";
 const DEV_BOOTSTRAP_WEEKLY_HOURS = 12;
+const DEV_BOOTSTRAP_EDUCATION_LEVEL = "UNIVERSITY";
+const DEV_BOOTSTRAP_SCHOOL_PROFILE = "UNIVERSITY";
 
 async function upsertDevBootstrapStudent(includePasswordHash: boolean) {
   return prisma.student.upsert({
@@ -26,6 +28,8 @@ async function upsertDevBootstrapStudent(includePasswordHash: boolean) {
     update: {
       fullName: DEV_BOOTSTRAP_FULL_NAME,
       weeklyHours: DEV_BOOTSTRAP_WEEKLY_HOURS,
+      educationLevel: DEV_BOOTSTRAP_EDUCATION_LEVEL,
+      schoolProfile: DEV_BOOTSTRAP_SCHOOL_PROFILE,
       ...(includePasswordHash
         ? { passwordHash: hashPassword(DEV_BOOTSTRAP_PASSWORD) }
         : {}),
@@ -34,6 +38,8 @@ async function upsertDevBootstrapStudent(includePasswordHash: boolean) {
       email: DEV_BOOTSTRAP_EMAIL,
       fullName: DEV_BOOTSTRAP_FULL_NAME,
       weeklyHours: DEV_BOOTSTRAP_WEEKLY_HOURS,
+      educationLevel: DEV_BOOTSTRAP_EDUCATION_LEVEL,
+      schoolProfile: DEV_BOOTSTRAP_SCHOOL_PROFILE,
       ...(includePasswordHash
         ? { passwordHash: hashPassword(DEV_BOOTSTRAP_PASSWORD) }
         : {}),
@@ -43,6 +49,8 @@ async function upsertDevBootstrapStudent(includePasswordHash: boolean) {
       email: true,
       fullName: true,
       weeklyHours: true,
+      educationLevel: true,
+      schoolProfile: true,
     },
   });
 }

@@ -3,9 +3,17 @@ import {
   EXAM_WORKLOAD_APPROXIMATE_SCOPE_UNITS,
   EXAM_WORKLOAD_MATERIAL_SHAPES,
 } from "../../lib/exam-workload-contract";
+import {
+  ASSESSMENT_TYPES,
+  EXAM_STATUSES,
+  STUDY_TARGET_IMPORTANCE,
+} from "@/lib/study-domain";
 
 export const examWorkloadReadinessSchema = z.enum(["known", "unknown"]);
 export const examMaterialTypeSchema = z.enum(["book", "notes", "mixed"]);
+export const assessmentTypeSchema = z.enum(ASSESSMENT_TYPES);
+export const examStatusSchema = z.enum(EXAM_STATUSES);
+export const studyTargetImportanceSchema = z.enum(STUDY_TARGET_IMPORTANCE);
 
 export const examWorkloadPayloadSchema = z
   .object({
@@ -97,17 +105,41 @@ export const createExamSchema = z.object({
   examDate: z
     .string()
     .trim()
-    .min(1, "examDate is required")
-    .refine((value) => !Number.isNaN(Date.parse(value)), {
+    .optional()
+    .refine((value) => value === undefined || !Number.isNaN(Date.parse(value)), {
       message: "examDate must be a valid date string",
     }),
+  assessmentType: assessmentTypeSchema.optional(),
+  status: examStatusSchema.optional(),
+  importance: studyTargetImportanceSchema.optional(),
   targetGrade: z.string().trim().max(20).optional(),
   workloadReadiness: examWorkloadReadinessSchema.optional(),
   materialType: examMaterialTypeSchema.optional(),
   workloadPayload: examWorkloadPayloadSchema,
+}).superRefine((value, ctx) => {
+  if (value.assessmentType !== "SELF_STUDY" && !value.examDate) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["examDate"],
+      message: "examDate is required unless the target is self study",
+    });
+  }
 });
 
-export const updateExamWorkloadSchema = z.object({
+export const updateExamSchema = z.object({
+  title: z.string().trim().min(2).max(180).optional(),
+  examDate: z
+    .string()
+    .trim()
+    .refine((value) => !Number.isNaN(Date.parse(value)), {
+      message: "examDate must be a valid date string",
+    })
+    .nullable()
+    .optional(),
+  assessmentType: assessmentTypeSchema.optional(),
+  status: examStatusSchema.optional(),
+  importance: studyTargetImportanceSchema.optional(),
+  targetGrade: z.string().trim().max(20).nullable().optional(),
   workloadReadiness: examWorkloadReadinessSchema.nullable().optional(),
   materialType: examMaterialTypeSchema.nullable().optional(),
   workloadPayload: examWorkloadPayloadSchema.nullable().optional(),

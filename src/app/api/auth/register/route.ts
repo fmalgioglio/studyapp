@@ -36,6 +36,9 @@ export async function POST(request: Request) {
         email: true,
         fullName: true,
         weeklyHours: true,
+        educationLevel: true,
+        schoolProfile: true,
+        subjectAffinity: true,
       },
     });
 

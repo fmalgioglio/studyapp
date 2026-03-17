@@ -5056,3 +5056,70 @@ pm run lint\ ? 0 errors, 0 warnings.
 
 - First command/file: stop the old dev process and run `npm run dev` again.
 - Next owner: Local developer.
+
+---
+
+## Entry - PHASE-6-STUDENT-PRODUCTIZATION-001 Foundation
+
+- Date: 2026-03-17
+- Task ID: PHASE-6-STUDENT-PRODUCTIZATION-001
+- Role: Planner + Builder + Reviewer
+- Owner: Codex
+
+### Decisions Taken
+
+- Generalized the product domain to study targets while keeping the technical persistence model on `Exam` for compatibility.
+- Added rights-safe material discovery and persisted study materials as a first-class backend capability.
+- Kept planning logic server-side by feeding linked materials into the existing exam plan engine instead of adding UI-side heuristics.
+
+### What Was Done
+
+- Added Phase 6 core spec:
+  - `docs/specs/PHASE-6-STUDENT-PRODUCTIZATION-001.md`
+- Extended schema/domain contracts for student context, target classification, and study materials:
+  - `prisma/schema.prisma`
+  - `prisma/migrations/20260317191000_phase6_student_productization/migration.sql`
+  - `src/lib/study-domain.ts`
+  - `src/lib/exam-plan.ts`
+- Added validation and API support for target updates and materials:
+  - `src/server/validation/student.ts`
+  - `src/server/validation/exam.ts`
+  - `src/server/validation/material.ts`
+  - `src/app/api/students/route.ts`
+  - `src/app/api/exams/route.ts`
+  - `src/app/api/materials/route.ts`
+  - `src/app/api/materials/search/route.ts`
+  - `src/app/api/materials/file/route.ts`
+- Wired the planning engine and planner reads to the new target/material fields:
+  - `src/server/services/exam-plan-engine.ts`
+  - `src/server/services/material-discovery.ts`
+  - `src/app/api/planner/overview/route.ts`
+  - `src/app/api/exam-plans/route.ts`
+  - `src/app/api/exam-study-logs/route.ts`
+  - `src/app/planner/_hooks/use-planner-data.ts`
+  - `src/app/planner/_hooks/use-auth-student.ts`
+
+### Evidence
+
+- Lint: `npm run lint` passed.
+- Build: `npm run build` passed.
+- Tests: no dedicated Phase 6 suites added in this foundation slice yet.
+- Manual checks:
+  - generated and executed local Prisma diff migration successfully
+  - regenerated Prisma client successfully
+  - confirmed new material and planner routes in production build output
+
+### Residual Risks
+
+- The main student-facing screens still need a fuller Phase 6 UI pass for target types, material management, and student-centric copy.
+- File uploads are currently stored in the database for the local-first phase and should move to object storage before large-scale production rollout.
+
+### Assumptions
+
+- Backward-compatible route names (`/api/exams`) remain acceptable while the product language shifts to study targets.
+- Rights-safe material discovery in this phase is intentionally limited to curated/open metadata plus user-supplied links/uploads.
+
+### Next Action (Concrete)
+
+- First command/file: update `src/app/planner/exams/page.tsx` to expose target types, status actions, and linked materials.
+- Next owner: Builder.
