@@ -4832,3 +4832,58 @@ pm run lint\ ? 0 errors, 0 warnings.
 
 - First command/file: open `prisma/schema.prisma` and add `ExamPlanState` plus `ExamStudyLog` for slice 2.
 - Next owner: Builder.
+
+---
+
+## Entry - ENGINE-UNIFICATION-001 Persistence + Unified Engine Base
+
+- Date: 2026-03-17
+- Task ID: ENGINE-UNIFICATION-001
+- Role: Planner + Builder + Reviewer
+- Owner: Codex
+
+### Decisions Taken
+
+- Added dedicated persisted planner state instead of reusing client-only exam hints.
+- Added persisted per-exam study logs instead of relying on local-only focus progress for future planner calibration.
+- Kept the new planner output contract shared in `src/lib`, while the recommendation logic itself lives server-side in `src/server/services`.
+
+### What Was Done
+
+- Added slice spec:
+  - `docs/specs/ENGINE-UNIFICATION-001.md`
+- Added persistence models and migration:
+  - `prisma/schema.prisma`
+  - `prisma/migrations/20260317165000_add_exam_plan_state_and_study_logs/migration.sql`
+- Applied the migration SQL locally and regenerated Prisma client.
+- Added shared planner output/input types:
+  - `src/lib/exam-plan.ts`
+- Added unified server recommendation engine:
+  - `src/server/services/exam-plan-engine.ts`
+- Updated architecture map with the new planner boundaries:
+  - `docs/core/02-project-map.md`
+
+### Evidence
+
+- Lint: `npm run lint` passed after persistence and engine additions.
+- Build: `npm run build` passed after persistence and engine additions.
+- Tests: no dedicated engine test suite added in this slice.
+- Manual checks:
+  - migration SQL generated from current datasource to new schema
+  - migration SQL executed successfully via `prisma db execute`
+  - Prisma client regenerated successfully
+
+### Residual Risks
+
+- The new engine is not yet the live frontend source of truth until slice 3 switches planner pages to the new APIs.
+- Existing migration history in the repo is modified, so future local schema evolution may still require explicit diff/execution instead of `prisma migrate dev`.
+
+### Assumptions
+
+- Local development database reset is not acceptable for this session, so explicit diff + execute is the safe path.
+- Slice 2 acceptance in this session is engine readiness plus persisted boundaries, not final UI adoption.
+
+### Next Action (Concrete)
+
+- First command/file: add `/api/planner/overview`, `/api/exam-plans`, and `/api/exam-study-logs` on top of `src/server/services/exam-plan-engine.ts`.
+- Next owner: Builder.
