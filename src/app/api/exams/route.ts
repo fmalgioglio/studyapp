@@ -49,6 +49,15 @@ export async function GET() {
             name: true,
           },
         },
+        planState: {
+          select: {
+            intensityPreference: true,
+            summaryPreferencePct: true,
+            paceLocked: true,
+            lastRecommendationSnapshot: true,
+            lastGeneratedAt: true,
+          },
+        },
       },
     });
 
@@ -128,6 +137,15 @@ export async function POST(request: Request) {
           select: {
             id: true,
             name: true,
+          },
+        },
+        planState: {
+          select: {
+            intensityPreference: true,
+            summaryPreferencePct: true,
+            paceLocked: true,
+            lastRecommendationSnapshot: true,
+            lastGeneratedAt: true,
           },
         },
       },
@@ -225,6 +243,15 @@ export async function PATCH(request: Request) {
           select: {
             id: true,
             name: true,
+          },
+        },
+        planState: {
+          select: {
+            intensityPreference: true,
+            summaryPreferencePct: true,
+            paceLocked: true,
+            lastRecommendationSnapshot: true,
+            lastGeneratedAt: true,
           },
         },
       },
