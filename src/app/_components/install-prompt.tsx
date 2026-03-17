@@ -1,11 +1,17 @@
 "use client";
 
+import { usePathname } from "next/navigation";
+
 import { useInstallPrompt } from "@/app/_hooks/use-install-prompt";
 
 export default function InstallPrompt() {
   const { supported, promptInstall, dismiss } = useInstallPrompt();
+  const pathname = usePathname();
 
-  if (!supported) {
+  const shouldRender =
+    supported && (pathname === "/" || pathname === "/planner");
+
+  if (!shouldRender) {
     return null;
   }
 
@@ -14,7 +20,7 @@ export default function InstallPrompt() {
       <div>
         <p className="install-banner-title">Install StudyApp</p>
         <p className="install-banner-subtitle">
-          Keep your planner in a dedicated shell and launch it from the home screen.
+          Save the planner on your home screen and reopen it faster.
         </p>
       </div>
       <div className="install-banner-actions">

@@ -459,7 +459,7 @@ export function buildSeasonPlan(
       weeklyMinutesBudget,
       weeklyPagesTarget: 0,
       riskLevel: "low",
-      riskMessage: "No exams yet. Add at least one exam to generate a season plan.",
+      riskMessage: "No targets yet. Add at least one target to generate a weekly plan.",
       dayRows: weekDays,
       todayMissions: [],
       examTracks: [],

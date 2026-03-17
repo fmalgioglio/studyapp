@@ -260,12 +260,35 @@ export default function PlannerStudentsPage() {
   if (easiestCount === 0) recommendations.push("Choose one subject that usually feels easier.");
   if (effortCount === 0) recommendations.push("Choose one subject that usually needs more effort.");
 
+  if (!student && !loading) {
+    return (
+      <main className="space-y-5 sm:space-y-6">
+        <section className="planner-panel">
+          <h1 className="text-2xl font-black tracking-tight text-slate-900">
+            Session required
+          </h1>
+          <p className="mt-2 text-sm text-slate-600">
+            Sign in again to reopen your study profile and planner settings.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <a href="/login" className="planner-btn planner-btn-accent">
+              Go to login
+            </a>
+            <a href="/signup" className="planner-btn planner-btn-secondary">
+              Create account
+            </a>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="space-y-5 sm:space-y-6">
       <section className="planner-panel planner-hero">
         <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Study profile</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Save only what helps the planner set a better weekly rhythm.
+          Keep only the details that help the planner suggest a better weekly rhythm.
         </p>
       </section>
 
@@ -274,7 +297,7 @@ export default function PlannerStudentsPage() {
           <div>
             <h2 className="text-base font-semibold text-slate-900">Planner profile</h2>
             <p className="mt-0.5 text-sm text-slate-500">
-              {studyContext ?? "No context selected"} | {profileScore}% complete
+              {studyContext ?? "No context selected"} | {profileScore}% ready
             </p>
           </div>
           <div className="flex items-center gap-1.5">
@@ -325,7 +348,7 @@ export default function PlannerStudentsPage() {
           <div>
             <h2 className="text-lg font-bold text-slate-900">Profile details</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Name and weekly hours are enough for the planner to start well.
+              Name, weekly time, and school path are enough for the planner to start well.
             </p>
           </div>
           <button
@@ -454,7 +477,7 @@ export default function PlannerStudentsPage() {
           <div>
             <h2 className="text-lg font-bold text-slate-900">Study preferences</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Mark the subjects that usually feel easier and the ones that need more deliberate effort.
+              Mark the subjects that usually feel easier and the ones that usually need more effort.
             </p>
           </div>
           <button

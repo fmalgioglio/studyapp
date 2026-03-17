@@ -54,8 +54,8 @@ const MS_PER_DAY = 86_400_000;
 
 const COPY = {
   en: {
-    title: "Exams",
-    subtitle: "Manage full-session exams and open timeline details.",
+    title: "Targets",
+    subtitle: "Create, adjust, and study every target from one practical workspace.",
     subjectSection: "1. Subject",
     subjectSectionHint: "Pick one subject and continue.",
     subjectModeExisting: "Use existing subject",
@@ -65,9 +65,9 @@ const COPY = {
     newSubjectName: "New subject name",
     newSubjectColor: "Subject color (optional)",
     createSubjectHint: "Create a subject inline and continue in one step.",
-    basicsSection: "2. Exam basics",
-    examTitle: "Exam title",
-    examDate: "Exam date",
+    basicsSection: "2. Target basics",
+    examTitle: "Target title",
+    examDate: "Target date",
     targetGrade: "Target grade (optional)",
     workloadSection: "Study workload",
     workloadHelp: "Set workload now, or mark it unknown and refine later.",
@@ -80,17 +80,17 @@ const COPY = {
     materialNotes: "Notes",
     materialMixed: "Mixed",
     notebookTitle: "Material guide",
-    notebookIntro: "Use this to classify your exam material before entering workload details.",
+    notebookIntro: "Use this to classify the target material before entering workload details.",
     notebookBookTitle: "Book case",
     notebookBookBody: "Choose this when most of your preparation is from one main textbook.",
     notebookNotesTitle: "Notes case",
     notebookNotesBody: "Choose this when your preparation is mainly from notes, slides, or handouts.",
     notebookMixedTitle: "Mixed case",
-    notebookMixedBody: "Choose this when your exam load is split between textbook and notes.",
+    notebookMixedBody: "Use this when the workload is split between a textbook and notes.",
     notebookFocusTitle: "Interpretation",
-    notebookFocusBody: "The app currently interprets this exam as",
+    notebookFocusBody: "The app currently interprets this target as",
     notebookScopeHint:
-      "In Material scope, enter the exact chapters, units, or note sets included in this exam.",
+      "In Material scope, enter the exact chapters, units, or note sets included in this target.",
     totalPages: "Total pages (optional)",
     bookLookupLabel: "Book lookup",
     bookLookupHint: "Search title + author for better matches",
@@ -125,13 +125,13 @@ const COPY = {
     unitHandouts: "Handouts",
     unitItems: "Items",
     mixedRecommendation:
-      "For mixed exams, keep the main text range precise and add an approximate size for notes or slides.",
+      "For mixed targets, keep the main text range precise and add an approximate size for notes or slides.",
     notesRecommendation:
-      "For notes-heavy exams, describe the material type and estimate the size of the pack you need to cover.",
+      "For notes-heavy targets, describe the material type and estimate the size of the pack you need to cover.",
     bookRecommendation:
-      "If only part of the book matters, use a page range so the planner reflects the real exam scope.",
-    addExam: "Add exam",
-    editWorkload: "Edit workload",
+      "If only part of the book matters, use a page range so the planner reflects the real study scope.",
+    addExam: "Add target",
+    editWorkload: "Edit target",
     planSettings: "Plan settings",
     planIntensity: "Study rhythm",
     planSummary: "Summary support",
@@ -140,12 +140,12 @@ const COPY = {
     planStronger: "Stronger",
     planLocked: "Keep this pace fixed",
     savePlan: "Save plan",
-    saveWorkload: "Save workload",
+    saveWorkload: "Save target",
     cancelEdit: "Cancel",
-    list: "Exam list",
-    none: "No exams yet.",
+    list: "Target list",
+    none: "No targets yet.",
     refresh: "Refresh",
-    openTimeline: "Open timeline",
+    openTimeline: "Open planner view",
     delete: "Delete",
     readiness: "Readiness",
     focusContribution: "Focus contribution",
@@ -153,16 +153,16 @@ const COPY = {
     focusMinutes: "Focus minutes",
     focusSessions: "Focus sessions",
     loading: "Loading account...",
-    noAccount: "No account context found.",
+    noAccount: "Your session is missing or expired.",
     subjectRequired: "Select a subject or create a new one.",
     subjectCreateError: "Failed to create subject",
-    noDate: "Select an exam date.",
-    created: "Exam created",
-    deleted: "Exam deleted.",
+    noDate: "Choose a target date.",
+    created: "Target created",
+    deleted: "Target deleted.",
     loadSubjectsError: "Failed to load subjects",
-    loadExamsError: "Failed to load exams",
-    createError: "Failed to create exam",
-    deleteError: "Failed to delete exam",
+    loadExamsError: "Failed to load targets",
+    createError: "Failed to save target",
+    deleteError: "Failed to delete target",
     statusNotStarted: "Not started",
     statusWarmingUp: "Warming up",
     statusSteady: "Steady",
@@ -182,11 +182,22 @@ const COPY = {
     sourceOpenLibrary: "Open Library",
     sourceLocal: "Local catalog",
     daysLeft: "days left",
-    noPages: "—",
+    sessionHelp: "Sign in again to manage your targets and keep planner data in sync.",
+    login: "Go to login",
+    createAccount: "Create account",
+    listHint: "Keep the active targets clean. Update dates, postpone when needed, and link material here.",
+    emptyBody: "Create the first target now so the planner can suggest a realistic daily next step.",
+    emptyAction: "Build first target",
+    saveTitleFirst: "Add a title before saving.",
+    saveDateFirst: "Choose a target date before saving.",
+    postponed7: "Target postponed by 7 days.",
+    postponed14: "Target postponed by 14 days.",
+    completedTarget: "Target completed.",
+    noPages: "-",
   },
   it: {
-    title: "Esami",
-    subtitle: "Gestisci gli esami della sessione e apri la timeline.",
+    title: "Target",
+    subtitle: "Crea, aggiorna e studia ogni target da uno spazio unico e pratico.",
     subjectSection: "1. Materia",
     subjectSectionHint: "Seleziona una materia e continua.",
     subjectModeExisting: "Usa materia esistente",
@@ -196,9 +207,9 @@ const COPY = {
     newSubjectName: "Nome nuova materia",
     newSubjectColor: "Colore materia (opzionale)",
     createSubjectHint: "Crea una materia inline e continua in un unico passaggio.",
-    basicsSection: "2. Dettagli esame",
-    examTitle: "Titolo esame",
-    examDate: "Data esame",
+    basicsSection: "2. Dettagli target",
+    examTitle: "Titolo target",
+    examDate: "Data target",
     targetGrade: "Voto target (opzionale)",
     workloadSection: "Carico di studio",
     workloadHelp: "Imposta il carico ora oppure lascialo provvisorio e rifiniscilo dopo.",
@@ -261,8 +272,8 @@ const COPY = {
       "Per gli esami basati su appunti, descrivi il tipo di materiale e stima la dimensione del pacchetto da coprire.",
     bookRecommendation:
       "Se conta solo una parte del libro, usa un intervallo di pagine per riflettere il perimetro reale.",
-    addExam: "Aggiungi esame",
-    editWorkload: "Modifica carico",
+    addExam: "Aggiungi target",
+    editWorkload: "Modifica target",
     planSettings: "Impostazioni piano",
     planIntensity: "Ritmo di studio",
     planSummary: "Supporto riassunti",
@@ -271,12 +282,12 @@ const COPY = {
     planStronger: "Più spinto",
     planLocked: "Mantieni fisso questo ritmo",
     savePlan: "Salva piano",
-    saveWorkload: "Salva carico",
+    saveWorkload: "Salva target",
     cancelEdit: "Annulla",
-    list: "Lista esami",
-    none: "Nessun esame.",
+    list: "Lista target",
+    none: "Nessun target.",
     refresh: "Aggiorna",
-    openTimeline: "Apri timeline",
+    openTimeline: "Apri planner",
     delete: "Elimina",
     readiness: "Prontezza",
     focusContribution: "Contributo focus",
@@ -284,16 +295,16 @@ const COPY = {
     focusMinutes: "Minuti focus",
     focusSessions: "Sessioni focus",
     loading: "Caricamento account...",
-    noAccount: "Contesto account non trovato.",
+    noAccount: "La sessione manca o e scaduta.",
     subjectRequired: "Seleziona una materia o creane una nuova.",
     subjectCreateError: "Impossibile creare la materia",
-    noDate: "Seleziona la data esame.",
-    created: "Esame creato",
-    deleted: "Esame eliminato.",
+    noDate: "Scegli una data per il target.",
+    created: "Target creato",
+    deleted: "Target eliminato.",
     loadSubjectsError: "Impossibile caricare le materie",
-    loadExamsError: "Impossibile caricare gli esami",
-    createError: "Impossibile creare l'esame",
-    deleteError: "Impossibile eliminare l'esame",
+    loadExamsError: "Impossibile caricare i target",
+    createError: "Impossibile salvare il target",
+    deleteError: "Impossibile eliminare il target",
     statusNotStarted: "Non iniziato",
     statusWarmingUp: "In avvio",
     statusSteady: "Costante",
@@ -313,7 +324,19 @@ const COPY = {
     sourceOpenLibrary: "Open Library",
     sourceLocal: "Catalogo locale",
     daysLeft: "giorni rimasti",
-    noPages: "—",
+    noPages: "-",
+    sessionHelp: "Accedi di nuovo per gestire i target e mantenere il planner sincronizzato.",
+    login: "Vai al login",
+    createAccount: "Crea account",
+    listHint:
+      "Tieni puliti i target attivi. Aggiorna le date, rinvia quando serve e collega qui i materiali.",
+    emptyBody: "Crea ora il primo target cosi il planner puo suggerire un prossimo passo realistico.",
+    emptyAction: "Crea il primo target",
+    saveTitleFirst: "Aggiungi un titolo prima di salvare.",
+    saveDateFirst: "Scegli una data target prima di salvare.",
+    postponed7: "Target rinviato di 7 giorni.",
+    postponed14: "Target rinviato di 14 giorni.",
+    completedTarget: "Target completato.",
   },
 } as const;
 
@@ -399,7 +422,7 @@ function truncateText(value: string, maxLength: number) {
   if (value.length <= maxLength) {
     return value;
   }
-  return `${value.slice(0, maxLength)}…`;
+  return `${value.slice(0, maxLength)}...`;
 }
 
 function formatEnumLabel(value: string | null | undefined) {
@@ -601,11 +624,11 @@ export default function PlannerExamsPage() {
 
   async function saveEditWorkload(examId: string) {
     if (!editTitle.trim()) {
-      setMessage("Add a title before saving.");
+      setMessage(t.saveTitleFirst);
       return;
     }
     if (editAssessmentType !== "SELF_STUDY" && !editExamDate) {
-      setMessage("Choose a target date before saving.");
+      setMessage(t.saveDateFirst);
       return;
     }
 
@@ -932,6 +955,27 @@ export default function PlannerExamsPage() {
   function handleMaterialsChanged() {
     notifyDataRevision();
     void refresh({ force: true });
+  }
+
+  if (!student) {
+    return (
+      <main className="space-y-5 sm:space-y-6">
+        <section className="planner-panel">
+          <h1 className="text-2xl font-black tracking-tight text-slate-900">
+            {t.noAccount}
+          </h1>
+          <p className="mt-2 text-sm text-slate-600">{t.sessionHelp}</p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Link href="/login" className="planner-btn planner-btn-accent">
+              {t.login}
+            </Link>
+            <Link href="/signup" className="planner-btn planner-btn-secondary">
+              {t.createAccount}
+            </Link>
+          </div>
+        </section>
+      </main>
+    );
   }
 
   return (
@@ -1372,9 +1416,12 @@ export default function PlannerExamsPage() {
 
       <section className="planner-panel">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-lg font-bold text-slate-900">
-            {t.list} ({examTracks.length})
-          </h2>
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">
+              {t.list} ({examTracks.length})
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">{t.listHint}</p>
+          </div>
           <button
             type="button"
             onClick={() => void handleRefresh()}
@@ -1386,7 +1433,17 @@ export default function PlannerExamsPage() {
         </div>
 
         {examTracks.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-600">{t.none}</p>
+          <article className="mt-3 rounded-3xl border border-dashed border-slate-300 bg-slate-50/80 p-5">
+            <p className="text-base font-semibold text-slate-900">{t.none}</p>
+            <p className="mt-2 text-sm text-slate-600">{t.emptyBody}</p>
+            <button
+              type="button"
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+              className="planner-btn planner-btn-accent mt-4"
+            >
+              {t.emptyAction}
+            </button>
+          </article>
         ) : (
           <ul className="mt-3 space-y-2">
             {examTracks.map((track) => {
@@ -1611,7 +1668,7 @@ export default function PlannerExamsPage() {
                           void patchExam(
                             track.examId,
                             { examDate: addDaysToDate(track.examDate.slice(0, 10), 7), status: "POSTPONED" },
-                            "Target postponed by 7 days.",
+                            t.postponed7,
                           )
                         }
                         className="planner-btn planner-btn-secondary min-h-0 py-1.5"
@@ -1624,7 +1681,7 @@ export default function PlannerExamsPage() {
                           void patchExam(
                             track.examId,
                             { examDate: addDaysToDate(track.examDate.slice(0, 10), 14), status: "POSTPONED" },
-                            "Target postponed by 14 days.",
+                            t.postponed14,
                           )
                         }
                         className="planner-btn planner-btn-secondary min-h-0 py-1.5"
@@ -1634,7 +1691,7 @@ export default function PlannerExamsPage() {
                       <button
                         type="button"
                         onClick={() =>
-                          void patchExam(track.examId, { status: "COMPLETED" }, "Target completed.")
+                          void patchExam(track.examId, { status: "COMPLETED" }, t.completedTarget)
                         }
                         className="planner-btn planner-btn-secondary min-h-0 py-1.5"
                       >

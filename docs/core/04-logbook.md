@@ -5187,3 +5187,73 @@ pm run lint\ ? 0 errors, 0 warnings.
 
 - First command/file: add a Playwright scenario covering target postpone plus rights-safe material linking.
 - Next owner: QA/Reliability.
+
+---
+
+## Entry - PHASE-6C-VISUAL-RECOVERY-001 Runtime + Visual Recovery
+
+- Date: 2026-03-17
+- Task ID: PHASE-6C-VISUAL-RECOVERY-001
+- Role: Builder + Reviewer
+- Owner: Codex
+
+### Decisions Taken
+
+- Kept the Phase 6 domain and APIs intact; Phase 6C only hardens runtime behavior and improves visual hierarchy.
+- Normalized technical error handling at the route/client boundary instead of letting raw Prisma or Turbopack details surface in the UI.
+- Treated missing-session states as explicit recovery flows with CTAs instead of passive alerts.
+
+### What Was Done
+
+- Hardened local-dev/runtime safety:
+  - `src/app/api/auth/dev-bootstrap/route.ts`
+  - `src/server/http/response.ts`
+  - `src/app/planner/_lib/client-api.ts`
+  - `scripts/start-local-dev.ps1`
+- Slimmed the app shell and install prompt:
+  - `src/app/layout.tsx`
+  - `src/app/_components/site-nav.tsx`
+  - `src/app/_components/install-prompt.tsx`
+  - `src/app/_hooks/use-install-prompt.ts`
+  - `src/app/globals.css`
+- Reworked planner hierarchy and empty states:
+  - `src/app/planner/layout.tsx`
+  - `src/app/planner/page.tsx`
+  - `src/app/planner/focus/page.tsx`
+  - `src/app/planner/subjects/page.tsx`
+  - `src/app/planner/exams/page.tsx`
+  - `src/app/planner/students/page.tsx`
+- Cleaned residual legacy naming and supporting copy:
+  - `src/app/home-page-client.tsx`
+  - `src/app/_components/home-branding-card.tsx`
+  - `src/config/branding.ts`
+  - `src/app/planner/_lib/season-engine.ts`
+  - `src/server/services/exam-plan-engine.ts`
+  - `src/app/privacy/page.tsx`
+- Added unit coverage for error sanitization:
+  - `tests/unit/response.test.ts`
+
+### Evidence
+
+- Lint: `npm run lint` passed.
+- Build: `npm run build` passed.
+- Unit tests: `npm run test:unit` passed.
+- Manual checks:
+  - planner shell now shows slim top navigation and contextual install prompt
+  - planner/focus/subjects/targets return actionable no-session and empty states
+  - local error sanitization no longer forwards raw technical details to the browser-facing client helper
+
+### Residual Risks
+
+- Some older planner internals still use `season-engine` as a code-level name even though student-facing copy is now planner-first.
+- Phase 6C does not yet add the Playwright follow-up scenarios requested in the broader plan.
+
+### Assumptions
+
+- English-first shell copy is acceptable on a few support surfaces while the main planner pages continue to support EN/IT toggle behavior.
+- Local schema/client mismatch fallback is intentionally narrow to developer environments and should not mask real production route failures.
+
+### Next Action (Concrete)
+
+- First command/file: add Playwright coverage for dev-bootstrap fallback, focus empty state, and target postpone/material flows.
+- Next owner: QA/Reliability.

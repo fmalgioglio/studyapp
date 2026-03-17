@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+const INSTALL_PROMPT_DISMISSED_KEY = "studyapp_install_prompt_dismissed_v1";
+
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<PromptResponse>;
   userChoice: Promise<PromptResponse>;
@@ -15,10 +17,22 @@ type PromptResponse = {
 export function useInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [supported, setSupported] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    try {
+      setDismissed(window.localStorage.getItem(INSTALL_PROMPT_DISMISSED_KEY) === "true");
+    } catch {
+      setDismissed(false);
+    }
+  }, []);
 
   useEffect(() => {
     const handler = (event: Event) => {
       event.preventDefault();
+      if (dismissed) {
+        return;
+      }
       setDeferredPrompt(event as BeforeInstallPromptEvent);
       setSupported(true);
     };
@@ -27,7 +41,7 @@ export function useInstallPrompt() {
     return () => {
       window.removeEventListener("beforeinstallprompt", handler);
     };
-  }, []);
+  }, [dismissed]);
 
   const promptInstall = useCallback(async () => {
     if (!deferredPrompt) {
@@ -44,12 +58,18 @@ export function useInstallPrompt() {
   }, [deferredPrompt]);
 
   const dismiss = useCallback(() => {
+    try {
+      window.localStorage.setItem(INSTALL_PROMPT_DISMISSED_KEY, "true");
+    } catch {
+      // no-op
+    }
+    setDismissed(true);
     setDeferredPrompt(null);
     setSupported(false);
   }, []);
 
   return {
-    supported,
+    supported: supported && !dismissed,
     promptInstall,
     dismiss,
   };

@@ -6,10 +6,10 @@ import { PlannerTabsNav } from "./_components/planner-tabs-nav";
 import { LogoutButton } from "./_components/logout-button";
 
 const plannerLinks = [
-  { href: "/planner", label: "Season" },
-  { href: "/planner/focus", label: "Focus Arena" },
-  { href: "/planner/subjects", label: "Subject Hub" },
-  { href: "/planner/exams", label: "Exams" },
+  { href: "/planner", label: "Planner" },
+  { href: "/planner/focus", label: "Study Today" },
+  { href: "/planner/subjects", label: "Subjects" },
+  { href: "/planner/exams", label: "Targets" },
 ] as const;
 
 export default async function PlannerLayout({
@@ -54,24 +54,20 @@ export default async function PlannerLayout({
 
   return (
     <div className="min-h-[calc(100vh-73px)]">
-      <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
-        <div className="planner-panel mb-4 bg-white/90">
+        <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
+        <div className="planner-panel planner-shell mb-4 bg-white/90">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <PlannerTabsNav links={plannerLinks} />
-            <LogoutButton />
+            <div className="flex items-center gap-2">
+              <Link
+                href="/planner/students"
+                className="planner-btn planner-btn-secondary min-h-0 px-3 py-2"
+              >
+                Profile
+              </Link>
+              <LogoutButton />
+            </div>
           </div>
-          <nav
-            aria-label="Account"
-            className="mt-3 flex items-center justify-end gap-2 border-t border-slate-100 pt-2.5"
-          >
-            <span className="text-xs font-medium text-slate-500">Account</span>
-            <Link
-              href="/planner/students"
-              className="text-xs font-medium text-slate-600 hover:text-slate-900"
-            >
-              Profile
-            </Link>
-          </nav>
         </div>
         {children}
       </div>

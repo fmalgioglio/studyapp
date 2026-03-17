@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useUiLanguage } from "@/app/_hooks/use-ui-language";
@@ -25,7 +26,7 @@ type FocusStats = {
 const COPY = {
   en: {
     title: "Study session",
-    subtitle: "Log one real study block against one exam and let the planner adapt.",
+    subtitle: "Start one useful study block, log it, and let the planner adapt.",
     xp: "Focus score",
     streak: "Streak",
     sessions: "Sessions",
@@ -47,7 +48,11 @@ const COPY = {
     skipped: "Session skipped. The planner will stay cautious.",
     paused: "Session paused.",
     started: "Session started.",
-    noExam: "No exams yet. Add one in Exams first.",
+    noExam: "No targets yet. Add one in Targets first.",
+    noAccount: "Your session is missing or expired.",
+    noAccountBody: "Sign in again to reopen your planner and keep your study data in sync.",
+    login: "Go to login",
+    createAccount: "Create account",
     loading: "Loading study sessions...",
     progressStrip: "Exam progress",
     dailyTarget: "Daily target",
@@ -55,10 +60,12 @@ const COPY = {
     noMessage: "No study logs yet for this exam.",
     minutes: "min",
     pages: "pages",
+    openTargets: "Open Targets",
+    backToPlanner: "Back to Planner",
   },
   it: {
     title: "Sessione di studio",
-    subtitle: "Registra un blocco di studio reale su un esame e lascia che il planner si aggiorni.",
+    subtitle: "Avvia un blocco utile, registralo e lascia che il planner si aggiorni.",
     xp: "Focus score",
     streak: "Streak",
     sessions: "Sessioni",
@@ -80,7 +87,11 @@ const COPY = {
     skipped: "Sessione saltata. Il planner resta prudente.",
     paused: "Sessione in pausa.",
     started: "Sessione avviata.",
-    noExam: "Nessun esame. Aggiungine uno nella pagina Esami.",
+    noExam: "Nessun target. Aggiungine uno nella pagina Target.",
+    noAccount: "La sessione manca o e scaduta.",
+    noAccountBody: "Accedi di nuovo per riaprire il planner e ritrovare i tuoi dati di studio.",
+    login: "Vai al login",
+    createAccount: "Crea account",
     loading: "Caricamento sessioni studio...",
     progressStrip: "Progresso esami",
     dailyTarget: "Target giornaliero",
@@ -88,6 +99,8 @@ const COPY = {
     noMessage: "Nessuna sessione registrata per questo esame.",
     minutes: "min",
     pages: "pagine",
+    openTargets: "Apri Target",
+    backToPlanner: "Torna al Planner",
   },
 } as const;
 
@@ -271,6 +284,27 @@ export default function PlannerFocusPage() {
   const minutesLeft = Math.floor(focusSecondsLeft / 60);
   const secondsLeft = focusSecondsLeft % 60;
 
+  if (!student) {
+    return (
+      <main className="space-y-5 sm:space-y-6">
+        <section className="planner-panel">
+          <h1 className="text-2xl font-black tracking-tight text-slate-900">
+            {t.noAccount}
+          </h1>
+          <p className="mt-2 text-sm text-slate-600">{t.noAccountBody}</p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Link href="/login" className="planner-btn planner-btn-accent">
+              {t.login}
+            </Link>
+            <Link href="/signup" className="planner-btn planner-btn-secondary">
+              {t.createAccount}
+            </Link>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="space-y-5 sm:space-y-6">
       <section className="planner-panel planner-hero">
@@ -297,7 +331,24 @@ export default function PlannerFocusPage() {
         {loading ? (
           <p className="text-sm text-slate-600">{t.loading}</p>
         ) : !overview || overview.examRecommendations.length === 0 ? (
-          <p className="text-sm text-slate-600">{t.noExam}</p>
+          <div className="space-y-4">
+            <div className="planner-card bg-slate-50/80">
+              <p className="text-base font-semibold text-slate-900">{t.noExam}</p>
+              <p className="mt-2 text-sm text-slate-600">
+                {language === "it"
+                  ? "Crea almeno un target con data e materiale, poi torna qui per avviare una sessione utile."
+                  : "Create at least one target with a date and study material, then come back here to start a useful session."}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Link href="/planner/exams" className="planner-btn planner-btn-accent">
+                {t.openTargets}
+              </Link>
+              <Link href="/planner" className="planner-btn planner-btn-secondary">
+                {t.backToPlanner}
+              </Link>
+            </div>
+          </div>
         ) : (
           <div className="space-y-4">
             <div className="grid gap-3 md:grid-cols-3">

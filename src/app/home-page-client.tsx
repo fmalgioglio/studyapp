@@ -7,36 +7,38 @@ import { useUiLanguage } from "@/app/_hooks/use-ui-language";
 
 const COPY = {
   en: {
-    badge: "Daily study planner",
-    headline1: "Plan exams with",
+    badge: "Adaptive study planner",
+    headline1: "Study better with",
     headline2: "clear daily direction.",
     description:
       "StudyApp keeps exam scope, weekly time, and real study sessions in one place so students can study better and still protect free time.",
-    openStudyHub: "Open planner",
+    openStudyHub: "Open Planner",
     login: "Log in",
-    devNote: "Local shortcut for development. It opens a browser session directly in the planner.",
-    metric1: "One plan per exam",
-    metric1Body: "Each exam gets its own pace, scope, and next steps.",
-    metric2: "Real material scope",
-    metric2Body: "Books, notes, mixed material, and verified scope stay visible.",
-    metric3: "Calm weekly view",
-    metric3Body: "Daily priorities stay practical instead of overwhelming.",
+    devNote: "Local development shortcut.",
+    devHint: "Open a browser session directly in the planner without going through signup.",
+    metric1: "Daily next step",
+    metric1Body: "See what to study today without rethinking the whole week.",
+    metric2: "Targets + materials",
+    metric2Body: "Keep exams, tests, oral checks, notes, books, and useful links together.",
+    metric3: "More calm, less chaos",
+    metric3Body: "Protect free time with a realistic pace instead of vague study intentions.",
   },
   it: {
-    badge: "Planner studio quotidiano",
-    headline1: "Pianifica gli esami con",
+    badge: "Planner studio adattivo",
+    headline1: "Studia meglio con",
     headline2: "una direzione chiara ogni giorno.",
     description:
       "StudyApp tiene insieme perimetro dell'esame, tempo settimanale e sessioni di studio reali, cosi studi meglio e proteggi anche il tempo libero.",
-    openStudyHub: "Apri planner",
+    openStudyHub: "Apri Planner",
     login: "Accesso",
-    devNote: "Scorciatoia locale per sviluppo. Apre subito una sessione browser nel planner.",
-    metric1: "Un piano per esame",
-    metric1Body: "Ogni esame ha il suo ritmo, il suo perimetro e i suoi prossimi passi.",
-    metric2: "Perimetro reale",
-    metric2Body: "Libri, appunti, materiale misto e perimetro verificato restano visibili.",
-    metric3: "Settimana piu chiara",
-    metric3Body: "Le priorita giornaliere restano pratiche e non pesanti.",
+    devNote: "Scorciatoia locale di sviluppo.",
+    devHint: "Apre subito una sessione browser nel planner senza passare dal signup.",
+    metric1: "Prossimo passo chiaro",
+    metric1Body: "Vedi cosa studiare oggi senza ripensare ogni volta tutta la settimana.",
+    metric2: "Target + materiali",
+    metric2Body: "Tieni insieme esami, verifiche, interrogazioni, libri, appunti e link utili.",
+    metric3: "Meno caos, piu calma",
+    metric3Body: "Proteggi il tempo libero con un ritmo realistico invece di intenzioni vaghe.",
   },
 } as const;
 
@@ -78,8 +80,9 @@ export default function HomePageClient({
             </Link>
           </div>
           {devBootstrapEnabled ? (
-            <div className="rounded-2xl border border-sky-200/80 bg-sky-50/90 p-4 shadow-[0_10px_30px_rgba(14,116,144,0.08)]">
-              <p className="text-sm font-medium text-slate-900">{t.devNote}</p>
+            <div className="rounded-2xl border border-slate-200 bg-white/88 p-4">
+              <p className="text-sm font-semibold text-slate-900">{t.devNote}</p>
+              <p className="mt-1 text-sm text-slate-600">{t.devHint}</p>
               <div className="mt-3">
                 <DevBootstrapEntryButton className="home-btn home-btn-primary" />
               </div>

@@ -5,6 +5,17 @@ export type ApiResult<T> = {
   issues?: unknown;
 };
 
+function isTechnicalDetails(value: string) {
+  const normalized = value.toLowerCase();
+  return (
+    normalized.includes("__turbopack__") ||
+    normalized.includes("prisma") ||
+    normalized.includes("validation error") ||
+    normalized.includes(" at ") ||
+    normalized.includes("\n")
+  );
+}
+
 export async function requestJson<T>(
   input: RequestInfo | URL,
   init?: RequestInit,
@@ -31,7 +42,8 @@ export async function requestJson<T>(
         !response.ok &&
         parsed.error &&
         typeof parsed.details === "string" &&
-        parsed.details.trim()
+        parsed.details.trim() &&
+        !isTechnicalDetails(parsed.details)
       ) {
         parsed.error = `${parsed.error}: ${parsed.details}`;
       }

@@ -12,7 +12,7 @@ export function HomeBrandingCard({ title }: { title: string }) {
         Planner shell: <code>src/app/planner/page.tsx</code>
       </p>
       <p>
-        Subject Hub: <code>src/app/planner/subjects/page.tsx</code>
+        Subjects: <code>src/app/planner/subjects/page.tsx</code>
       </p>
     </div>
   );

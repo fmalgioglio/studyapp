@@ -1,6 +1,8 @@
 $ErrorActionPreference = "Stop"
 
 $turbopackCachePath = Join-Path (Get-Location) ".next\\dev\\cache\\turbopack"
+$schemaPath = Join-Path (Get-Location) "prisma\\schema.prisma"
+$generatedClientPath = Join-Path (Get-Location) "src\\generated\\prisma\\client.ts"
 
 function Get-PrismaDevPort {
   $envText = Get-Content ".env" -Raw
@@ -31,7 +33,28 @@ function Test-PortListening {
   }
 }
 
+function Ensure-PrismaClientFresh {
+  $shouldGenerate = $false
+
+  if (-not (Test-Path $generatedClientPath)) {
+    $shouldGenerate = $true
+  } elseif ((Get-Item $schemaPath).LastWriteTimeUtc -gt (Get-Item $generatedClientPath).LastWriteTimeUtc) {
+    $shouldGenerate = $true
+  }
+
+  if (-not $shouldGenerate) {
+    return
+  }
+
+  Write-Host "Prisma schema changed. Regenerating client..."
+  cmd.exe /c "npx prisma generate > prisma-generate.log 2>&1"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Prisma client generation failed. Check prisma-generate.log."
+  }
+}
+
 $prismaPort = Get-PrismaDevPort
+Ensure-PrismaClientFresh
 
 if (-not (Test-PortListening -Port $prismaPort)) {
   Write-Host "Starting prisma dev on port $prismaPort..."

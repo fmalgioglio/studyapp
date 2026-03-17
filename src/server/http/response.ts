@@ -22,11 +22,25 @@ export function apiError(
 
 export function getErrorDetails(error: unknown) {
   if (error instanceof Error) {
-    if (error.message.toLowerCase().includes("fetch failed")) {
+    const message = error.message;
+    const normalized = message.toLowerCase();
+
+    if (normalized.includes("fetch failed")) {
       return "Database connection bridge is unreachable. Start `npx prisma dev` and ensure `.env` DATABASE_URL matches the active Prisma dev server.";
     }
 
-    return error.message;
+    if (
+      normalized.includes("__turbopack__") ||
+      normalized.includes("unknown argument") ||
+      normalized.includes("unknown field") ||
+      normalized.includes("invalid invocation") ||
+      normalized.includes("prisma") ||
+      normalized.includes("validation error")
+    ) {
+      return "Local development state is out of sync. Restart the dev server and refresh the Prisma client before trying again.";
+    }
+
+    return message;
   }
 
   return "Unexpected server error";

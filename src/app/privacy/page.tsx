@@ -8,7 +8,7 @@ export default function PrivacyPage() {
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
           StudyApp stores only the study profile data and planner inputs needed to run your
-          season planning flows. Local preference toggles and focus progress stay in your
+            planner flows. Local preference toggles and focus progress stay in your
           browser unless you explicitly save them through product forms.
         </p>
       </section>

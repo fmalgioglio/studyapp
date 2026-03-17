@@ -32,19 +32,19 @@ const WeeklyBoardSection = dynamic(
 
 const COPY = {
   en: {
-    badge: "Study coach",
-    title: "Study one exam at a time, without losing the full week.",
+    badge: "Study today",
+    title: "Open your plan and start the right target.",
     subtitle:
-      "Your planner now keeps each exam clear: pace, material scope, weekly time, and the next step that matters most.",
+      "Keep targets, materials, and real study time in one place so the next useful session is obvious.",
     loading: "Loading your planner...",
-    noAccount: "No account context found.",
+    noAccount: "Your session is missing or expired.",
     todayFocus: "Today focus",
     todayFocusHint: "Start with the highest-value study blocks for today.",
     refresh: "Refresh plan",
-    examPlan: "Exam plans",
-    examPlanHint: "Each card tells you the current pace and why it was chosen.",
-    selectedExam: "Selected exam",
-    whyThisPlan: "Why this plan",
+    examPlan: "Target plans",
+    examPlanHint: "Each card explains the current pace, material scope, and what to do next.",
+    selectedExam: "Open details",
+    whyThisPlan: "Why this target gets this plan",
     nextSteps: "Next steps",
     pace: "Pace",
     scope: "Scope",
@@ -61,7 +61,7 @@ const COPY = {
     boardToggleOpen: "Show weekly view",
     boardToggleClose: "Hide weekly view",
     linksTitle: "Keep moving",
-    examsLink: "Manage exams",
+    examsLink: "Manage targets",
     subjectsLink: "Subjects",
     focusLink: "Log study session",
     summaryRisk: "Plan health",
@@ -81,19 +81,19 @@ const COPY = {
     hours: "hours",
   },
   it: {
-    badge: "Coach di studio",
-    title: "Studia un esame alla volta, senza perdere il controllo della settimana.",
+    badge: "Studia oggi",
+    title: "Apri il piano e parti dal target giusto.",
     subtitle:
-      "Il planner ora tiene chiari ritmo, perimetro materiale, tempo settimanale e prossimo passo utile per ogni esame.",
+      "Tieni insieme target, materiali e tempo di studio reale cosi il prossimo blocco utile e subito chiaro.",
     loading: "Caricamento planner...",
-    noAccount: "Contesto account non trovato.",
+    noAccount: "La sessione manca o e scaduta.",
     todayFocus: "Focus di oggi",
     todayFocusHint: "Parti dai blocchi di studio che oggi hanno piu valore.",
     refresh: "Aggiorna piano",
-    examPlan: "Piani esame",
-    examPlanHint: "Ogni card spiega il ritmo attuale e il motivo della scelta.",
-    selectedExam: "Esame selezionato",
-    whyThisPlan: "Perche questo piano",
+    examPlan: "Piani target",
+    examPlanHint: "Ogni card spiega ritmo, materiali e prossimo passo utile.",
+    selectedExam: "Apri dettagli",
+    whyThisPlan: "Perche questo target ha questo piano",
     nextSteps: "Prossimi passi",
     pace: "Ritmo",
     scope: "Perimetro",
@@ -110,7 +110,7 @@ const COPY = {
     boardToggleOpen: "Mostra vista settimanale",
     boardToggleClose: "Nascondi vista settimanale",
     linksTitle: "Continua",
-    examsLink: "Gestisci esami",
+    examsLink: "Gestisci target",
     subjectsLink: "Materie",
     focusLink: "Registra sessione",
     summaryRisk: "Salute del piano",
@@ -203,7 +203,24 @@ export default function PlannerOverviewPage() {
   if (!student) {
     return (
       <main className="space-y-5 sm:space-y-6">
-        <section className="planner-alert">{t.noAccount}</section>
+        <section className="planner-panel">
+          <h1 className="text-2xl font-black tracking-tight text-slate-900">
+            {t.noAccount}
+          </h1>
+          <p className="mt-2 text-sm text-slate-600">
+            {language === "it"
+              ? "Accedi di nuovo per ricaricare planner e dati di studio."
+              : "Sign in again to reload your planner and study data."}
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Link href="/login" className="planner-btn planner-btn-accent">
+              {language === "it" ? "Vai al login" : "Log in"}
+            </Link>
+            <Link href="/signup" className="planner-btn planner-btn-secondary">
+              {language === "it" ? "Crea account" : "Create account"}
+            </Link>
+          </div>
+        </section>
       </main>
     );
   }

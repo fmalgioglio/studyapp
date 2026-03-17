@@ -22,14 +22,50 @@ const DEV_BOOTSTRAP_WEEKLY_HOURS = 12;
 const DEV_BOOTSTRAP_EDUCATION_LEVEL = "UNIVERSITY";
 const DEV_BOOTSTRAP_SCHOOL_PROFILE = "UNIVERSITY";
 
-async function upsertDevBootstrapStudent(includePasswordHash: boolean) {
+function isSchemaMismatchError(error: unknown) {
+  if (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    (error.code === "P2021" || error.code === "P2022")
+  ) {
+    return true;
+  }
+
+  if (
+    error instanceof Prisma.PrismaClientValidationError &&
+    /unknown argument|educationlevel|schoolprofile/i.test(error.message)
+  ) {
+    return true;
+  }
+
+  if (
+    error instanceof Error &&
+    /unknown argument|educationlevel|schoolprofile|__turbopack__/i.test(
+      error.message,
+    )
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+async function upsertDevBootstrapStudent(options: {
+  includePasswordHash: boolean;
+  includeProfileFields: boolean;
+}) {
+  const { includePasswordHash, includeProfileFields } = options;
+
   return prisma.student.upsert({
     where: { email: DEV_BOOTSTRAP_EMAIL },
     update: {
       fullName: DEV_BOOTSTRAP_FULL_NAME,
       weeklyHours: DEV_BOOTSTRAP_WEEKLY_HOURS,
-      educationLevel: DEV_BOOTSTRAP_EDUCATION_LEVEL,
-      schoolProfile: DEV_BOOTSTRAP_SCHOOL_PROFILE,
+      ...(includeProfileFields
+        ? {
+            educationLevel: DEV_BOOTSTRAP_EDUCATION_LEVEL,
+            schoolProfile: DEV_BOOTSTRAP_SCHOOL_PROFILE,
+          }
+        : {}),
       ...(includePasswordHash
         ? { passwordHash: hashPassword(DEV_BOOTSTRAP_PASSWORD) }
         : {}),
@@ -38,8 +74,12 @@ async function upsertDevBootstrapStudent(includePasswordHash: boolean) {
       email: DEV_BOOTSTRAP_EMAIL,
       fullName: DEV_BOOTSTRAP_FULL_NAME,
       weeklyHours: DEV_BOOTSTRAP_WEEKLY_HOURS,
-      educationLevel: DEV_BOOTSTRAP_EDUCATION_LEVEL,
-      schoolProfile: DEV_BOOTSTRAP_SCHOOL_PROFILE,
+      ...(includeProfileFields
+        ? {
+            educationLevel: DEV_BOOTSTRAP_EDUCATION_LEVEL,
+            schoolProfile: DEV_BOOTSTRAP_SCHOOL_PROFILE,
+          }
+        : {}),
       ...(includePasswordHash
         ? { passwordHash: hashPassword(DEV_BOOTSTRAP_PASSWORD) }
         : {}),
@@ -62,20 +102,33 @@ export async function POST() {
 
   try {
     let student;
-    let usedPasswordHashFallback = false;
+    let usedCompatibilityFallback = false;
 
-    try {
-      student = await upsertDevBootstrapStudent(true);
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === "P2022"
-      ) {
-        usedPasswordHashFallback = true;
-        student = await upsertDevBootstrapStudent(false);
-      } else {
-        throw error;
+    const strategies = [
+      { includePasswordHash: true, includeProfileFields: true },
+      { includePasswordHash: true, includeProfileFields: false },
+      { includePasswordHash: false, includeProfileFields: false },
+    ] as const;
+
+    let lastError: unknown;
+
+    for (const strategy of strategies) {
+      try {
+        student = await upsertDevBootstrapStudent(strategy);
+        usedCompatibilityFallback =
+          !strategy.includePasswordHash || !strategy.includeProfileFields;
+        lastError = undefined;
+        break;
+      } catch (error) {
+        lastError = error;
+        if (!isSchemaMismatchError(error)) {
+          throw error;
+        }
       }
+    }
+
+    if (!student) {
+      throw lastError ?? new Error("Local dev bootstrap fallback failed");
     }
 
     const token = createSessionToken(student.id, student.email);
@@ -84,27 +137,23 @@ export async function POST() {
 
     return apiSuccess({
       ...student,
-      ...(usedPasswordHashFallback
+      ...(usedCompatibilityFallback
         ? {
             warning:
-              "Local dev account created without passwordHash due schema mismatch. Run prisma migrate dev to enable password login.",
+              "Local dev account created in compatibility mode. Restart local dev after regenerating Prisma if you want full local bootstrap support.",
           }
         : {}),
     });
   } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      (error.code === "P2021" || error.code === "P2022")
-    ) {
+    if (isSchemaMismatchError(error)) {
       return apiError(
-        "Database schema is out of sync. Run: npx prisma migrate dev && npx prisma generate",
+        "Local dev bootstrap is temporarily out of sync. Restart local dev and refresh the Prisma client.",
         500,
-        error.message,
       );
     }
 
     return apiError(
-      "Failed to bootstrap local dev account",
+      "Failed to start the local dev session",
       500,
       getErrorDetails(error),
     );

@@ -58,9 +58,13 @@ export default async function RootLayout({
                 StudyApp
               </Link>
               <SiteNav />
-              <InstallPrompt />
             </div>
           </header>
+          <div className="install-banner-shell">
+            <div className="mx-auto w-full max-w-6xl px-4 pt-3 sm:px-6">
+              <InstallPrompt />
+            </div>
+          </div>
           <div className="flex-1">
             {children}
           </div>

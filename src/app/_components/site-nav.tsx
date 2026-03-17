@@ -3,31 +3,23 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { useSiteTheme } from "@/app/_hooks/use-site-theme";
 import { useUiLanguage } from "@/app/_hooks/use-ui-language";
 
 const COPY = {
   en: {
     home: "Home",
-    studyHub: "Study Hub",
+    studyHub: "Planner",
     profile: "Profile",
-    theme: "Theme",
-    parrot: "Parrot",
-    dolphin: "Dolphin",
   },
   it: {
     home: "Home",
-    studyHub: "Study Hub",
+    studyHub: "Planner",
     profile: "Profilo",
-    theme: "Tema",
-    parrot: "Pappagallo",
-    dolphin: "Delfino",
   },
 } as const;
 
 export function SiteNav() {
   const { language, setLanguage } = useUiLanguage("en");
-  const { theme, setTheme } = useSiteTheme("parrot");
   const pathname = usePathname();
   const t = COPY[language] ?? COPY.en;
 
@@ -67,7 +59,7 @@ export function SiteNav() {
       >
         {t.profile}
       </Link>
-      <div className="site-toggle-group">
+      <div className="site-language-group">
         <button
           type="button"
           onClick={() => setLanguage("en")}
@@ -85,27 +77,6 @@ export function SiteNav() {
           }`}
         >
           IT
-        </button>
-      </div>
-      <div className="site-toggle-group">
-        <span className="site-toggle-label">{t.theme}</span>
-        <button
-          type="button"
-          onClick={() => setTheme("parrot")}
-          className={`site-toggle-btn ${
-            theme === "parrot" ? "site-toggle-btn-active" : ""
-          }`}
-        >
-          {t.parrot}
-        </button>
-        <button
-          type="button"
-          onClick={() => setTheme("dolphin")}
-          className={`site-toggle-btn ${
-            theme === "dolphin" ? "site-toggle-btn-active" : ""
-          }`}
-        >
-          {t.dolphin}
         </button>
       </div>
     </nav>

@@ -5,7 +5,7 @@ export const BRANDING = {
   homeHeadlineLine2: "clear scope and calmer routines.",
   homeDescription:
     "StudyApp helps students plan study time, track sessions, and prepare for exams with cleaner workload visibility and focused routines.",
-  plannerTitle: "Season Board",
+  plannerTitle: "Planner",
   plannerSubtitle:
     "Operational workspace for exam planning, focus sessions, and readiness tracking.",
   mascotName: "StudyApp",

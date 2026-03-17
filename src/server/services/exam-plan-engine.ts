@@ -714,7 +714,7 @@ export function buildPlannerOverview(input: {
       risk: overallRisk,
       riskMessage:
         overallRisk === "high"
-          ? "The current season is overloaded. Prioritize the most urgent exams first."
+      ? "The current plan is overloaded. Prioritize the most urgent targets first."
           : overallRisk === "medium"
             ? "The plan is viable, but it needs consistent execution every week."
             : "The current plan is stable if you keep the routine consistent.",
