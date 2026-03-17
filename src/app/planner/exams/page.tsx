@@ -126,6 +126,14 @@ const COPY = {
       "If only part of the book matters, use a page range so the planner reflects the real exam scope.",
     addExam: "Add exam",
     editWorkload: "Edit workload",
+    planSettings: "Plan settings",
+    planIntensity: "Study rhythm",
+    planSummary: "Summary support",
+    planLighter: "Lighter",
+    planBalanced: "Balanced",
+    planStronger: "Stronger",
+    planLocked: "Keep this pace fixed",
+    savePlan: "Save plan",
     saveWorkload: "Save workload",
     cancelEdit: "Cancel",
     list: "Exam list",
@@ -249,6 +257,14 @@ const COPY = {
       "Se conta solo una parte del libro, usa un intervallo di pagine per riflettere il perimetro reale.",
     addExam: "Aggiungi esame",
     editWorkload: "Modifica carico",
+    planSettings: "Impostazioni piano",
+    planIntensity: "Ritmo di studio",
+    planSummary: "Supporto riassunti",
+    planLighter: "Più leggero",
+    planBalanced: "Bilanciato",
+    planStronger: "Più spinto",
+    planLocked: "Mantieni fisso questo ritmo",
+    savePlan: "Salva piano",
     saveWorkload: "Salva carico",
     cancelEdit: "Annulla",
     list: "Lista esami",
@@ -623,6 +639,38 @@ export default function PlannerExamsPage() {
     void refresh({ force: true }).then((refreshResult) => {
       if (!refreshResult.ok && !refreshResult.skipped) {
         setMessage(refreshResult.errors.exams ?? t.loadExamsError);
+      }
+    });
+  }
+
+  async function saveExamPlan(
+    examId: string,
+    payload: {
+      intensityPreference?: "lighter" | "balanced" | "stronger";
+      summaryPreferencePct?: number;
+      paceLocked?: boolean;
+    },
+  ) {
+    const response = await requestJson<PlannerExam>(`/api/exam-plans?examId=${examId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      setMessage(response.payload.error ?? t.createError);
+      return;
+    }
+
+    setMessage(`${t.savePlan} ✓`);
+    notifyDataRevision();
+    void refresh({ force: true }).then((refreshResult) => {
+      if (!refreshResult.ok && !refreshResult.skipped) {
+        setMessage(
+          refreshResult.errors.exams ??
+            refreshResult.errors.subjects ??
+            t.loadExamsError,
+        );
       }
     });
   }
@@ -1353,6 +1401,69 @@ export default function PlannerExamsPage() {
                           ) : null}
                         </div>
                       ) : null}
+                      <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="planner-eyebrow">{t.planSettings}</p>
+                          <span className="text-xs text-slate-500">
+                            {track.recommendedPagesPerDay}p / {track.recommendedMinutesPerDay}m
+                          </span>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {(
+                            [
+                              { value: "lighter", label: t.planLighter },
+                              { value: "balanced", label: t.planBalanced },
+                              { value: "stronger", label: t.planStronger },
+                            ] as const
+                          ).map((option) => (
+                            <button
+                              key={option.value}
+                              type="button"
+                              onClick={() =>
+                                void saveExamPlan(track.examId, {
+                                  intensityPreference: option.value,
+                                })
+                              }
+                              className={`planner-btn min-h-0 py-1.5 ${
+                                examMeta?.planState?.intensityPreference === option.value
+                                  ? "planner-btn-primary"
+                                  : "planner-btn-secondary"
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="mt-3 flex flex-wrap items-center gap-3">
+                          <label className="text-xs text-slate-600">
+                            {t.planSummary}: {examMeta?.planState?.summaryPreferencePct ?? 30}%
+                          </label>
+                          <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            value={examMeta?.planState?.summaryPreferencePct ?? 30}
+                            onChange={(event) =>
+                              void saveExamPlan(track.examId, {
+                                summaryPreferencePct: Number(event.target.value),
+                              })
+                            }
+                            className="h-2 w-40 accent-slate-900"
+                          />
+                          <label className="flex items-center gap-2 text-xs text-slate-600">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(examMeta?.planState?.paceLocked)}
+                              onChange={(event) =>
+                                void saveExamPlan(track.examId, {
+                                  paceLocked: event.target.checked,
+                                })
+                              }
+                            />
+                            <span>{t.planLocked}</span>
+                          </label>
+                        </div>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <button

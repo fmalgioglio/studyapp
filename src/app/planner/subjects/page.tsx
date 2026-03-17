@@ -1,30 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { FormEvent, useMemo, useState } from "react";
 
 import { useUiLanguage } from "@/app/_hooks/use-ui-language";
 import {
   usePlannerData,
   type PlannerSubject,
 } from "@/app/planner/_hooks/use-planner-data";
-import {
-  notifyDataRevision,
-  readFocusProgress,
-  subscribeDataRevision,
-  type FocusProgressMap,
-} from "@/app/planner/_lib/focus-progress";
-import {
-  normalizeExamHint,
-  readExamHints,
-  writeExamHints,
-  type ExamHint,
-} from "@/app/planner/_lib/exam-hints";
-import {
-  buildExamProgressSnapshot,
-  type ExamProgressState,
-} from "@/app/planner/_lib/season-engine";
-import { progressStateClasses } from "@/app/planner/_lib/status-ui";
+import { notifyDataRevision } from "@/app/planner/_lib/focus-progress";
+import type { ExamPaceRecommendation } from "@/lib/exam-plan";
 import { requestJson } from "../_lib/client-api";
 import { useAuthStudent } from "../_hooks/use-auth-student";
 
@@ -42,218 +27,89 @@ type DeletedSubject = {
 };
 
 type SubjectDeleteConflictDetails = {
-  id?: string;
   relationCounts?: SubjectDeleteRelationCounts;
   requiresConfirmCascade?: boolean;
 };
 
-const SUBJECT_PRESETS = [
-  { name: "Biology", color: "#16a34a" },
-  { name: "Chemistry", color: "#ea580c" },
-  { name: "Physics", color: "#2563eb" },
-  { name: "Mathematics", color: "#7c3aed" },
-  { name: "Private Law", color: "#dc2626" },
-  { name: "History", color: "#b45309" },
-  { name: "Literature", color: "#0f766e" },
-  { name: "English", color: "#0ea5e9" },
-] as const;
-
 const COPY = {
   en: {
-    title: "Subject Hub",
-    subtitle: "Use subjects to keep your study plan organized and easier to follow.",
-    presets: "Quick presets",
+    title: "Subjects",
+    subtitle: "Keep subjects clean and use them to group the right exams.",
+    addTitle: "Add subject",
     name: "Subject name",
-    color: "Color label",
+    color: "Color",
     add: "Add subject",
-    subjectDashboard: "Subject dashboard",
-    noSubjects: "No subjects yet. Add one to start planning each exam clearly.",
-    studyPaceGuide: "Study pace guide",
-    linkedExams: "Exams linked",
-    closestDeadline: "Closest deadline",
-    readyExams: "Ready exams",
-    avgProgress: "Average progress",
-    focusMinutes: "Focus minutes",
-    openTimeline: "Open timeline",
-    studyPace: "Study pace",
-    studyFromSummariesPercent: "Study from summaries %",
-    studyPaceHint: "Pick the daily intensity for this exam.",
-    studyFromSummariesHint: "Set how much this exam should rely on summaries.",
-    summariesScaleHint: "0% = full material, 100% = summaries only",
-    noLinkedExamsHint: "Link an exam to set its study pace and summary use.",
-    loading: "Loading account...",
-    noAccount: "No account context found.",
-    subjectCreated: "Subject created",
-    studySettingsSaved: "Exam study settings saved.",
-    noDeadline: "n/a",
-    daySuffix: "day(s)",
-    examSettings: "Per-exam study settings",
-    openExams: "Open Exams",
+    noSubjects: "No subjects yet.",
+    linkedExams: "Linked exams",
+    studyDirection: "Current study direction",
+    openExams: "Open exams",
     delete: "Delete",
-    deleteConfirmPrompt: "Delete subject",
-    deleteLinkedWarning:
-      "This subject has linked data. Confirming will remove linked records too.",
-    deleteCancelAction: "Cancel",
-    deleteConfirmAction: "Confirm delete",
-    subjectDeleted: "Subject deleted",
+    created: "Subject created",
+    deleted: "Subject deleted",
     deleteError: "Failed to delete subject",
-    linkedSources: "Sources linked",
-    linkedStudySessions: "Study sessions linked",
-    loadExamsError: "Failed to load exams",
-    statusNotStarted: "Not started",
-    statusWarmingUp: "Warming up",
-    statusSteady: "Steady",
-    statusAlmostReady: "Almost ready",
-    statusReady: "Ready",
-    light: "Light pace",
-    standard: "Balanced pace",
-    deep: "Intensive pace",
-    lightGuide:
-      "Lower daily intensity, larger revision buffer, safer against overload.",
-    standardGuide:
-      "Balanced path for most students. Good tradeoff between pace and consistency.",
-    deepGuide:
-      "Higher daily load for tight deadlines. Better completion odds, higher fatigue risk.",
+    loadError: "Failed to load subjects",
+    noAccount: "No account context found.",
+    loading: "Loading subjects...",
+    noDirection: "No exam plan yet for this subject.",
+    confirmDelete: "Delete subject?",
+    confirmCascade: "This subject has linked records. Confirm to remove them too.",
   },
   it: {
-    title: "Hub Materie",
-    subtitle: "Le materie aiutano a mantenere il piano di studio ordinato e chiaro.",
-    presets: "Preset rapidi",
+    title: "Materie",
+    subtitle: "Tieni pulite le materie e usale per raggruppare gli esami corretti.",
+    addTitle: "Aggiungi materia",
     name: "Nome materia",
     color: "Colore",
     add: "Aggiungi materia",
-    subjectDashboard: "Dashboard materia",
-    noSubjects: "Nessuna materia. Aggiungine una per attivare le card.",
-    studyPaceGuide: "Guida ritmo di studio",
+    noSubjects: "Nessuna materia per ora.",
     linkedExams: "Esami collegati",
-    closestDeadline: "Scadenza piu vicina",
-    readyExams: "Esami pronti",
-    avgProgress: "Progresso medio",
-    focusMinutes: "Minuti focus",
-    openTimeline: "Apri timeline",
-    studyPace: "Ritmo di studio",
-    studyFromSummariesPercent: "Studio da riassunti %",
-    studyPaceHint: "Scegli l'intensita giornaliera per questo esame.",
-    studyFromSummariesHint: "Indica quanto vuoi basarti sui riassunti per questo esame.",
-    summariesScaleHint: "0% = materiale completo, 100% = solo riassunti",
-    noLinkedExamsHint: "Collega un esame per impostare ritmo di studio e uso dei riassunti.",
-    loading: "Caricamento account...",
-    noAccount: "Contesto account non trovato.",
-    subjectCreated: "Materia creata",
-    studySettingsSaved: "Impostazioni di studio esame salvate.",
-    noDeadline: "n/d",
-    daySuffix: "giorni",
-    examSettings: "Impostazioni studio per esame",
-    openExams: "Apri Esami",
+    studyDirection: "Direzione di studio attuale",
+    openExams: "Apri esami",
     delete: "Elimina",
-    deleteConfirmPrompt: "Eliminare la materia",
-    deleteLinkedWarning:
-      "Questa materia ha dati collegati. Confermando verranno eliminati anche i record collegati.",
-    deleteCancelAction: "Annulla",
-    deleteConfirmAction: "Conferma eliminazione",
-    subjectDeleted: "Materia eliminata",
+    created: "Materia creata",
+    deleted: "Materia eliminata",
     deleteError: "Impossibile eliminare la materia",
-    linkedSources: "Fonti collegate",
-    linkedStudySessions: "Sessioni studio collegate",
-    loadExamsError: "Impossibile caricare gli esami",
-    statusNotStarted: "Non iniziato",
-    statusWarmingUp: "In avvio",
-    statusSteady: "Costante",
-    statusAlmostReady: "Quasi pronto",
-    statusReady: "Pronto",
-    light: "Ritmo leggero",
-    standard: "Ritmo bilanciato",
-    deep: "Ritmo intensivo",
-    lightGuide:
-      "Intensita giornaliera ridotta, maggiore buffer di revisione, meno rischio di overload.",
-    standardGuide:
-      "Percorso bilanciato per la maggior parte degli studenti.",
-    deepGuide:
-      "Carico giornaliero alto per scadenze strette, con maggiore rischio di affaticamento.",
+    loadError: "Impossibile caricare le materie",
+    noAccount: "Contesto account non trovato.",
+    loading: "Caricamento materie...",
+    noDirection: "Nessun piano esame disponibile per questa materia.",
+    confirmDelete: "Eliminare la materia?",
+    confirmCascade: "Questa materia ha record collegati. Conferma per eliminarli.",
   },
 } as const;
-
-const HYDRATION_SUBSCRIBE = () => () => {};
-const getHydratedSnapshot = () => true;
-const getHydratedServerSnapshot = () => false;
-
-type SubjectsCopy = (typeof COPY)[keyof typeof COPY];
-
-function progressStateLabel(state: ExamProgressState, t: SubjectsCopy) {
-  if (state === "ready") return t.statusReady;
-  if (state === "almost_ready") return t.statusAlmostReady;
-  if (state === "steady") return t.statusSteady;
-  if (state === "warming_up") return t.statusWarmingUp;
-  return t.statusNotStarted;
-}
-
-function normalizeRelationCounts(
-  relationCounts: SubjectDeleteRelationCounts | undefined,
-): SubjectDeleteRelationCounts {
-  return {
-    exams: Number(relationCounts?.exams ?? 0),
-    sources: Number(relationCounts?.sources ?? 0),
-    studySessions: Number(relationCounts?.studySessions ?? 0),
-  };
-}
-
-function buildCascadeConfirmMessage(
-  subjectName: string,
-  relationCounts: SubjectDeleteRelationCounts,
-  t: SubjectsCopy,
-) {
-  return [
-    `${t.deleteConfirmPrompt}: ${subjectName}?`,
-    t.deleteLinkedWarning,
-    `${t.linkedExams}: ${relationCounts.exams}`,
-    `${t.linkedSources}: ${relationCounts.sources}`,
-    `${t.linkedStudySessions}: ${relationCounts.studySessions}`,
-    "",
-    `${t.deleteConfirmAction}: OK`,
-    `${t.deleteCancelAction}: Cancel`,
-  ].join("\n");
-}
 
 export default function PlannerSubjectsPage() {
   const { student, loading } = useAuthStudent();
   const { language } = useUiLanguage("en");
   const t = COPY[language] ?? COPY.en;
-  const { subjects, exams, errors, refresh, upsertSubject, removeSubject } = usePlannerData({
+  const { subjects, exams, errors, upsertSubject, removeSubject, refresh } = usePlannerData({
     enabled: Boolean(student?.id),
     studentId: student?.id,
     subscribeToRevision: true,
   });
-  const [focusProgress, setFocusProgress] = useState<FocusProgressMap>(() =>
-    readFocusProgress(),
-  );
-  const [examHints, setExamHints] = useState<Record<string, ExamHint>>(() => readExamHints());
-  const storageHydrated = useSyncExternalStore(
-    HYDRATION_SUBSCRIBE,
-    getHydratedSnapshot,
-    getHydratedServerSnapshot,
-  );
   const [subjectName, setSubjectName] = useState("");
   const [subjectColor, setSubjectColor] = useState("");
   const [message, setMessage] = useState("");
-  const dataErrorMessage = errors.subjects ?? errors.exams ?? "";
-  const examTracks = useMemo(
-    () => buildExamProgressSnapshot(exams, focusProgress, examHints),
-    [examHints, exams, focusProgress],
+
+  const subjectCards = useMemo(
+    () =>
+      subjects.map((subject) => {
+        const linkedExams = exams.filter((exam) => exam.subject.id === subject.id);
+        const linkedRecommendation = linkedExams
+          .map((exam) => exam.planState?.lastRecommendationSnapshot)
+          .find(Boolean) as ExamPaceRecommendation | undefined;
+
+        return {
+          subject,
+          linkedExams,
+          linkedRecommendation,
+        };
+      }),
+    [exams, subjects],
   );
 
-  useEffect(() => {
-    if (!storageHydrated) return;
-    writeExamHints(examHints);
-  }, [storageHydrated, examHints]);
-
-  useEffect(() => {
-    return subscribeDataRevision((source) => {
-      if (source !== "focus_progress") return;
-      setFocusProgress(readFocusProgress());
-    });
-  }, []);
-
-  async function createSubjectByValues(name: string, color?: string) {
+  async function createSubject(event: FormEvent) {
+    event.preventDefault();
     if (!student?.id) {
       setMessage(t.noAccount);
       return;
@@ -262,39 +118,26 @@ export default function PlannerSubjectsPage() {
     const { ok, payload } = await requestJson<CreatedSubject>("/api/subjects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, color }),
+      body: JSON.stringify({
+        name: subjectName.trim(),
+        color: subjectColor.trim() || undefined,
+      }),
     });
 
     if (!ok || !payload.data) {
-      setMessage(payload.error ?? "Failed to create subject");
+      setMessage(payload.error ?? t.loadError);
       return;
     }
 
     upsertSubject(payload.data);
-    setMessage(`${t.subjectCreated}: ${payload.data.name}`);
-    notifyDataRevision();
-    void refresh({ force: true }).then((refreshResult) => {
-      if (!refreshResult.ok && !refreshResult.skipped) {
-        setMessage(
-          refreshResult.errors.subjects ??
-            refreshResult.errors.exams ??
-            "Failed to load subjects",
-        );
-      }
-    });
-  }
-
-  async function createSubject(event: FormEvent) {
-    event.preventDefault();
-    setMessage("");
-    await createSubjectByValues(subjectName, subjectColor || undefined);
     setSubjectName("");
     setSubjectColor("");
+    setMessage(`${t.created}: ${payload.data.name}`);
+    notifyDataRevision();
+    void refresh({ force: true });
   }
 
-  async function deleteSubject(subjectId: string, subjectName: string) {
-    setMessage("");
-
+  async function deleteSubject(subjectId: string, subjectLabel: string) {
     const endpoint = `/api/subjects?id=${encodeURIComponent(subjectId)}`;
     const firstAttempt = await requestJson<DeletedSubject>(endpoint, {
       method: "DELETE",
@@ -302,53 +145,30 @@ export default function PlannerSubjectsPage() {
 
     if (!firstAttempt.ok) {
       const details = firstAttempt.payload.details as SubjectDeleteConflictDetails | undefined;
-      if (details?.requiresConfirmCascade === true) {
-        const relationCounts = normalizeRelationCounts(details.relationCounts);
-        const confirmed = window.confirm(
-          buildCascadeConfirmMessage(subjectName, relationCounts, t),
-        );
-
-        if (!confirmed) {
-          return;
-        }
-
-        const confirmedAttempt = await requestJson<DeletedSubject>(
-          `${endpoint}&confirmCascade=true`,
-          {
-            method: "DELETE",
-          },
-        );
-
-        if (!confirmedAttempt.ok || !confirmedAttempt.payload.data) {
-          setMessage(confirmedAttempt.payload.error ?? t.deleteError);
-          return;
-        }
-      } else {
+      if (!details?.requiresConfirmCascade) {
         setMessage(firstAttempt.payload.error ?? t.deleteError);
+        return;
+      }
+
+      const confirmed = window.confirm(`${t.confirmDelete}\n\n${t.confirmCascade}`);
+      if (!confirmed) return;
+
+      const secondAttempt = await requestJson<DeletedSubject>(
+        `${endpoint}&confirmCascade=true`,
+        {
+          method: "DELETE",
+        },
+      );
+      if (!secondAttempt.ok) {
+        setMessage(secondAttempt.payload.error ?? t.deleteError);
         return;
       }
     }
 
     removeSubject(subjectId, { removeLinkedExams: true });
+    setMessage(`${t.deleted}: ${subjectLabel}`);
     notifyDataRevision();
-    setMessage(`${t.subjectDeleted}: ${subjectName}`);
-    void refresh({ force: true }).then((refreshResult) => {
-      if (!refreshResult.ok && !refreshResult.skipped) {
-        setMessage(
-          refreshResult.errors.subjects ??
-            refreshResult.errors.exams ??
-            t.loadExamsError,
-        );
-      }
-    });
-  }
-
-  function setExamHint(examId: string, patch: Partial<ExamHint>) {
-    setExamHints((current) => ({
-      ...current,
-      [examId]: normalizeExamHint(current[examId], patch),
-    }));
-    setMessage(t.studySettingsSaved);
+    void refresh({ force: true });
   }
 
   return (
@@ -359,259 +179,113 @@ export default function PlannerSubjectsPage() {
       </section>
 
       <section className="planner-panel">
-        <h2 className="text-lg font-bold text-slate-900">{t.studyPaceGuide}</h2>
-        <div className="mt-3 grid gap-3 md:grid-cols-3">
-          <article className="planner-card border-emerald-300 bg-emerald-50">
-            <p className="planner-eyebrow text-emerald-700">{t.light}</p>
-            <p className="mt-1 text-sm text-emerald-900">
-              {t.lightGuide}
-            </p>
-          </article>
-          <article className="planner-card border-sky-300 bg-sky-50">
-            <p className="planner-eyebrow text-sky-700">{t.standard}</p>
-            <p className="mt-1 text-sm text-sky-900">
-              {t.standardGuide}
-            </p>
-          </article>
-          <article className="planner-card border-violet-300 bg-violet-50">
-            <p className="planner-eyebrow text-violet-700">{t.deep}</p>
-            <p className="mt-1 text-sm text-violet-900">
-              {t.deepGuide}
-            </p>
-          </article>
-        </div>
-      </section>
-
-      <section className="planner-panel">
         {loading ? (
-          <div className="space-y-2">
-            <p className="text-sm text-slate-600">{t.loading}</p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div className="planner-skeleton h-12" />
-              <div className="planner-skeleton h-12" />
-            </div>
-          </div>
+          <p className="text-sm text-slate-600">{t.loading}</p>
         ) : (
-          <div className="space-y-4">
-            <div>
-              <p className="planner-eyebrow">{t.presets}</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {SUBJECT_PRESETS.map((preset) => (
-                  <button
-                    key={preset.name}
-                    type="button"
-                    onClick={() => createSubjectByValues(preset.name, preset.color)}
-                    className="planner-btn planner-btn-secondary"
-                  >
-                    + {preset.name}
-                  </button>
-                ))}
-              </div>
-            </div>
+          <form className="grid gap-3 md:grid-cols-3" onSubmit={createSubject}>
+            <label className="planner-field">
+              <span className="planner-eyebrow mb-1 block">{t.name}</span>
+              <input
+                required
+                type="text"
+                value={subjectName}
+                onChange={(event) => setSubjectName(event.target.value)}
+                className="planner-input"
+              />
+            </label>
+            <label className="planner-field">
+              <span className="planner-eyebrow mb-1 block">{t.color}</span>
+              <input
+                type="text"
+                value={subjectColor}
+                onChange={(event) => setSubjectColor(event.target.value)}
+                className="planner-input"
+                placeholder="#0ea5e9"
+              />
+            </label>
+            <button type="submit" className="planner-btn planner-btn-accent">
+              {t.add}
+            </button>
+          </form>
+        )}
+      </section>
 
-            <form className="grid gap-3 md:grid-cols-3" onSubmit={createSubject}>
-              <label className="planner-field space-y-1">
-                <span className="planner-eyebrow mb-1 block">
-                  {t.name}
-                </span>
-                <input
-                  required
-                  type="text"
-                  value={subjectName}
-                  onChange={(event) => setSubjectName(event.target.value)}
-                  className="planner-input"
-                  placeholder="Biology"
-                />
-              </label>
-
-              <label className="planner-field space-y-1">
-                <span className="planner-eyebrow mb-1 block">
-                  {t.color}
-                </span>
-                <select
-                  value={subjectColor}
-                  onChange={(event) => setSubjectColor(event.target.value)}
-                  className="planner-input"
+      <section className="grid gap-4 lg:grid-cols-2">
+        {subjectCards.length === 0 ? (
+          <article className="planner-card">{t.noSubjects}</article>
+        ) : (
+          subjectCards.map(({ subject, linkedExams, linkedRecommendation }) => (
+            <article key={subject.id} className="planner-card border border-slate-200 bg-white">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-lg font-semibold text-slate-900">{subject.name}</p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {linkedExams.length} {t.linkedExams}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void deleteSubject(subject.id, subject.name)}
+                  className="planner-btn planner-btn-secondary"
                 >
-                  <option value="">No color</option>
-                  <option value="#2563eb">Blue</option>
-                  <option value="#16a34a">Green</option>
-                  <option value="#ea580c">Orange</option>
-                  <option value="#dc2626">Red</option>
-                  <option value="#7c3aed">Purple</option>
-                </select>
-              </label>
+                  {t.delete}
+                </button>
+              </div>
 
-              <button
-                type="submit"
-                className="planner-btn planner-btn-accent"
-              >
-                {t.add}
-              </button>
-            </form>
-          </div>
-        )}
-      </section>
+              <div className="mt-4 rounded-2xl bg-slate-50 p-4">
+                <p className="planner-eyebrow">{t.studyDirection}</p>
+                {linkedRecommendation ? (
+                  <>
+                    <p className="mt-2 text-base font-semibold text-slate-900">
+                      {linkedRecommendation.paceLabel}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      {linkedRecommendation.paceDescription}
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-2 text-sm text-slate-600">{t.noDirection}</p>
+                )}
+              </div>
 
-      <section className="planner-panel">
-        <h2 className="text-lg font-bold text-slate-900">{t.subjectDashboard}</h2>
-        {subjects.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-600">{t.noSubjects}</p>
-        ) : (
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-            {subjects.map((subject) => {
-              const linkedTracks = examTracks.filter((track) => track.subjectId === subject.id);
-              const nearestDays =
-                linkedTracks.length === 0
-                  ? null
-                  : Math.min(...linkedTracks.map((track) => track.daysLeft));
-              const nearestExam = linkedTracks[0];
-              const readyExams = linkedTracks.filter((track) => track.progressState === "ready").length;
-              const avgProgress =
-                linkedTracks.length === 0
-                  ? 0
-                  : Math.round(
-                      linkedTracks.reduce((acc, track) => acc + track.completionPercent, 0) /
-                        linkedTracks.length,
-                    );
-              const totalFocusMinutes = linkedTracks.reduce(
-                (acc, track) => acc + track.minutesSpent,
-                0,
-              );
-              return (
-                <article key={subject.id} className="planner-card bg-slate-50">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-lg font-bold text-slate-900">{subject.name}</p>
-                    <span
-                      className="inline-flex h-6 w-6 rounded-full border border-white shadow-sm"
-                      style={{ backgroundColor: subject.color ?? "#94a3b8" }}
-                    />
-                  </div>
-
-                  <div className="mt-2 text-sm text-slate-700">
-                    <p>
-                      {t.linkedExams}: <strong>{linkedTracks.length}</strong>
-                    </p>
-                    <p>
-                      {t.closestDeadline}:{" "}
-                      <strong>
-                        {nearestDays === null ? t.noDeadline : `${nearestDays} ${t.daySuffix}`}
-                      </strong>
-                    </p>
-                    <p>
-                      {t.readyExams}: <strong>{readyExams}</strong>
-                    </p>
-                    <p>
-                      {t.avgProgress}: <strong>{avgProgress}%</strong>
-                    </p>
-                    <p>
-                      {t.focusMinutes}: <strong>{totalFocusMinutes}m</strong>
-                    </p>
-                  </div>
-
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {nearestExam ? (
-                      <Link
-                        href={`/planner?exam=${nearestExam.examId}`}
-                        className="planner-btn planner-btn-secondary min-h-0 py-1.5"
+              {linkedExams.length > 0 ? (
+                <div className="mt-4 space-y-2">
+                  {linkedExams.map((exam) => {
+                    const recommendation =
+                      exam.planState?.lastRecommendationSnapshot as
+                        | ExamPaceRecommendation
+                        | undefined;
+                    return (
+                      <div
+                        key={exam.id}
+                        className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
                       >
-                        {t.openTimeline}
-                      </Link>
-                    ) : null}
-                    <Link
-                      href="/planner/exams"
-                      className="planner-btn planner-btn-secondary min-h-0 py-1.5"
-                    >
-                      {t.openExams}
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => void deleteSubject(subject.id, subject.name)}
-                      className="planner-btn planner-btn-danger min-h-0 py-1.5"
-                      aria-label={`${t.delete} ${subject.name}`}
-                    >
-                      {t.delete}
-                    </button>
-                  </div>
-
-                  <div className="planner-card-soft mt-2 bg-white p-2">
-                    <p className="planner-eyebrow">{t.examSettings}</p>
-                    {linkedTracks.length === 0 ? (
-                      <p className="mt-1 text-xs text-slate-500">{t.noLinkedExamsHint}</p>
-                    ) : (
-                      <div className="mt-1 space-y-2">
-                        {linkedTracks.map((track) => {
-                          const examHint = examHints[track.examId] ?? {
-                            workloadMode: "standard" as const,
-                            summaryCoverage: 30,
-                          };
-                          return (
-                            <div key={track.examId} className="rounded border border-slate-200 p-2">
-                              <Link
-                                href={`/planner?exam=${track.examId}`}
-                                className={`planner-chip min-h-0 rounded-lg border px-2 py-1 text-xs ${progressStateClasses(track.progressState)}`}
-                              >
-                                {track.examTitle} ({track.completionPercent}%)
-                                {" - "}
-                                {progressStateLabel(track.progressState, t)}
-                              </Link>
-                              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                                <section className="rounded border border-slate-200 bg-slate-50 p-2">
-                                  <p className="text-xs font-semibold text-slate-700">{t.studyPace}</p>
-                                  <p className="mt-0.5 text-[11px] text-slate-500">{t.studyPaceHint}</p>
-                                  <select
-                                    value={examHint.workloadMode}
-                                    onChange={(event) =>
-                                      setExamHint(track.examId, {
-                                        workloadMode: event.target.value as ExamHint["workloadMode"],
-                                      })
-                                    }
-                                    className="planner-input mt-1.5 py-0.5 text-xs normal-case text-slate-800"
-                                  >
-                                    <option value="light">{t.light}</option>
-                                    <option value="standard">{t.standard}</option>
-                                    <option value="deep">{t.deep}</option>
-                                  </select>
-                                </section>
-
-                                <section className="rounded border border-slate-200 bg-slate-50 p-2">
-                                  <p className="text-xs font-semibold text-slate-700">
-                                    {t.studyFromSummariesPercent}
-                                  </p>
-                                  <p className="mt-0.5 text-[11px] text-slate-500">
-                                    {t.studyFromSummariesHint}
-                                  </p>
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    max={100}
-                                    value={examHint.summaryCoverage}
-                                    onChange={(event) =>
-                                      setExamHint(track.examId, {
-                                        summaryCoverage: Number(event.target.value),
-                                      })
-                                    }
-                                    className="planner-input mt-1.5 w-20 py-0.5 text-xs normal-case text-slate-800"
-                                  />
-                                  <p className="mt-1 text-[11px] text-slate-500">{t.summariesScaleHint}</p>
-                                </section>
-                              </div>
-                            </div>
-                          );
-                        })}
+                        <p className="font-semibold text-slate-900">{exam.title}</p>
+                        <p className="mt-1 text-sm text-slate-600">
+                          {recommendation?.dailyTargetPages ?? 0}{" "}
+                          {language === "it" ? "pagine/giorno" : "pages/day"} •{" "}
+                          {recommendation?.weeklyAllocationHours ?? 0}h/week
+                        </p>
                       </div>
-                    )}
-                  </div>
-                </article>
-              );
-            })}
-          </div>
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              <Link
+                href="/planner/exams"
+                className="planner-btn planner-btn-secondary mt-4 inline-flex"
+              >
+                {t.openExams}
+              </Link>
+            </article>
+          ))
         )}
       </section>
 
-      {message || dataErrorMessage ? (
+      {message || errors.subjects || errors.exams ? (
         <section className="planner-alert" role="status" aria-live="polite">
-          {message || dataErrorMessage}
+          {message || errors.subjects || errors.exams}
         </section>
       ) : null}
     </main>

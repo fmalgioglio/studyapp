@@ -8,6 +8,7 @@ import {
   type ExamWorkloadApproximateScopeUnit,
   type ExamWorkloadMaterialShape,
 } from "@/lib/exam-workload-contract";
+import type { ExamPaceRecommendation } from "@/lib/exam-plan";
 
 export type PlannerSubject = {
   id: string;
@@ -46,6 +47,13 @@ export type PlannerExam = {
     id: string;
     name: string;
   };
+  planState?: {
+    intensityPreference?: string | null;
+    summaryPreferencePct?: number | null;
+    paceLocked?: boolean | null;
+    lastRecommendationSnapshot?: ExamPaceRecommendation | null;
+    lastGeneratedAt?: string | null;
+  } | null;
 };
 
 export type PlannerDataErrors = {

@@ -1,11 +1,11 @@
 "use client";
 
-import type { SeasonDay } from "@/app/planner/_lib/season-engine";
+import type { PlannerBoardDay } from "@/lib/exam-plan";
 
 type WeeklyBoardSectionProps = {
   title: string;
   riskMessage: string;
-  dayRows: SeasonDay[];
+  dayRows: PlannerBoardDay[];
   completionByExamId: Record<string, number>;
   pagesUnitLabel: string;
   minutesUnitLabel: string;
@@ -31,7 +31,7 @@ export function WeeklyBoardSection({
               {day.totalPages} {pagesUnitLabel} - {day.totalMinutes} {minutesUnitLabel}
             </p>
             <ul className="mt-2 space-y-1">
-              {day.missions.slice(0, 2).map((mission) => (
+              {day.items.slice(0, 2).map((mission) => (
                 <li
                   key={`${day.dateIso}-${mission.examId}`}
                   className="planner-card-soft border-0 bg-white px-2 py-1 text-xs text-slate-700"

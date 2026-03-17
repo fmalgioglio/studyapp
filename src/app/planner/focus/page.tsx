@@ -1,26 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useUiLanguage } from "@/app/_hooks/use-ui-language";
-import { readExamHints, type ExamHintsMap } from "@/app/planner/_lib/exam-hints";
-import {
-  readFocusProgress,
-  recordFocusProgress,
-  subscribeDataRevision,
-} from "@/app/planner/_lib/focus-progress";
-import {
-  buildExamProgressSnapshot,
-  inferSubjectPace,
-  type ExamProgressState,
-  type FocusContributionLevel,
-} from "@/app/planner/_lib/season-engine";
-import {
-  focusContributionClasses,
-  progressStateClasses,
-} from "@/app/planner/_lib/status-ui";
+import { notifyDataRevision } from "@/app/planner/_lib/focus-progress";
 import { calculateFocusSessionXp } from "@/app/planner/_lib/focus-xp";
-import { useFocusExamsData } from "../_hooks/use-focus-exams-data";
+import { useAuthStudent } from "../_hooks/use-auth-student";
+import { usePlannerOverview } from "../_hooks/use-planner-overview";
+import { requestJson } from "../_lib/client-api";
 
 const FOCUS_PRESETS = [
   { minutes: 25, label: "Sprint", subtitle: "Quick momentum" },
@@ -35,151 +22,66 @@ type FocusStats = {
   lastCompletionDate: string;
 };
 
-type FocusProgressMap = Record<
-  string,
-  {
-    pagesCompleted: number;
-    minutesSpent: number;
-    sessionsCompleted: number;
-    lastTopic: string;
-    updatedAt: string;
-  }
->;
-
-const HYDRATION_SUBSCRIBE = () => () => {};
-const getHydratedSnapshot = () => true;
-const getHydratedServerSnapshot = () => false;
-
 const COPY = {
   en: {
-    title: "Focus Sessions",
-    subtitle: "Run one study block at a time and log it against the right exam.",
+    title: "Study session",
+    subtitle: "Log one real study block against one exam and let the planner adapt.",
     xp: "Focus score",
     streak: "Streak",
     sessions: "Sessions",
-    mood: "Session status",
     targetExam: "Target exam",
-    topic: "What are you studying?",
-    pagesInput: "Pages completed this run (optional)",
-    topicPlaceholder: "Chapter / mission / topic",
+    topic: "What are you covering?",
+    topicPlaceholder: "Chapter, topic, or exercise set",
+    pagesInput: "Pages completed",
     timer: "Timer",
-    engineSuggested: "Engine suggested",
-    engineSuggestedApply: "Use suggested",
-    engineSuggestedHint: "Auto target from exam track baseline.",
-    engineSuggestedMissing: "Select an exam to unlock the suggested timer.",
-    engineSuggestedApplied: "Engine timer applied",
-    addTenMinutes: "+10 min",
-    liveControls: "Live controls",
-    pagesQuick: "Pages quick adjust",
-    pagesMinusOne: "-1 page",
-    pagesPlusOne: "+1 page",
+    suggested: "Suggested from plan",
+    suggestedHint: "Uses the daily target from the selected exam plan.",
     start: "Start",
     pause: "Pause",
     stop: "Stop",
-    lockTitle: "Focus Lock Active",
-    lockSubtitle: "Stay on task until timer ends.",
-    exitLock: "Exit lock",
-    moodReady: "Ready",
-    moodFocused: "Focused",
-    moodWarm: "Building",
-    moodTrack: "Stable",
-    moodAlert: "Needs attention",
-    moodHintReady: "Pick an exam and start your first focused run.",
-    moodHintFocused: "Timer is running and the session is active.",
-    moodHintWarm: "A first layer of consistency is forming.",
-    moodHintTrack: "Your recent sessions are supporting the exam timeline.",
-    moodHintAlert: "Deadline is close. Prioritize this exam in the next runs.",
-    noExam: "No exams available. Add one in Exams page first.",
-    selectExamFirst: "Select an exam target before starting focus mode.",
-    stoppedEarly: "Focus session stopped early.",
-    started: "Focus mode started.",
-    paused: "Session paused.",
+    addTenMinutes: "+10 min",
     completed: "Session completed",
-    progressLogged: "progress logged to exam timeline",
-    autoEstimate: "auto-estimated",
-    loadingExams: "Loading exams...",
-    syncingExams: "Syncing exams...",
-    examLabel: "Exam",
-    daysLeft: "days left",
-    recorded: "Recorded",
-    readiness: "Readiness",
-    focusContribution: "Focus contribution",
-    completion: "Completion",
-    progressStrip: "Exam progress strip",
-    statusNotStarted: "Not started",
-    statusWarmingUp: "Warming up",
-    statusSteady: "Steady",
-    statusAlmostReady: "Almost ready",
-    statusReady: "Ready",
-    contributionNone: "None",
-    contributionLow: "Low",
-    contributionMedium: "Medium",
-    contributionHigh: "High",
+    stopped: "Session stopped early.",
+    paused: "Session paused.",
+    started: "Session started.",
+    noExam: "No exams yet. Add one in Exams first.",
+    loading: "Loading study sessions...",
+    progressStrip: "Exam progress",
+    dailyTarget: "Daily target",
+    weeklyTime: "Weekly time",
+    noMessage: "No study logs yet for this exam.",
+    minutes: "min",
+    pages: "pages",
   },
   it: {
-    title: "Sessioni Focus",
-    subtitle: "Esegui un blocco di studio per volta e registralo sull'esame corretto.",
+    title: "Sessione di studio",
+    subtitle: "Registra un blocco di studio reale su un esame e lascia che il planner si aggiorni.",
     xp: "Focus score",
     streak: "Streak",
     sessions: "Sessioni",
-    mood: "Stato sessione",
     targetExam: "Esame target",
-    topic: "Cosa stai studiando?",
-    pagesInput: "Pagine completate in questa run (opzionale)",
-    topicPlaceholder: "Capitolo / missione / topic",
+    topic: "Cosa stai coprendo?",
+    topicPlaceholder: "Capitolo, argomento o serie di esercizi",
+    pagesInput: "Pagine completate",
     timer: "Timer",
-    engineSuggested: "Suggerito dal motore",
-    engineSuggestedApply: "Usa suggerito",
-    engineSuggestedHint: "Target automatico dal baseline della traccia esame.",
-    engineSuggestedMissing: "Seleziona un esame per sbloccare il timer suggerito.",
-    engineSuggestedApplied: "Timer del motore applicato",
-    addTenMinutes: "+10 min",
-    liveControls: "Controlli live",
-    pagesQuick: "Regolazione rapida pagine",
-    pagesMinusOne: "-1 pagina",
-    pagesPlusOne: "+1 pagina",
+    suggested: "Suggerito dal piano",
+    suggestedHint: "Usa il target giornaliero del piano dell'esame selezionato.",
     start: "Avvia",
     pause: "Pausa",
     stop: "Stop",
-    lockTitle: "Blocco Focus Attivo",
-    lockSubtitle: "Resta sul task finche il timer termina.",
-    exitLock: "Esci dal lock",
-    moodReady: "Pronto",
-    moodFocused: "Concentrato",
-    moodWarm: "In costruzione",
-    moodTrack: "Stabile",
-    moodAlert: "Richiede attenzione",
-    moodHintReady: "Scegli un esame e avvia la prima sessione focus.",
-    moodHintFocused: "Timer attivo e sessione in corso.",
-    moodHintWarm: "Si sta formando un primo livello di costanza.",
-    moodHintTrack: "Le sessioni recenti stanno sostenendo la timeline esame.",
-    moodHintAlert: "Scadenza vicina. Dai priorita a questo esame.",
-    noExam: "Nessun esame disponibile. Aggiungine uno nella pagina Esami.",
-    selectExamFirst: "Seleziona prima un esame target.",
-    stoppedEarly: "Sessione focus interrotta prima del termine.",
-    started: "Modalita focus avviata.",
-    paused: "Sessione in pausa.",
+    addTenMinutes: "+10 min",
     completed: "Sessione completata",
-    progressLogged: "progresso registrato nella timeline esame",
-    autoEstimate: "stima automatica",
-    loadingExams: "Caricamento esami...",
-    syncingExams: "Sincronizzazione esami...",
-    examLabel: "Esame",
-    daysLeft: "giorni rimanenti",
-    recorded: "Registrato",
-    readiness: "Prontezza",
-    focusContribution: "Contributo focus",
-    completion: "Completamento",
-    progressStrip: "Barra progresso esami",
-    statusNotStarted: "Non iniziato",
-    statusWarmingUp: "In avvio",
-    statusSteady: "Costante",
-    statusAlmostReady: "Quasi pronto",
-    statusReady: "Pronto",
-    contributionNone: "Nullo",
-    contributionLow: "Basso",
-    contributionMedium: "Medio",
-    contributionHigh: "Alto",
+    stopped: "Sessione interrotta prima del termine.",
+    paused: "Sessione in pausa.",
+    started: "Sessione avviata.",
+    noExam: "Nessun esame. Aggiungine uno nella pagina Esami.",
+    loading: "Caricamento sessioni studio...",
+    progressStrip: "Progresso esami",
+    dailyTarget: "Target giornaliero",
+    weeklyTime: "Tempo settimanale",
+    noMessage: "Nessuna sessione registrata per questo esame.",
+    minutes: "min",
+    pages: "pagine",
   },
 } as const;
 
@@ -204,13 +106,7 @@ function getInitialFocusStats(): FocusStats {
   }
 
   try {
-    const parsed = JSON.parse(raw) as FocusStats;
-    return {
-      xp: parsed.xp ?? 0,
-      streak: parsed.streak ?? 0,
-      sessionsCompleted: parsed.sessionsCompleted ?? 0,
-      lastCompletionDate: parsed.lastCompletionDate ?? "",
-    };
+    return JSON.parse(raw) as FocusStats;
   } catch {
     return {
       xp: 0,
@@ -226,190 +122,103 @@ function getTodayIso() {
 }
 
 function getYesterdayIso() {
-  const dayMs = 24 * 60 * 60 * 1000;
-  return new Date(Date.now() - dayMs).toISOString().slice(0, 10);
-}
-
-function estimatePagesFromMinutes(subjectName: string, minutes: number) {
-  const pace = inferSubjectPace(subjectName);
-  const pages = (minutes / 60) * pace.pagesPerHour;
-  return Math.max(1, Math.round(pages));
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
-
-type FocusCopy = (typeof COPY)[keyof typeof COPY];
-
-function progressStateLabel(state: ExamProgressState, t: FocusCopy) {
-  if (state === "ready") return t.statusReady;
-  if (state === "almost_ready") return t.statusAlmostReady;
-  if (state === "steady") return t.statusSteady;
-  if (state === "warming_up") return t.statusWarmingUp;
-  return t.statusNotStarted;
-}
-
-function focusContributionLabel(level: FocusContributionLevel, t: FocusCopy) {
-  if (level === "high") return t.contributionHigh;
-  if (level === "medium") return t.contributionMedium;
-  if (level === "low") return t.contributionLow;
-  return t.contributionNone;
+  return new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
 export default function PlannerFocusPage() {
   const { language } = useUiLanguage("en");
   const t = COPY[language] ?? COPY.en;
-  const { exams, loading: loadingExams, syncing: syncingExams, error: examsError } =
-    useFocusExamsData();
+  const { student } = useAuthStudent();
+  const { overview, loading, refresh } = usePlannerOverview({
+    enabled: Boolean(student?.id),
+    studentId: student?.id,
+  });
   const [focusMinutes, setFocusMinutes] = useState(25);
   const [focusSecondsLeft, setFocusSecondsLeft] = useState(25 * 60);
   const [focusRunning, setFocusRunning] = useState(false);
-  const [focusLocked, setFocusLocked] = useState(false);
   const [message, setMessage] = useState("");
   const [stats, setStats] = useState<FocusStats>(() => getInitialFocusStats());
   const [selectedExamId, setSelectedExamId] = useState("");
-  const [focusTopic, setFocusTopic] = useState("");
-  const [pagesCompletedInput, setPagesCompletedInput] = useState("");
-  const [focusProgress, setFocusProgress] = useState<FocusProgressMap>(() =>
-    readFocusProgress(),
-  );
-  const [examHints] = useState<ExamHintsMap>(() => readExamHints());
-  const hasHydratedClientState = useSyncExternalStore(
-    HYDRATION_SUBSCRIBE,
-    getHydratedSnapshot,
-    getHydratedServerSnapshot,
-  );
-  const dataErrorMessage = examsError;
-
-  const minutesLeft = Math.floor(focusSecondsLeft / 60);
-  const secondsLeft = focusSecondsLeft % 60;
-  const { xp, streak, sessionsCompleted } = stats;
-  const examTracks = useMemo(
-    () => buildExamProgressSnapshot(exams, focusProgress, examHints),
-    [examHints, exams, focusProgress],
-  );
-  const resolvedSelectedExamId = useMemo(() => {
-    if (selectedExamId && examTracks.some((track) => track.examId === selectedExamId)) {
-      return selectedExamId;
-    }
-    return examTracks[0]?.examId ?? "";
-  }, [examTracks, selectedExamId]);
-
-  const selectedExam = useMemo(
-    () => examTracks.find((track) => track.examId === resolvedSelectedExamId) ?? null,
-    [examTracks, resolvedSelectedExamId],
-  );
-  const suggestedFocusMinutes = useMemo(() => {
-    if (!selectedExam) return null;
-    const baselineMinutes = Number(selectedExam.recommendedMinutesPerDay);
-    if (!Number.isFinite(baselineMinutes) || baselineMinutes <= 0) return null;
-    const roundedToFive = Math.round(baselineMinutes / 5) * 5;
-    return clamp(roundedToFive, 20, 120);
-  }, [selectedExam]);
-  const selectedExamDaysLeft = selectedExam ? selectedExam.daysLeft : null;
-  const pagesCompletedValue = useMemo(() => {
-    const parsed = Number(pagesCompletedInput);
-    if (!Number.isFinite(parsed)) return 0;
-    return Math.max(0, Math.round(parsed));
-  }, [pagesCompletedInput]);
-
-  const mascotMood = useMemo(() => {
-    if (focusRunning) return t.moodFocused;
-    if (
-      selectedExamDaysLeft !== null &&
-      selectedExamDaysLeft <= 5 &&
-      (selectedExam?.completionPercent ?? 0) < 35
-    ) {
-      return t.moodAlert;
-    }
-    if (streak >= 3 || (selectedExam?.sessionsCompleted ?? 0) >= 3) return t.moodTrack;
-    if (sessionsCompleted >= 1) return t.moodWarm;
-    return t.moodReady;
-  }, [
-    focusRunning,
-    selectedExam?.completionPercent,
-    selectedExam?.sessionsCompleted,
-    selectedExamDaysLeft,
-    sessionsCompleted,
-    streak,
-    t.moodAlert,
-    t.moodFocused,
-    t.moodReady,
-    t.moodTrack,
-    t.moodWarm,
-  ]);
-
-  const moodHint = useMemo(() => {
-    if (mascotMood === t.moodFocused) return t.moodHintFocused;
-    if (mascotMood === t.moodAlert) return t.moodHintAlert;
-    if (mascotMood === t.moodTrack) return t.moodHintTrack;
-    if (mascotMood === t.moodWarm) return t.moodHintWarm;
-    return t.moodHintReady;
-  }, [mascotMood, t]);
+  const [topic, setTopic] = useState("");
+  const [pagesCompleted, setPagesCompleted] = useState("");
 
   useEffect(() => {
-    if (!hasHydratedClientState) return;
     localStorage.setItem("studyapp_focus_stats", JSON.stringify(stats));
-  }, [hasHydratedClientState, stats]);
+  }, [stats]);
 
-  useEffect(() => {
-    return subscribeDataRevision((source) => {
-      if (source !== "focus_progress") return;
-      setFocusProgress(readFocusProgress());
-    });
-  }, []);
+  const selectedExam = useMemo(() => {
+    if (!overview?.examRecommendations.length) return null;
+    return (
+      overview.examRecommendations.find((exam) => exam.examId === selectedExamId) ??
+      overview.examRecommendations[0]
+    );
+  }, [overview, selectedExamId]);
 
-  const finishFocusSession = useCallback(
-    (completed: boolean) => {
+  const suggestedMinutes = selectedExam
+    ? Math.max(20, Math.round(selectedExam.dailyTargetMinutes / 5) * 5)
+    : null;
+
+  const finishSession = useCallback(
+    async (completed: boolean) => {
       setFocusRunning(false);
-      setFocusLocked(false);
       if (!completed) {
-        setMessage(t.stoppedEarly);
+        setMessage(t.stopped);
         return;
       }
 
-      const { totalXp: gainedXp } = calculateFocusSessionXp(
-        focusMinutes,
-        stats.streak,
-      );
+      if (!selectedExam) {
+        setMessage(t.noExam);
+        return;
+      }
+
+      const { totalXp } = calculateFocusSessionXp(focusMinutes, stats.streak);
       const today = getTodayIso();
       const yesterday = getYesterdayIso();
 
-      setStats((current) => {
-        const nextStreak =
+      setStats((current) => ({
+        xp: current.xp + totalXp,
+        streak:
           current.lastCompletionDate === today
             ? current.streak
             : current.lastCompletionDate === yesterday
               ? current.streak + 1
-              : 1;
+              : 1,
+        sessionsCompleted: current.sessionsCompleted + 1,
+        lastCompletionDate: today,
+      }));
 
-        return {
-          xp: current.xp + gainedXp,
-          streak: nextStreak,
-          sessionsCompleted: current.sessionsCompleted + 1,
-          lastCompletionDate: today,
-        };
+      const normalizedPages = Number.isFinite(Number(pagesCompleted))
+        ? Math.max(0, Math.round(Number(pagesCompleted)))
+        : 0;
+
+      const { ok, payload } = await requestJson<{
+        recommendation?: { examId: string };
+      }>("/api/exam-study-logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          examId: selectedExam.examId,
+          minutesSpent: focusMinutes,
+          pagesCompleted: normalizedPages,
+          topic: topic.trim() || selectedExam.examTitle,
+          completedAt: new Date().toISOString(),
+        }),
       });
 
-      if (selectedExam) {
-        const manualPages = Number(pagesCompletedInput);
-        const hasManualPages = Number.isFinite(manualPages) && manualPages > 0;
-        const loggedPages = hasManualPages
-          ? Math.round(manualPages)
-          : estimatePagesFromMinutes(selectedExam.subjectName, focusMinutes);
-        const topic = focusTopic.trim() || selectedExam.examTitle;
-        recordFocusProgress(selectedExam.examId, loggedPages, focusMinutes, topic);
-        setMessage(
-          `${t.completed}: +${gainedXp} XP. ${loggedPages}p ${t.progressLogged} (${hasManualPages ? t.recorded : t.autoEstimate}).`,
-        );
-      } else {
-        setMessage(`${t.completed}: +${gainedXp} XP.`);
+      if (!ok) {
+        setMessage(payload.error ?? "Failed to save study session");
+        return;
       }
 
-      setPagesCompletedInput("");
+      notifyDataRevision();
+      await refresh(true);
+      setPagesCompleted("");
+      setTopic("");
+      setMessage(
+        `${t.completed}: +${totalXp} XP • ${focusMinutes} ${t.minutes} • ${normalizedPages} ${t.pages}`,
+      );
     },
-    [focusMinutes, focusTopic, pagesCompletedInput, selectedExam, stats.streak, t],
+    [focusMinutes, pagesCompleted, refresh, selectedExam, stats.streak, t, topic],
   );
 
   useEffect(() => {
@@ -418,7 +227,7 @@ export default function PlannerFocusPage() {
       setFocusSecondsLeft((current) => {
         if (current <= 1) {
           clearInterval(timer);
-          finishFocusSession(true);
+          void finishSession(true);
           return 0;
         }
         return current - 1;
@@ -426,51 +235,20 @@ export default function PlannerFocusPage() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [focusRunning, finishFocusSession]);
-
-  function selectPreset(minutes: number) {
-    setFocusMinutes(minutes);
-    if (!focusRunning) setFocusSecondsLeft(minutes * 60);
-  }
+  }, [finishSession, focusRunning]);
 
   function startSession() {
-    if (focusRunning) return;
-    if (!resolvedSelectedExamId) {
-      setMessage(t.selectExamFirst);
+    if (!selectedExam) {
+      setMessage(t.noExam);
       return;
     }
     setFocusSecondsLeft(focusMinutes * 60);
-    setFocusLocked(true);
     setFocusRunning(true);
     setMessage(t.started);
   }
 
-  function applyEngineSuggestedTimer() {
-    if (focusRunning || suggestedFocusMinutes === null) return;
-    setFocusMinutes(suggestedFocusMinutes);
-    setFocusSecondsLeft(suggestedFocusMinutes * 60);
-    setMessage(`${t.engineSuggestedApplied}: ${suggestedFocusMinutes} min.`);
-  }
-
-  function addTenMinutes() {
-    if (!focusRunning) return;
-    setFocusMinutes((current) => current + 10);
-    setFocusSecondsLeft((current) => current + 10 * 60);
-  }
-
-  function adjustPagesCompleted(delta: number) {
-    if (!focusRunning) return;
-    setPagesCompletedInput((current) => {
-      const parsed = Number(current);
-      const normalized = Number.isFinite(parsed) ? Math.round(parsed) : 0;
-      return String(Math.max(0, normalized + delta));
-    });
-  }
-
-  function pauseSession() {
-    setFocusRunning(false);
-    setMessage(t.paused);
-  }
+  const minutesLeft = Math.floor(focusSecondsLeft / 60);
+  const secondsLeft = focusSecondsLeft % 60;
 
   return (
     <main className="space-y-5 sm:space-y-6">
@@ -479,311 +257,201 @@ export default function PlannerFocusPage() {
         <p className="mt-1 text-sm text-slate-600">{t.subtitle}</p>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="planner-card">
           <p className="planner-eyebrow">{t.xp}</p>
-          <p className="text-2xl font-extrabold text-slate-900">{xp}</p>
+          <p className="text-2xl font-extrabold text-slate-900">{stats.xp}</p>
         </div>
         <div className="planner-card">
           <p className="planner-eyebrow">{t.streak}</p>
-          <p className="text-2xl font-extrabold text-slate-900">{streak}d</p>
+          <p className="text-2xl font-extrabold text-slate-900">{stats.streak}d</p>
         </div>
         <div className="planner-card">
           <p className="planner-eyebrow">{t.sessions}</p>
-          <p className="text-2xl font-extrabold text-slate-900">{sessionsCompleted}</p>
-        </div>
-        <div className="planner-card">
-          <p className="planner-eyebrow">{t.mood}</p>
-          <p className="text-2xl font-extrabold text-slate-900">{mascotMood}</p>
-          <p className="mt-1 text-xs text-slate-600">{moodHint}</p>
+          <p className="text-2xl font-extrabold text-slate-900">{stats.sessionsCompleted}</p>
         </div>
       </section>
 
       <section className="planner-panel">
-        {loadingExams ? (
-          <div className="space-y-2">
-            <p className="text-sm text-slate-600">{t.loadingExams}</p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div className="planner-skeleton h-12" />
-              <div className="planner-skeleton h-12" />
-            </div>
-          </div>
-        ) : examTracks.length === 0 ? (
+        {loading ? (
+          <p className="text-sm text-slate-600">{t.loading}</p>
+        ) : !overview || overview.examRecommendations.length === 0 ? (
           <p className="text-sm text-slate-600">{t.noExam}</p>
         ) : (
-          <div className="space-y-3">
-            {syncingExams ? (
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                {t.syncingExams}
-              </p>
-            ) : null}
+          <div className="space-y-4">
             <div className="grid gap-3 md:grid-cols-3">
-            <label className="planner-field">
-              <span className="planner-eyebrow mb-1 block">
-                {t.targetExam}
-              </span>
-              <select
-                value={resolvedSelectedExamId}
-                onChange={(event) => setSelectedExamId(event.target.value)}
-                className="planner-input"
-              >
-                {examTracks.map((track) => (
-                  <option key={track.examId} value={track.examId}>
-                    {track.examTitle} - {track.subjectName} ({track.completionPercent}%)
-                  </option>
-                ))}
-              </select>
-              {selectedExam ? (
-                <p className="mt-2 text-xs text-slate-600">
-                  {t.examLabel}: {selectedExam.examTitle} - {selectedExam.daysLeft} {t.daysLeft}
-                </p>
-              ) : null}
-            </label>
-
-            <label className="planner-field">
-              <span className="planner-eyebrow mb-1 block">
-                {t.topic}
-              </span>
-              <input
-                type="text"
-                value={focusTopic}
-                onChange={(event) => setFocusTopic(event.target.value)}
-                placeholder={t.topicPlaceholder}
-                className="planner-input"
-              />
-            </label>
-
-            <label className="planner-field">
-              <span className="planner-eyebrow mb-1 block">
-                {t.pagesInput}
-              </span>
-              <input
-                type="number"
-                min={1}
-                value={pagesCompletedInput}
-                onChange={(event) => setPagesCompletedInput(event.target.value)}
-                className="planner-input"
-              />
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <span className="planner-eyebrow">{t.pagesQuick}</span>
-                <button
-                  type="button"
-                  onClick={() => adjustPagesCompleted(-1)}
-                  disabled={!focusRunning || pagesCompletedValue <= 0}
-                  className={`planner-btn planner-btn-secondary px-3 py-1 text-xs ${
-                    !focusRunning || pagesCompletedValue <= 0
-                      ? "cursor-not-allowed opacity-60"
-                      : ""
-                  }`}
+              <label className="planner-field">
+                <span className="planner-eyebrow mb-1 block">{t.targetExam}</span>
+                <select
+                  value={selectedExam?.examId ?? ""}
+                  onChange={(event) => setSelectedExamId(event.target.value)}
+                  className="planner-input"
                 >
-                  {t.pagesMinusOne}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => adjustPagesCompleted(1)}
-                  disabled={!focusRunning}
-                  className={`planner-btn planner-btn-secondary px-3 py-1 text-xs ${
-                    !focusRunning ? "cursor-not-allowed opacity-60" : ""
-                  }`}
-                >
-                  {t.pagesPlusOne}
-                </button>
-              </div>
-            </label>
+                  {overview.examRecommendations.map((exam) => (
+                    <option key={exam.examId} value={exam.examId}>
+                      {exam.examTitle} - {exam.subjectName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="planner-field">
+                <span className="planner-eyebrow mb-1 block">{t.topic}</span>
+                <input
+                  type="text"
+                  value={topic}
+                  onChange={(event) => setTopic(event.target.value)}
+                  placeholder={t.topicPlaceholder}
+                  className="planner-input"
+                />
+              </label>
+
+              <label className="planner-field">
+                <span className="planner-eyebrow mb-1 block">{t.pagesInput}</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={pagesCompleted}
+                  onChange={(event) => setPagesCompleted(event.target.value)}
+                  className="planner-input"
+                />
+              </label>
             </div>
 
             {selectedExam ? (
-              <div className="grid gap-2 sm:grid-cols-3">
-                <div className="planner-card-soft bg-white px-3 py-2 text-xs text-slate-700">
-                  <span className="planner-eyebrow">{t.readiness}</span>
-                  <p className={`mt-1 inline-flex rounded-full border px-2 py-0.5 font-semibold ${progressStateClasses(selectedExam.progressState)}`}>
-                    {progressStateLabel(selectedExam.progressState, t)}
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="planner-card-soft bg-white">
+                  <p className="planner-eyebrow">{t.suggested}</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900">
+                    {suggestedMinutes ?? selectedExam.dailyTargetMinutes} {t.minutes}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-600">{t.suggestedHint}</p>
+                </div>
+                <div className="planner-card-soft bg-white">
+                  <p className="planner-eyebrow">{t.dailyTarget}</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900">
+                    {selectedExam.dailyTargetPages} {t.pages}
                   </p>
                 </div>
-                <div className="planner-card-soft bg-white px-3 py-2 text-xs text-slate-700">
-                  <span className="planner-eyebrow">{t.focusContribution}</span>
-                  <p className={`mt-1 inline-flex rounded-full border px-2 py-0.5 font-semibold ${focusContributionClasses(selectedExam.focusContributionLevel)}`}>
-                    {focusContributionLabel(selectedExam.focusContributionLevel, t)} ({selectedExam.focusContributionPercent}%)
-                  </p>
-                </div>
-                <div className="planner-card-soft bg-white px-3 py-2 text-xs text-slate-700">
-                  <span className="planner-eyebrow">{t.completion}</span>
-                  <p className="mt-1 text-sm font-semibold text-slate-900">
-                    {selectedExam.completedPages}/{selectedExam.estimatedPages}p
+                <div className="planner-card-soft bg-white">
+                  <p className="planner-eyebrow">{t.weeklyTime}</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900">
+                    {selectedExam.weeklyAllocationHours} h
                   </p>
                 </div>
               </div>
             ) : null}
 
-            <div>
-              <p className="planner-eyebrow">{t.progressStrip}</p>
-              <div className="mt-2 flex flex-wrap gap-1">
-                {examTracks.map((track) => (
-                  <button
-                    key={track.examId}
-                    type="button"
-                    onClick={() => setSelectedExamId(track.examId)}
-                    className={`planner-chip rounded-lg border px-2 py-1 text-xs font-semibold ${progressStateClasses(track.progressState)}`}
-                  >
-                    {track.subjectName}: {track.completionPercent}%
-                  </button>
-                ))}
-              </div>
+            <div className="planner-card bg-gradient-to-br from-sky-50 to-cyan-50">
+              <p className="planner-eyebrow">{t.timer}</p>
+              <p className="mt-1 text-5xl font-extrabold tracking-tight text-slate-900">
+                {String(minutesLeft).padStart(2, "0")}:{String(secondsLeft).padStart(2, "0")}
+              </p>
             </div>
-          </div>
-        )}
-      </section>
 
-      <section className="planner-panel">
-        <div className="planner-card bg-gradient-to-br from-sky-50 to-cyan-50">
-          <p className="planner-eyebrow">{t.timer}</p>
-          <p className="mt-1 text-5xl font-extrabold tracking-tight text-slate-900">
-            {String(minutesLeft).padStart(2, "0")}:{String(secondsLeft).padStart(2, "0")}
-          </p>
-        </div>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {FOCUS_PRESETS.map((preset) => (
+                <button
+                  key={preset.minutes}
+                  type="button"
+                  onClick={() => {
+                    setFocusMinutes(preset.minutes);
+                    if (!focusRunning) {
+                      setFocusSecondsLeft(preset.minutes * 60);
+                    }
+                  }}
+                  disabled={focusRunning}
+                  className={`planner-card text-left ${
+                    focusMinutes === preset.minutes
+                      ? "border-sky-300 bg-sky-50"
+                      : "bg-white hover:bg-slate-50"
+                  } ${focusRunning ? "cursor-not-allowed opacity-60" : ""}`}
+                >
+                  <p className="text-sm font-bold text-slate-900">{preset.minutes} min</p>
+                  <p className="text-xs text-slate-600">{preset.label}</p>
+                  <p className="mt-1 text-xs text-slate-500">{preset.subtitle}</p>
+                </button>
+              ))}
+            </div>
 
-        <div className="mt-4 grid gap-2 sm:grid-cols-3">
-          {FOCUS_PRESETS.map((preset) => (
-            <button
-              key={preset.minutes}
-              type="button"
-              onClick={() => selectPreset(preset.minutes)}
-              disabled={focusRunning}
-              className={`planner-card text-left ${
-                focusMinutes === preset.minutes
-                  ? "border-sky-300 bg-sky-50"
-                  : "bg-white hover:bg-slate-50"
-              } ${focusRunning ? "cursor-not-allowed opacity-60" : ""}`}
-            >
-              <p className="text-sm font-bold text-slate-900">{preset.minutes} min</p>
-              <p className="text-xs text-slate-600">{preset.label}</p>
-              <p className="mt-1 text-xs text-slate-500">{preset.subtitle}</p>
-            </button>
-          ))}
-        </div>
-
-        <div className="mt-4 planner-card-soft bg-white px-3 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="planner-eyebrow">{t.engineSuggested}</p>
-            <button
-              type="button"
-              onClick={applyEngineSuggestedTimer}
-              disabled={focusRunning || suggestedFocusMinutes === null || !selectedExam}
-              className={`planner-btn planner-btn-secondary ${
-                focusRunning || suggestedFocusMinutes === null || !selectedExam
-                  ? "cursor-not-allowed opacity-60"
-                  : ""
-              }`}
-            >
-              {t.engineSuggestedApply}
-              {suggestedFocusMinutes !== null ? ` (${suggestedFocusMinutes} min)` : ""}
-            </button>
-          </div>
-          <p className="mt-1 text-xs text-slate-600">
-            {selectedExam ? t.engineSuggestedHint : t.engineSuggestedMissing}
-          </p>
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={startSession}
-            className="planner-btn planner-btn-accent"
-          >
-            {t.start}
-          </button>
-          <button
-            type="button"
-            onClick={pauseSession}
-            className="planner-btn planner-btn-secondary"
-          >
-            {t.pause}
-          </button>
-          <button
-            type="button"
-            onClick={() => finishFocusSession(false)}
-            className="planner-btn planner-btn-secondary"
-          >
-            {t.stop}
-          </button>
-          <button
-            type="button"
-            onClick={addTenMinutes}
-            disabled={!focusRunning}
-            className={`planner-btn planner-btn-secondary ${
-              !focusRunning ? "cursor-not-allowed opacity-60" : ""
-            }`}
-          >
-            {t.addTenMinutes}
-          </button>
-        </div>
-      </section>
-
-      {message || dataErrorMessage ? (
-        <section className="planner-alert" role="status" aria-live="polite">
-          {message || dataErrorMessage}
-        </section>
-      ) : null}
-
-      {focusLocked ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4">
-          <div className="planner-panel w-full max-w-md bg-white text-center shadow-2xl">
-            <h2 className="text-xl font-bold text-slate-900">{t.lockTitle}</h2>
-            <p className="mt-1 text-sm text-slate-600">{t.lockSubtitle}</p>
-            <p className="mt-4 text-5xl font-extrabold tracking-tight text-sky-700">
-              {String(minutesLeft).padStart(2, "0")}:{String(secondsLeft).padStart(2, "0")}
-            </p>
-            <p className="mt-2 text-xs text-slate-500">{t.liveControls}: {t.pagesQuick}</p>
-            <div className="mt-4 flex justify-center gap-2">
-              <button
-                type="button"
-                onClick={addTenMinutes}
-                disabled={!focusRunning}
-                className={`planner-btn planner-btn-secondary ${
-                  !focusRunning ? "cursor-not-allowed opacity-60" : ""
-                }`}
-              >
-                {t.addTenMinutes}
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={startSession} className="planner-btn planner-btn-accent">
+                {t.start}
               </button>
               <button
                 type="button"
-                onClick={() => adjustPagesCompleted(-1)}
-                disabled={!focusRunning || pagesCompletedValue <= 0}
-                className={`planner-btn planner-btn-secondary ${
-                  !focusRunning || pagesCompletedValue <= 0
-                    ? "cursor-not-allowed opacity-60"
-                    : ""
-                }`}
-              >
-                {t.pagesMinusOne}
-              </button>
-              <button
-                type="button"
-                onClick={() => adjustPagesCompleted(1)}
-                disabled={!focusRunning}
-                className={`planner-btn planner-btn-secondary ${
-                  !focusRunning ? "cursor-not-allowed opacity-60" : ""
-                }`}
-              >
-                {t.pagesPlusOne}
-              </button>
-              <button
-                type="button"
-                onClick={pauseSession}
+                onClick={() => {
+                  setFocusRunning(false);
+                  setMessage(t.paused);
+                }}
                 className="planner-btn planner-btn-secondary"
               >
                 {t.pause}
               </button>
               <button
                 type="button"
-                onClick={() => finishFocusSession(false)}
+                onClick={() => void finishSession(false)}
                 className="planner-btn planner-btn-secondary"
               >
-                {t.exitLock}
+                {t.stop}
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!focusRunning) return;
+                  setFocusMinutes((current) => current + 10);
+                  setFocusSecondsLeft((current) => current + 10 * 60);
+                }}
+                className="planner-btn planner-btn-secondary"
+              >
+                {t.addTenMinutes}
+              </button>
+              {suggestedMinutes ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFocusMinutes(suggestedMinutes);
+                    setFocusSecondsLeft(suggestedMinutes * 60);
+                  }}
+                  className="planner-btn planner-btn-secondary"
+                >
+                  {t.suggested}: {suggestedMinutes} {t.minutes}
+                </button>
+              ) : null}
             </div>
+
+            <div>
+              <p className="planner-eyebrow">{t.progressStrip}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {overview.examRecommendations.map((exam) => (
+                  <button
+                    key={exam.examId}
+                    type="button"
+                    onClick={() => setSelectedExamId(exam.examId)}
+                    className="planner-chip border-slate-200 bg-white text-slate-700"
+                  >
+                    {exam.subjectName}: {exam.completionPercent}%
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {selectedExam ? (
+              <div className="planner-card bg-slate-50/90">
+                <p className="planner-eyebrow">{selectedExam.examTitle}</p>
+                <p className="mt-1 text-sm text-slate-700">
+                  {selectedExam.studyLogSummary.lastTopic || t.noMessage}
+                </p>
+              </div>
+            ) : null}
           </div>
-        </div>
+        )}
+      </section>
+
+      {message ? (
+        <section className="planner-alert" role="status" aria-live="polite">
+          {message}
+        </section>
       ) : null}
     </main>
   );
