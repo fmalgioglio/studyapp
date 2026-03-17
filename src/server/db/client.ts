@@ -31,6 +31,13 @@ function resolveDatabaseUrl() {
     return envValue;
   }
 
+  if (
+    process.env.PRISMA_FORCE_TCP_DATABASE_URL === "true" &&
+    (envValue.startsWith("postgres://") || envValue.startsWith("postgresql://"))
+  ) {
+    return envValue;
+  }
+
   // Recover from stale dev process state where DATABASE_URL was mutated at runtime.
   if (
     process.env.NODE_ENV !== "production" &&

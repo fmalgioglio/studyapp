@@ -42,6 +42,13 @@ function sign(value: string) {
   return toBase64Url(createHmac("sha256", getAuthSecret()).update(value).digest());
 }
 
+function shouldUseSecureCookies() {
+  return (
+    process.env.NODE_ENV === "production" &&
+    process.env.ALLOW_INSECURE_AUTH_COOKIES !== "true"
+  );
+}
+
 export function createSessionToken(uid: string, email: string) {
   const payload: SessionPayload = {
     uid,
@@ -93,7 +100,7 @@ export function getSessionCookieOptions() {
   return {
     httpOnly: true,
     sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production",
+    secure: shouldUseSecureCookies(),
     path: "/",
     maxAge: SESSION_MAX_AGE_SECONDS,
   };

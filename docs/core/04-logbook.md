@@ -4950,3 +4950,63 @@ pm run lint\ ? 0 errors, 0 warnings.
 
 - First command/file: add Playwright, seeded student fixtures, and engine/API coverage for QA foundation.
 - Next owner: Builder.
+
+---
+
+## Entry - QA-SIM-FOUNDATION-001 Deterministic QA Foundation
+
+- Date: 2026-03-17
+- Task ID: QA-SIM-FOUNDATION-001
+- Role: Planner + Builder + Reviewer
+- Owner: Codex
+
+### Decisions Taken
+
+- Added deterministic seeded students instead of relying on ad-hoc manual QA data.
+- Kept engine coverage in Vitest and daily-loop coverage in Playwright.
+- Forced Playwright to boot a fresh production Next server with an explicit TCP database URL to avoid local Prisma bridge instability.
+
+### What Was Done
+
+- Added slice spec:
+  - `docs/specs/QA-SIM-FOUNDATION-001.md`
+- Added seeded simulation harness and local scripts:
+  - `scripts/seed-simulation.js`
+  - `package.json`
+  - `package-lock.json`
+- Added test configuration and coverage:
+  - `playwright.config.ts`
+  - `vitest.config.ts`
+  - `tests/unit/exam-plan-engine.test.ts`
+  - `tests/api/planner-overview.route.test.ts`
+  - `tests/api/exam-plans.route.test.ts`
+  - `qa/e2e/daily-loop.spec.ts`
+- Added test-only runtime hardening for local auth/database boot:
+  - `src/server/db/client.ts`
+  - `src/server/auth/session.ts`
+
+### Evidence
+
+- Lint: `npm run lint` passed.
+- Build: `npm run build` passed as part of the E2E run.
+- Tests:
+  - `npm run seed:simulation` passed.
+  - `npm run test:unit` passed.
+  - `npm run test:e2e` passed.
+- Manual checks:
+  - verified the seeded balanced student can log in and reach the exam-first planner flow under Playwright
+
+### Residual Risks
+
+- E2E currently covers the balanced daily loop only; the other seeded students are available for follow-up scenarios but not yet asserted in browser automation.
+- Local Playwright still depends on browser binaries and a reachable local Postgres bridge behind the seeded TCP URL.
+
+### Assumptions
+
+- Local QA acceptance for this slice is satisfied by deterministic seed + unit/API/E2E evidence.
+- Test-only env flags (`PRISMA_FORCE_TCP_DATABASE_URL`, `ALLOW_INSECURE_AUTH_COOKIES`) are acceptable because they are opt-in and not enabled in normal app runtime.
+
+### Next Action (Concrete)
+
+- First command/file: add one follow-up Playwright scenario for persisted study logging on `/planner/focus`.
+- Next owner: QA/Reliability.
