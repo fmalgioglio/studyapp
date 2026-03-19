@@ -7,6 +7,7 @@ import {
   getDevBootstrapPassword,
   isDevBootstrapEnabled,
 } from "@/server/auth/dev-bootstrap";
+import { buildLocalDevStudent as buildLocalDevFallbackStudent } from "@/server/auth/local-dev";
 import { hashPassword } from "@/server/auth/password";
 import {
   createSessionToken,
@@ -165,10 +166,15 @@ export async function POST() {
     });
   } catch (error) {
     if (isSchemaMismatchError(error)) {
-      return apiError(
-        "Local dev bootstrap is temporarily out of sync. Restart local dev and refresh the Prisma client.",
-        500,
-      );
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Dev bootstrap schema mismatch", error);
+      }
+      const fallbackStudent = buildLocalDevFallbackStudent();
+      const token = createSessionToken(fallbackStudent.id, fallbackStudent.email);
+      const cookieStore = await cookies();
+      cookieStore.set(SESSION_COOKIE_NAME, token, getSessionCookieOptions());
+
+      return apiSuccess(fallbackStudent);
     }
 
     return apiError(

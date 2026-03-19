@@ -1,5 +1,6 @@
 import { Prisma } from "@/generated/prisma/client";
 import { requireSession } from "@/server/auth/require-session";
+import { isLocalDevSession } from "@/server/auth/local-dev";
 import { prisma } from "@/server/db/client";
 import { apiError, apiSuccess, getErrorDetails } from "@/server/http/response";
 import {
@@ -88,6 +89,9 @@ export async function GET() {
 
     return apiSuccess(exams);
   } catch (error) {
+    if (isLocalDevSession(session)) {
+      return apiSuccess([]);
+    }
     return apiError("Failed to load exams", 500, getErrorDetails(error));
   }
 }

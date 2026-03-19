@@ -2,7 +2,7 @@
 
 StudyApp is an adaptive planning platform for students in high school, university, and self-study.
 
-The objective is simple: convert study material, links, and student notes into a realistic weekly plan that helps users reach study goals with stronger preparation and lower stress.
+The objective is simple: turn books, notes, slides, and official resources into a clear study plan that helps students prepare better with less chaos.
 
 ## Preview
 
@@ -12,24 +12,20 @@ The objective is simple: convert study material, links, and student notes into a
 
 Website-ready demo video: [studyapp-demo.mp4](docs/readme-assets/studyapp-demo.mp4)
 
-## Why This Project
+## What StudyApp Does
 
-- Students often know what to study but not how to pace it.
-- This app translates workload into concrete weekly effort and daily actions.
-- The roadmap includes AI support for study guidance and content understanding.
+- Builds a realistic weekly study plan from the actual material workload.
+- Helps students decide what to study today without rethinking the whole week.
+- Keeps subjects, study goals, and materials together in one student-first workspace.
+- Supports high school, university, and self-study flows in the same product.
 
-## Current MVP Scope
+## Core Product Areas
 
-- Health endpoint to verify server and DB connectivity.
-- Cookie-based authentication (register, login, logout, current session).
-- Protected planner area with split feature pages (planner, study today, profile, subjects, objectives).
-- Student profile update with weekly study capacity.
-- Subject creation and listing for authenticated user.
-- Goal creation and listing for authenticated user.
-- Stochastic planning estimate with personalized calibration hooks.
-- Focus lock timer with XP/streak reward loop.
-- Rights-safe material discovery for public PDF/HTML links plus user-provided uploads.
-- Responsive UI flow with dedicated pages instead of a single long console.
+- Planner dashboard with goal progress, weekly pacing, and daily study direction.
+- Study Today flow with timer-based focus sessions.
+- Subjects and goals organized around real student workflows.
+- Rights-safe material discovery for official links plus student-provided materials.
+- Responsive web app with a path toward installable PWA usage.
 
 ## Tech Stack
 
@@ -39,7 +35,7 @@ Website-ready demo video: [studyapp-demo.mp4](docs/readme-assets/studyapp-demo.m
 - `PostgreSQL` (via Prisma local dev server)
 - `Zod` for API input validation
 
-## Local Setup
+## Local Development
 
 1. Install dependencies
 
@@ -47,57 +43,30 @@ Website-ready demo video: [studyapp-demo.mp4](docs/readme-assets/studyapp-demo.m
 npm install
 ```
 
-2. Copy env defaults and decide how you want to enter the app
-
-```bash
-cp .env.example .env.local
-```
-
-Set `DEV_BOOTSTRAP_ENABLED=true` in `.env.local` only if you want the browser shortcut on `/` and `/login`.
-For stable QA, prefer the seeded login flow described below.
-
-3. Start the app
+2. Start the local app
 
 ```bash
 npm run dev
 ```
 
-`npm run dev` starts Prisma local dev if needed and runs Next on `http://localhost:3000`.
-Use `localhost`, not `127.0.0.1`, as the canonical local origin.
-No Python or `venv` is required for the normal local flow.
+3. Open the site
 
-4. Seed test data for visual QA and browser flows
+Visit `http://localhost:3000`.
 
-```bash
-npm run seed:simulation
-```
-
-Seeded login:
-- `simulation-balanced@studyapp.local`
-- `StudyApp2026!`
-
-5. Open the app
-
-Open `http://localhost:3000`.
-You can still use `Enter dev app` when the dev bootstrap flag is enabled, but seeded login is the preferred testing path.
-
-6. First-run database sync only when needed
+If you need to refresh the local database client after schema changes:
 
 ```bash
-npx prisma migrate dev
 npx prisma generate
 ```
 
-`AUTH_SECRET` is optional in local development because the app falls back to a dev-only secret outside production.
+## Product Direction
 
-## Visual QA Workflow
+StudyApp is being shaped around a simple idea:
 
-- `npm run test:visual` captures screenshots for the key routes and saves them outside git in `qa/artifacts/screenshots/`.
-- `npm run demo:record` records the demo flow and writes website-ready `MP4` and `GIF` artifacts to `qa/artifacts/demos/`.
-- `npm run readme:assets` promotes the latest home screenshot plus the newest demo `GIF` and `MP4` into `docs/readme-assets/` for GitHub and portfolio reuse.
-- The visual manifest lives in `qa/visual/manifest.ts`.
-- The demo flow still records frames first, then encodes them locally so the route manifest stays reusable.
-- Visual capture now degrades safely in local runs: public routes are still captured even when the seeded auth account is temporarily unavailable.
+- one place for subjects, goals, and materials
+- a calmer daily study flow
+- planning that adapts to real workload instead of vague intentions
+- visuals that feel closer to a consumer coaching app than an academic admin panel
 
 ## API Endpoints (MVP)
 
@@ -122,20 +91,12 @@ npx prisma generate
 - `prisma/schema.prisma`: data model source of truth.
 - `docs/*`: implementation and workflow documentation.
 - `docs/ml-maturity-plan.md`: model roadmap from baseline to advanced ML.
-- `docs/server-test-flow.md`: end-to-end auth/planner test checklist.
 - `docs/interaction-os-skeleton.md`: human-AI operating framework for multi-role collaboration.
 
-## Roadmap
-
-1. Open-source web foundation (privacy-first, reproducible local setup, stable planner workflow).
-2. Store-ready mobile app layer (shared logic, platform UI shell, offline-safe focus tracking).
-3. Agentic coach layer (adaptive planning agent, proactive nudges, learning loop).
-
-## Privacy And Open-Source Guardrails
+## Open-Source Guardrails
 
 - Never commit `.env*` files or machine-local credentials.
-- Keep auth/testing shortcuts behind explicit dev-only environment flags.
-- Keep public docs free of sensitive account details or personal access data.
+- Keep public docs focused on product and setup, not internal testing flows.
 - Keep mascot and visual assets under open-source compatible licensing.
 - Keep generated QA screenshots and demo artifacts out of git.
 

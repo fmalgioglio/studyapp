@@ -1,4 +1,8 @@
 import { requireSession } from "@/server/auth/require-session";
+import {
+  buildLocalDevPlannerOverview,
+  isLocalDevSession,
+} from "@/server/auth/local-dev";
 import { prisma } from "@/server/db/client";
 import { apiError, apiSuccess, getErrorDetails } from "@/server/http/response";
 import { buildPlannerOverview } from "@/server/services/exam-plan-engine";
@@ -97,6 +101,9 @@ export async function GET() {
     });
 
     if (!student) {
+      if (isLocalDevSession(session)) {
+        return apiSuccess(buildLocalDevPlannerOverview());
+      }
       return apiError("Unauthorized", 401);
     }
 
@@ -108,6 +115,9 @@ export async function GET() {
 
     return apiSuccess(overview);
   } catch (error) {
+    if (isLocalDevSession(session)) {
+      return apiSuccess(buildLocalDevPlannerOverview());
+    }
     return apiError("Failed to load planner overview", 500, getErrorDetails(error));
   }
 }

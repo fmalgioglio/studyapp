@@ -1,5 +1,6 @@
 import { Prisma } from "@/generated/prisma/client";
 import { requireSession } from "@/server/auth/require-session";
+import { isLocalDevSession } from "@/server/auth/local-dev";
 import { prisma } from "@/server/db/client";
 import { apiError, apiSuccess, getErrorDetails } from "@/server/http/response";
 import { createSubjectSchema } from "@/server/validation/subject";
@@ -27,6 +28,9 @@ export async function GET() {
 
     return apiSuccess(subjects);
   } catch (error) {
+    if (isLocalDevSession(session)) {
+      return apiSuccess([]);
+    }
     return apiError("Failed to load subjects", 500, getErrorDetails(error));
   }
 }

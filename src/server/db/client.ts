@@ -25,6 +25,23 @@ function readDatabaseUrlFromDotEnv() {
   }
 }
 
+function normalizeLocalTcpDatabaseUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    if (
+      (parsed.protocol === "postgres:" || parsed.protocol === "postgresql:") &&
+      parsed.hostname === "localhost"
+    ) {
+      parsed.hostname = "127.0.0.1";
+      return parsed.toString();
+    }
+  } catch {
+    return url;
+  }
+
+  return url;
+}
+
 function resolveDatabaseUrl() {
   const envValue = process.env.DATABASE_URL?.trim();
   if (!envValue) {
@@ -35,7 +52,7 @@ function resolveDatabaseUrl() {
     process.env.PRISMA_FORCE_TCP_DATABASE_URL === "true" &&
     (envValue.startsWith("postgres://") || envValue.startsWith("postgresql://"))
   ) {
-    return envValue;
+    return normalizeLocalTcpDatabaseUrl(envValue);
   }
 
   // Recover from stale dev process state where DATABASE_URL was mutated at runtime.
@@ -50,6 +67,10 @@ function resolveDatabaseUrl() {
     ) {
       return dotEnvValue;
     }
+  }
+
+  if (envValue.startsWith("postgres://") || envValue.startsWith("postgresql://")) {
+    return normalizeLocalTcpDatabaseUrl(envValue);
   }
 
   return envValue;
@@ -82,7 +103,7 @@ function extractTcpUrlFromPrismaDevUrl(url: string) {
       (payload.databaseUrl.startsWith("postgres://") ||
         payload.databaseUrl.startsWith("postgresql://"))
     ) {
-      return payload.databaseUrl;
+      return normalizeLocalTcpDatabaseUrl(payload.databaseUrl);
     }
 
     return null;
@@ -97,12 +118,18 @@ if (!configuredDatabaseUrl) {
   throw new Error("DATABASE_URL is not set.");
 }
 
+const shouldPreferAccelerateRuntime =
+  configuredDatabaseUrl.startsWith("prisma+postgres://") ||
+  configuredDatabaseUrl.startsWith("prisma://");
+
 const tcpDatabaseUrl =
-  extractTcpUrlFromPrismaDevUrl(configuredDatabaseUrl) ??
-  (configuredDatabaseUrl.startsWith("postgres://") ||
-  configuredDatabaseUrl.startsWith("postgresql://")
-    ? configuredDatabaseUrl
-    : null);
+  shouldPreferAccelerateRuntime
+    ? null
+    : extractTcpUrlFromPrismaDevUrl(configuredDatabaseUrl) ??
+      (configuredDatabaseUrl.startsWith("postgres://") ||
+      configuredDatabaseUrl.startsWith("postgresql://")
+        ? configuredDatabaseUrl
+        : null);
 
 const runtimeDatabaseUrl = tcpDatabaseUrl ?? configuredDatabaseUrl;
 const runtimeMode = tcpDatabaseUrl ? "adapter" : "accelerate";

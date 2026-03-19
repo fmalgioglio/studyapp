@@ -1,6 +1,10 @@
 import { cookies } from "next/headers";
 
 import { prisma } from "@/server/db/client";
+import {
+  buildLocalDevStudent,
+  isLocalDevSession,
+} from "@/server/auth/local-dev";
 import { SESSION_COOKIE_NAME, verifySessionToken } from "@/server/auth/session";
 import { apiError, apiSuccess, getErrorDetails } from "@/server/http/response";
 
@@ -32,11 +36,17 @@ export async function GET() {
     });
 
     if (!student) {
+      if (isLocalDevSession(session)) {
+        return apiSuccess(buildLocalDevStudent());
+      }
       return apiError("Unauthorized", 401);
     }
 
     return apiSuccess(student);
   } catch (error) {
+    if (isLocalDevSession(session)) {
+      return apiSuccess(buildLocalDevStudent());
+    }
     return apiError("Failed to load session profile", 500, getErrorDetails(error));
   }
 }

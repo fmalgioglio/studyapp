@@ -23,6 +23,23 @@ function decodeBase64Url(value) {
   return Buffer.from(normalized + padding, "base64").toString("utf8");
 }
 
+function normalizeLocalTcpDatabaseUrl(url) {
+  try {
+    const parsed = new URL(url);
+    if (
+      (parsed.protocol === "postgres:" || parsed.protocol === "postgresql:") &&
+      parsed.hostname === "localhost"
+    ) {
+      parsed.hostname = "127.0.0.1";
+      return parsed.toString();
+    }
+  } catch {
+    return url;
+  }
+
+  return url;
+}
+
 function extractTcpUrlFromPrismaDevUrl(url) {
   if (!url.startsWith("prisma+postgres://")) {
     return null;
@@ -41,7 +58,7 @@ function extractTcpUrlFromPrismaDevUrl(url) {
       (payload.databaseUrl.startsWith("postgres://") ||
         payload.databaseUrl.startsWith("postgresql://"))
     ) {
-      return payload.databaseUrl;
+      return normalizeLocalTcpDatabaseUrl(payload.databaseUrl);
     }
     return null;
   } catch {
@@ -61,7 +78,7 @@ function resolveDatabaseUrl() {
   const tcpUrl =
     extractTcpUrlFromPrismaDevUrl(configured) ??
     (configured.startsWith("postgres://") || configured.startsWith("postgresql://")
-      ? configured
+      ? normalizeLocalTcpDatabaseUrl(configured)
       : null);
 
   if (!tcpUrl) {

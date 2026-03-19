@@ -5668,3 +5668,61 @@ pm run lint\ ? 0 errors, 0 warnings.
 
 - First command/file: refresh the authenticated screenshot set once seeded visual auth is stable again, then continue merge prep from `README.md` and branch hygiene.
 - Next owner: Product/Release track.
+
+---
+
+## Entry - PHASE-7-DEV-ACCESS-001 Public README Cleanup And Local Dev Guest Access
+
+- Date: 2026-03-19
+- Task ID: PHASE-7-DEV-ACCESS-001
+- Role: Builder + Reviewer
+- Owner: Codex
+
+### Decisions Taken
+
+- Removed the authenticated planner screenshot from public README assets because it showed a `Session required` state and weakened the public product story.
+- Simplified the README toward public-facing product and setup information instead of internal QA workflow details.
+- Added a dev-only guest fallback so `Enter dev app` can still open the planner shell when the local Prisma dev state is out of sync.
+
+### What Was Done
+
+- Reworked README messaging and local setup guidance:
+  - `README.md`
+  - `scripts/promote-readme-assets.js`
+  - `docs/readme-assets/planner-desktop.png` removed
+- Added local dev fallback helpers and wired them into auth/planner surfaces:
+  - `src/server/auth/local-dev.ts`
+  - `src/app/api/auth/dev-bootstrap/route.ts`
+  - `src/app/api/auth/me/route.ts`
+  - `src/app/api/planner/overview/route.ts`
+  - `src/app/api/subjects/route.ts`
+  - `src/app/api/exams/route.ts`
+- Normalized local DB URL handling for local scripts/runtime experiments:
+  - `src/server/db/client.ts`
+  - `scripts/seed-simulation.js`
+  - `playwright.shared.ts`
+
+### Evidence
+
+- Lint: `npm run lint` passed.
+- Dev bootstrap verification:
+  - `POST /api/auth/dev-bootstrap` -> `200`
+  - `GET /api/auth/me` with returned cookie -> `200`
+  - `GET /api/planner/overview` with returned cookie -> `200`
+  - `GET /api/subjects` with returned cookie -> `200`
+  - `GET /api/exams` with returned cookie -> `200`
+
+### Residual Risks
+
+- The local Prisma/Postgres mismatch is not fully fixed yet; the new fallback restores access to the app shell, but database-backed edits remain unavailable until the local Prisma runtime is brought back into sync.
+- Public README media is now cleaner, but authenticated screenshots and demo flows should be regenerated again once the local DB-backed auth path is healthy.
+
+### Assumptions
+
+- For local development, entering the app shell and reviewing the UI is more important than blocking entirely on a broken local Prisma runtime.
+- Public repo visitors should see product-facing media and setup, not internal QA flow descriptions.
+
+### Next Action (Concrete)
+
+- First command/file: continue from `src/server/db/client.ts` and the local Prisma runtime path to restore full DB-backed local auth, then regenerate authenticated README/demo assets.
+- Next owner: Auth/Runtime track.

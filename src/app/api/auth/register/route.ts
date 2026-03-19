@@ -48,6 +48,9 @@ export async function POST(request: Request) {
 
     return apiSuccess(student, 201);
   } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.error("Registration failed", error);
+    }
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"

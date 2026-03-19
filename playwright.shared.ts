@@ -7,6 +7,23 @@ export function decodeBase64Url(value: string) {
   return Buffer.from(normalized + padding, "base64").toString("utf8");
 }
 
+function normalizeLocalTcpDatabaseUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    if (
+      (parsed.protocol === "postgres:" || parsed.protocol === "postgresql:") &&
+      parsed.hostname === "localhost"
+    ) {
+      parsed.hostname = "127.0.0.1";
+      return parsed.toString();
+    }
+  } catch {
+    return url;
+  }
+
+  return url;
+}
+
 export function resolveTcpDatabaseUrl() {
   const envPath = join(process.cwd(), ".env");
   const envText = readFileSync(envPath, "utf8");
@@ -20,7 +37,7 @@ export function resolveTcpDatabaseUrl() {
     configuredUrl.startsWith("postgres://") ||
     configuredUrl.startsWith("postgresql://")
   ) {
-    return configuredUrl;
+    return normalizeLocalTcpDatabaseUrl(configuredUrl);
   }
 
   if (!configuredUrl.startsWith("prisma+postgres://")) {
@@ -45,5 +62,5 @@ export function resolveTcpDatabaseUrl() {
     throw new Error("Unable to resolve TCP database URL for Playwright");
   }
 
-  return payload.databaseUrl;
+  return normalizeLocalTcpDatabaseUrl(payload.databaseUrl);
 }
