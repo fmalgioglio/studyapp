@@ -165,8 +165,7 @@ export function usePlannerOverview(options: UsePlannerOverviewOptions) {
 
   useEffect(() => {
     if (!enabled || !studentId) return;
-    return subscribeDataRevision((source) => {
-      if (source === "focus_progress") return;
+    return subscribeDataRevision(() => {
       void refresh(true);
     });
   }, [enabled, refresh, studentId]);

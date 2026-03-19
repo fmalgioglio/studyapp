@@ -1,20 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useUiLanguage } from "@/app/_hooks/use-ui-language";
-import { notifyDataRevision } from "@/app/planner/_lib/focus-progress";
+import {
+  notifyDataRevision,
+  recordFocusProgress,
+} from "@/app/planner/_lib/focus-progress";
 import { calculateFocusSessionXp } from "@/app/planner/_lib/focus-xp";
 import { useAuthStudent } from "../_hooks/use-auth-student";
 import { usePlannerOverview } from "../_hooks/use-planner-overview";
 import { requestJson } from "../_lib/client-api";
-
-const FOCUS_PRESETS = [
-  { minutes: 25, label: "Sprint", subtitle: "Quick momentum" },
-  { minutes: 45, label: "Deep", subtitle: "Balanced focus" },
-  { minutes: 60, label: "Exam", subtitle: "Long concentration" },
-] as const;
 
 type FocusStats = {
   xp: number;
@@ -23,116 +21,150 @@ type FocusStats = {
   lastCompletionDate: string;
 };
 
+type SessionStage = "idle" | "running" | "paused" | "review";
+type SessionOutcome = "completed" | "partial" | null;
+
+const FOCUS_PRESETS = [
+  { minutes: 25, key: "sprint" },
+  { minutes: 45, key: "deep" },
+  { minutes: 60, key: "exam" },
+] as const;
+
 const COPY = {
   en: {
-    title: "Study session",
-    subtitle: "Start one useful study block, log it, and let the planner adapt.",
+    title: "Study Today",
+    subtitle:
+      "Open one clean focus block, follow the timer, then log what you actually completed.",
     xp: "Focus score",
     streak: "Streak",
     sessions: "Sessions",
-    targetExam: "Target exam",
-    topic: "What are you covering?",
-    topicPlaceholder: "Chapter, topic, or exercise set",
-    pagesInput: "Pages completed",
-    timer: "Timer",
-    suggested: "Suggested from plan",
-    suggestedHint: "Uses the daily target from the selected exam plan.",
+    objective: "Objective",
     availableTime: "Time available today",
-    start: "Start",
+    timer: "Focus timer",
+    timerHint:
+      "Use the timer as your current study boundary. Review pages and notes only after the block ends.",
+    suggested: "Suggested from the plan",
+    suggestedHint: "Built from the selected objective and its current daily target.",
+    dailyTarget: "Today target",
+    weeklyTime: "Weekly time",
+    materials: "Materials ready",
+    nextStep: "Best next step",
+    lastStudy: "Last study note",
+    noMessage: "No study logs yet for this objective.",
+    start: "Start focus",
     pause: "Pause",
-    stop: "Log partial",
+    resume: "Resume",
+    stop: "Finish early",
     skip: "Skip today",
     addTenMinutes: "+10 min",
-    completed: "Session completed",
-    stopped: "Partial session saved.",
+    completed: "Session saved",
+    stopped: "Partial session saved",
     skipped: "Session skipped. The planner will stay cautious.",
     paused: "Session paused.",
-    started: "Session started.",
-    noExam: "No targets yet. Add one in Targets first.",
+    started: "Focus block started.",
+    resumed: "Focus block resumed.",
+    reviewTitle: "Log what you completed",
+    reviewBody:
+      "Capture the real outcome now so planner, progress, and next steps stay reliable.",
+    topic: "What did you cover?",
+    topicPlaceholder: "Chapter, topic, or exercise set",
+    pagesInput: "Pages completed",
+    saveCompleted: "Save completed block",
+    savePartial: "Save partial block",
+    cancelReview: "Back to timer",
+    noExam: "No objectives yet. Add one in Objectives first.",
     noAccount: "Your session is missing or expired.",
-    noAccountBody: "Sign in again to reopen your planner and keep your study data in sync.",
+    noAccountBody:
+      "Sign in again to reopen your planner and keep your study data in sync.",
     login: "Go to login",
     createAccount: "Create account",
     loading: "Loading study sessions...",
-    progressStrip: "Exam progress",
-    dailyTarget: "Daily target",
-    weeklyTime: "Weekly time",
-    noMessage: "No study logs yet for this exam.",
     minutes: "min",
     pages: "pages",
-    openTargets: "Open Targets",
+    hours: "hours",
+    openObjectives: "Open Objectives",
     backToPlanner: "Back to Planner",
+    presetSprint: "Pomodoro",
+    presetSprintHint: "Fast restart",
+    presetDeep: "Focus",
+    presetDeepHint: "Balanced block",
+    presetExam: "Long block",
+    presetExamHint: "Extended concentration",
   },
   it: {
-    title: "Sessione di studio",
-    subtitle: "Avvia un blocco utile, registralo e lascia che il planner si aggiorni.",
+    title: "Studia oggi",
+    subtitle:
+      "Apri un blocco pulito di concentrazione, segui il timer e registra il risultato solo alla fine.",
     xp: "Focus score",
     streak: "Streak",
     sessions: "Sessioni",
-    targetExam: "Esame target",
-    topic: "Cosa stai coprendo?",
-    topicPlaceholder: "Capitolo, argomento o serie di esercizi",
-    pagesInput: "Pagine completate",
-    timer: "Timer",
-    suggested: "Suggerito dal piano",
-    suggestedHint: "Usa il target giornaliero del piano dell'esame selezionato.",
+    objective: "Obiettivo",
     availableTime: "Tempo disponibile oggi",
-    start: "Avvia",
+    timer: "Timer focus",
+    timerHint:
+      "Usa il timer come perimetro del blocco attuale. Pagine e note si registrano alla fine.",
+    suggested: "Suggerito dal piano",
+    suggestedHint: "Nasce dall'obiettivo selezionato e dal suo target giornaliero.",
+    dailyTarget: "Target di oggi",
+    weeklyTime: "Tempo settimanale",
+    materials: "Materiali pronti",
+    nextStep: "Prossimo passo migliore",
+    lastStudy: "Ultimo appunto di studio",
+    noMessage: "Nessuna sessione registrata per questo obiettivo.",
+    start: "Avvia focus",
     pause: "Pausa",
-    stop: "Salva parziale",
+    resume: "Riprendi",
+    stop: "Chiudi prima",
     skip: "Salta oggi",
     addTenMinutes: "+10 min",
-    completed: "Sessione completata",
-    stopped: "Sessione parziale salvata.",
+    completed: "Sessione salvata",
+    stopped: "Sessione parziale salvata",
     skipped: "Sessione saltata. Il planner resta prudente.",
     paused: "Sessione in pausa.",
-    started: "Sessione avviata.",
-    noExam: "Nessun target. Aggiungine uno nella pagina Target.",
+    started: "Blocco focus avviato.",
+    resumed: "Blocco focus ripreso.",
+    reviewTitle: "Registra cosa hai completato",
+    reviewBody:
+      "Segna ora il risultato reale cosi planner, progresso e prossimi passi restano affidabili.",
+    topic: "Cosa hai coperto?",
+    topicPlaceholder: "Capitolo, argomento o serie di esercizi",
+    pagesInput: "Pagine completate",
+    saveCompleted: "Salva blocco completato",
+    savePartial: "Salva blocco parziale",
+    cancelReview: "Torna al timer",
+    noExam: "Non ci sono ancora obiettivi. Aggiungine uno in Obiettivi.",
     noAccount: "La sessione manca o e scaduta.",
-    noAccountBody: "Accedi di nuovo per riaprire il planner e ritrovare i tuoi dati di studio.",
+    noAccountBody:
+      "Accedi di nuovo per riaprire il planner e tenere sincronati i dati di studio.",
     login: "Vai al login",
     createAccount: "Crea account",
     loading: "Caricamento sessioni studio...",
-    progressStrip: "Progresso esami",
-    dailyTarget: "Target giornaliero",
-    weeklyTime: "Tempo settimanale",
-    noMessage: "Nessuna sessione registrata per questo esame.",
     minutes: "min",
     pages: "pagine",
-    openTargets: "Apri Target",
+    hours: "ore",
+    openObjectives: "Apri Obiettivi",
     backToPlanner: "Torna al Planner",
+    presetSprint: "Pomodoro",
+    presetSprintHint: "Ripartenza veloce",
+    presetDeep: "Focus",
+    presetDeepHint: "Blocco bilanciato",
+    presetExam: "Blocco lungo",
+    presetExamHint: "Concentrazione estesa",
   },
 } as const;
 
 function getInitialFocusStats(): FocusStats {
   if (typeof window === "undefined") {
-    return {
-      xp: 0,
-      streak: 0,
-      sessionsCompleted: 0,
-      lastCompletionDate: "",
-    };
+    return { xp: 0, streak: 0, sessionsCompleted: 0, lastCompletionDate: "" };
   }
-
   const raw = localStorage.getItem("studyapp_focus_stats");
   if (!raw) {
-    return {
-      xp: 0,
-      streak: 0,
-      sessionsCompleted: 0,
-      lastCompletionDate: "",
-    };
+    return { xp: 0, streak: 0, sessionsCompleted: 0, lastCompletionDate: "" };
   }
-
   try {
     return JSON.parse(raw) as FocusStats;
   } catch {
-    return {
-      xp: 0,
-      streak: 0,
-      sessionsCompleted: 0,
-      lastCompletionDate: "",
-    };
+    return { xp: 0, streak: 0, sessionsCompleted: 0, lastCompletionDate: "" };
   }
 }
 
@@ -144,20 +176,29 @@ function getYesterdayIso() {
   return new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
+function clampPercent(value: number) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
 export default function PlannerFocusPage() {
   const { language } = useUiLanguage("en");
   const t = COPY[language] ?? COPY.en;
   const { student } = useAuthStudent();
+  const searchParams = useSearchParams();
+  const initialExamId = searchParams.get("exam")?.trim() ?? "";
   const { overview, loading, refresh } = usePlannerOverview({
     enabled: Boolean(student?.id),
     studentId: student?.id,
   });
+
   const [focusMinutes, setFocusMinutes] = useState(25);
   const [focusSecondsLeft, setFocusSecondsLeft] = useState(25 * 60);
-  const [focusRunning, setFocusRunning] = useState(false);
+  const [sessionStage, setSessionStage] = useState<SessionStage>("idle");
+  const [sessionOutcome, setSessionOutcome] = useState<SessionOutcome>(null);
   const [message, setMessage] = useState("");
   const [stats, setStats] = useState<FocusStats>(() => getInitialFocusStats());
-  const [selectedExamId, setSelectedExamId] = useState("");
+  const [selectedExamId, setSelectedExamId] = useState(initialExamId);
   const [availableTimeMinutes, setAvailableTimeMinutes] = useState("60");
   const [topic, setTopic] = useState("");
   const [pagesCompleted, setPagesCompleted] = useState("");
@@ -177,91 +218,105 @@ export default function PlannerFocusPage() {
   const suggestedMinutes = selectedExam
     ? Math.max(20, Math.round(selectedExam.dailyTargetMinutes / 5) * 5)
     : null;
+  const elapsedMinutes = Math.max(1, focusMinutes - Math.ceil(focusSecondsLeft / 60));
+  const progressPercent =
+    focusMinutes > 0
+      ? clampPercent(((focusMinutes * 60 - focusSecondsLeft) / (focusMinutes * 60)) * 100)
+      : 0;
 
-  const finishSession = useCallback(
-    async (outcome: "completed" | "partial" | "skipped") => {
-      setFocusRunning(false);
-      if (outcome === "skipped") {
-        setMessage(t.skipped);
-        return;
-      }
+  const presetMeta = FOCUS_PRESETS.map((preset) => ({
+    minutes: preset.minutes,
+    label:
+      preset.key === "sprint"
+        ? t.presetSprint
+        : preset.key === "deep"
+          ? t.presetDeep
+          : t.presetExam,
+    hint:
+      preset.key === "sprint"
+        ? t.presetSprintHint
+        : preset.key === "deep"
+          ? t.presetDeepHint
+          : t.presetExamHint,
+  }));
 
-      if (!selectedExam) {
-        setMessage(t.noExam);
-        return;
-      }
+  const submitReview = useCallback(async () => {
+    if (!selectedExam || !sessionOutcome) {
+      setMessage(t.noExam);
+      return;
+    }
 
-      const elapsedMinutes = Math.max(
-        1,
-        focusMinutes - Math.ceil(focusSecondsLeft / 60),
-      );
-      const loggedMinutes = outcome === "completed" ? focusMinutes : elapsedMinutes;
-      const { totalXp } = calculateFocusSessionXp(loggedMinutes, stats.streak);
-      const today = getTodayIso();
-      const yesterday = getYesterdayIso();
+    const loggedMinutes = sessionOutcome === "completed" ? focusMinutes : elapsedMinutes;
+    const normalizedPages = Number.isFinite(Number(pagesCompleted))
+      ? Math.max(0, Math.round(Number(pagesCompleted)))
+      : 0;
+    const normalizedTopic = topic.trim() || selectedExam.examTitle;
 
-      setStats((current) => ({
-        xp: current.xp + totalXp,
-        streak:
-          current.lastCompletionDate === today
-            ? current.streak
-            : current.lastCompletionDate === yesterday
-              ? current.streak + 1
-              : 1,
-        sessionsCompleted: current.sessionsCompleted + 1,
-        lastCompletionDate: today,
-      }));
+    const { ok, payload } = await requestJson<{ error?: string }>("/api/exam-study-logs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        examId: selectedExam.examId,
+        minutesSpent: loggedMinutes,
+        pagesCompleted: normalizedPages,
+        topic: normalizedTopic,
+        completedAt: new Date().toISOString(),
+      }),
+    });
 
-      const normalizedPages = Number.isFinite(Number(pagesCompleted))
-        ? Math.max(0, Math.round(Number(pagesCompleted)))
-        : 0;
+    if (!ok) {
+      setMessage(payload.error ?? "Failed to save study session");
+      return;
+    }
 
-      const { ok, payload } = await requestJson<{
-        recommendation?: { examId: string };
-      }>("/api/exam-study-logs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          examId: selectedExam.examId,
-          minutesSpent: loggedMinutes,
-          pagesCompleted: normalizedPages,
-          topic: topic.trim() || selectedExam.examTitle,
-          completedAt: new Date().toISOString(),
-        }),
-      });
+    const today = getTodayIso();
+    const yesterday = getYesterdayIso();
+    const { totalXp } = calculateFocusSessionXp(loggedMinutes, stats.streak);
 
-      if (!ok) {
-        setMessage(payload.error ?? "Failed to save study session");
-        return;
-      }
+    setStats((current) => ({
+      xp: current.xp + totalXp,
+      streak:
+        current.lastCompletionDate === today
+          ? current.streak
+          : current.lastCompletionDate === yesterday
+            ? current.streak + 1
+            : 1,
+      sessionsCompleted: current.sessionsCompleted + 1,
+      lastCompletionDate: today,
+    }));
 
-      notifyDataRevision();
-      await refresh(true);
-      setPagesCompleted("");
-      setTopic("");
-      setMessage(
-        `${t.completed}: +${totalXp} XP • ${focusMinutes} ${t.minutes} • ${normalizedPages} ${t.pages}`,
-      );
-    },
-    [
-      focusMinutes,
-      focusSecondsLeft,
-      pagesCompleted,
-      refresh,
-      selectedExam,
-      stats.streak,
-      t,
-      topic,
-    ],
-  );
+    recordFocusProgress(selectedExam.examId, normalizedPages, loggedMinutes, normalizedTopic);
+    notifyDataRevision("focus_progress");
+    await refresh(true);
+
+    setTopic("");
+    setPagesCompleted("");
+    setSessionOutcome(null);
+    setSessionStage("idle");
+    setFocusSecondsLeft(focusMinutes * 60);
+    setMessage(
+      `${sessionOutcome === "completed" ? t.completed : t.stopped}: +${totalXp} XP | ${loggedMinutes} ${t.minutes} | ${normalizedPages} ${t.pages}`,
+    );
+  }, [
+    elapsedMinutes,
+    focusMinutes,
+    pagesCompleted,
+    refresh,
+    selectedExam,
+    sessionOutcome,
+    stats.streak,
+    t,
+    topic,
+  ]);
 
   useEffect(() => {
-    if (!focusRunning) return;
+    if (sessionStage !== "running") return;
     const timer = setInterval(() => {
       setFocusSecondsLeft((current) => {
         if (current <= 1) {
           clearInterval(timer);
-          void finishSession("completed");
+          setSessionStage("review");
+          setSessionOutcome("completed");
           return 0;
         }
         return current - 1;
@@ -269,16 +324,37 @@ export default function PlannerFocusPage() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [finishSession, focusRunning]);
+  }, [sessionStage]);
 
   function startSession() {
     if (!selectedExam) {
       setMessage(t.noExam);
       return;
     }
-    setFocusSecondsLeft(focusMinutes * 60);
-    setFocusRunning(true);
+    if (sessionStage === "paused") {
+      setSessionStage("running");
+      setMessage(t.resumed);
+      return;
+    }
+    const cappedMinutes = Math.min(focusMinutes, Number(availableTimeMinutes));
+    setFocusMinutes(cappedMinutes);
+    setFocusSecondsLeft(cappedMinutes * 60);
+    setSessionOutcome(null);
+    setSessionStage("running");
     setMessage(t.started);
+  }
+
+  function pauseSession() {
+    if (sessionStage !== "running") return;
+    setSessionStage("paused");
+    setMessage(t.paused);
+  }
+
+  function skipToday() {
+    setSessionStage("idle");
+    setSessionOutcome(null);
+    setFocusSecondsLeft(focusMinutes * 60);
+    setMessage(t.skipped);
   }
 
   const minutesLeft = Math.floor(focusSecondsLeft / 60);
@@ -305,11 +381,49 @@ export default function PlannerFocusPage() {
     );
   }
 
+  if (loading) {
+    return (
+      <main className="space-y-5 sm:space-y-6">
+        <section className="planner-panel planner-hero">
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
+            {t.title}
+          </h1>
+          <p className="mt-1 max-w-2xl text-sm text-slate-600">{t.subtitle}</p>
+          <p className="mt-4 text-sm text-slate-600">{t.loading}</p>
+        </section>
+      </main>
+    );
+  }
+
+  if (!overview || overview.examRecommendations.length === 0) {
+    return (
+      <main className="space-y-5 sm:space-y-6">
+        <section className="planner-panel planner-hero">
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
+            {t.title}
+          </h1>
+          <p className="mt-1 max-w-2xl text-sm text-slate-600">{t.subtitle}</p>
+        </section>
+        <section className="planner-panel">
+          <p className="text-base font-semibold text-slate-900">{t.noExam}</p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Link href="/planner/exams" className="planner-btn planner-btn-accent">
+              {t.openObjectives}
+            </Link>
+            <Link href="/planner" className="planner-btn planner-btn-secondary">
+              {t.backToPlanner}
+            </Link>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="space-y-5 sm:space-y-6">
       <section className="planner-panel planner-hero">
         <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">{t.title}</h1>
-        <p className="mt-1 text-sm text-slate-600">{t.subtitle}</p>
+        <p className="mt-1 max-w-2xl text-sm text-slate-600">{t.subtitle}</p>
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -327,33 +441,12 @@ export default function PlannerFocusPage() {
         </div>
       </section>
 
-      <section className="planner-panel">
-        {loading ? (
-          <p className="text-sm text-slate-600">{t.loading}</p>
-        ) : !overview || overview.examRecommendations.length === 0 ? (
+      <section className="planner-panel space-y-4">
+        <div className="grid gap-4 lg:grid-cols-[0.88fr_1.12fr]">
           <div className="space-y-4">
-            <div className="planner-card bg-slate-50/80">
-              <p className="text-base font-semibold text-slate-900">{t.noExam}</p>
-              <p className="mt-2 text-sm text-slate-600">
-                {language === "it"
-                  ? "Crea almeno un target con data e materiale, poi torna qui per avviare una sessione utile."
-                  : "Create at least one target with a date and study material, then come back here to start a useful session."}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Link href="/planner/exams" className="planner-btn planner-btn-accent">
-                {t.openTargets}
-              </Link>
-              <Link href="/planner" className="planner-btn planner-btn-secondary">
-                {t.backToPlanner}
-              </Link>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-2">
               <label className="planner-field">
-                <span className="planner-eyebrow mb-1 block">{t.targetExam}</span>
+                <span className="planner-eyebrow mb-1 block">{t.objective}</span>
                 <select
                   value={selectedExam?.examId ?? ""}
                   onChange={(event) => setSelectedExamId(event.target.value)}
@@ -366,7 +459,6 @@ export default function PlannerFocusPage() {
                   ))}
                 </select>
               </label>
-
               <label className="planner-field">
                 <span className="planner-eyebrow mb-1 block">{t.availableTime}</span>
                 <select
@@ -381,7 +473,168 @@ export default function PlannerFocusPage() {
                   <option value="120">120 min</option>
                 </select>
               </label>
+            </div>
 
+            {selectedExam ? (
+              <>
+                <article className="planner-card bg-slate-50/90">
+                  <p className="planner-chip border-slate-200 bg-white text-slate-700">
+                    {selectedExam.subjectName}
+                  </p>
+                  <h2 className="mt-3 text-xl font-black tracking-tight text-slate-900">
+                    {selectedExam.examTitle}
+                  </h2>
+                  <p className="mt-2 text-sm text-slate-600">{selectedExam.paceDescription}</p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="planner-card-soft bg-white">
+                      <p className="planner-eyebrow">{t.suggested}</p>
+                      <p className="mt-1 text-lg font-semibold text-slate-900">
+                        {suggestedMinutes ?? selectedExam.dailyTargetMinutes} {t.minutes}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-600">{t.suggestedHint}</p>
+                    </div>
+                    <div className="planner-card-soft bg-white">
+                      <p className="planner-eyebrow">{t.dailyTarget}</p>
+                      <p className="mt-1 text-lg font-semibold text-slate-900">
+                        {selectedExam.dailyTargetPages} {t.pages}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {selectedExam.dailyTargetMinutes} {t.minutes}
+                      </p>
+                    </div>
+                    <div className="planner-card-soft bg-white">
+                      <p className="planner-eyebrow">{t.materials}</p>
+                      <p className="mt-1 text-lg font-semibold text-slate-900">
+                        {selectedExam.linkedMaterialsCount}
+                      </p>
+                      <p className="text-xs text-slate-500">{selectedExam.scopeSummary}</p>
+                    </div>
+                    <div className="planner-card-soft bg-white">
+                      <p className="planner-eyebrow">{t.nextStep}</p>
+                      <p className="mt-1 text-sm text-slate-700">
+                        {selectedExam.nextSteps[0] ?? selectedExam.paceDescription}
+                      </p>
+                    </div>
+                  </div>
+                </article>
+                <article className="planner-card bg-slate-50/90">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <p className="planner-eyebrow">{t.weeklyTime}</p>
+                      <p className="mt-1 text-lg font-semibold text-slate-900">
+                        {selectedExam.weeklyAllocationHours} {t.hours}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="planner-eyebrow">{t.lastStudy}</p>
+                      <p className="mt-1 text-sm text-slate-700">
+                        {selectedExam.studyLogSummary.lastTopic || t.noMessage}
+                      </p>
+                    </div>
+                  </div>
+                </article>
+              </>
+            ) : null}
+          </div>
+
+          <article className="planner-timer-card">
+            <div className="planner-timer-meta">
+              <p className="planner-eyebrow">{t.timer}</p>
+              <p className="mt-2 text-sm text-slate-600">{t.timerHint}</p>
+            </div>
+            <div
+              className="planner-timer-ring"
+              style={{
+                background: `conic-gradient(var(--accent) ${progressPercent * 3.6}deg, rgba(var(--accent-rgb), 0.12) 0deg)`,
+              }}
+            >
+              <div className="planner-timer-core">
+                <span className="planner-timer-value">
+                  {String(minutesLeft).padStart(2, "0")}:{String(secondsLeft).padStart(2, "0")}
+                </span>
+                <span className="planner-timer-caption">
+                  {sessionStage === "paused"
+                    ? t.paused
+                    : sessionStage === "review"
+                      ? t.reviewTitle
+                      : t.timer}
+                </span>
+              </div>
+            </div>
+            <div className="mt-5 grid gap-2 sm:grid-cols-3">
+              {presetMeta.map((preset) => (
+                <button
+                  key={preset.minutes}
+                  type="button"
+                  onClick={() => {
+                    setFocusMinutes(preset.minutes);
+                    if (sessionStage !== "running") {
+                      setFocusSecondsLeft(preset.minutes * 60);
+                    }
+                  }}
+                  disabled={sessionStage === "review"}
+                  className={`planner-card text-left ${
+                    focusMinutes === preset.minutes
+                      ? "border-sky-300 bg-sky-50"
+                      : "bg-white hover:bg-slate-50"
+                  } ${sessionStage === "review" ? "cursor-not-allowed opacity-60" : ""}`}
+                >
+                  <p className="text-sm font-bold text-slate-900">{preset.minutes} min</p>
+                  <p className="text-xs text-slate-600">{preset.label}</p>
+                  <p className="mt-1 text-xs text-slate-500">{preset.hint}</p>
+                </button>
+              ))}
+            </div>
+            <div className="mt-5 flex flex-wrap justify-center gap-2">
+              <button type="button" onClick={startSession} className="planner-btn planner-btn-accent">
+                {sessionStage === "paused" ? t.resume : t.start}
+              </button>
+              <button
+                type="button"
+                onClick={pauseSession}
+                disabled={sessionStage !== "running"}
+                className="planner-btn planner-btn-secondary"
+              >
+                {t.pause}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSessionStage("review");
+                  setSessionOutcome("partial");
+                }}
+                disabled={sessionStage === "review"}
+                className="planner-btn planner-btn-secondary"
+              >
+                {t.stop}
+              </button>
+              <button
+                type="button"
+                onClick={skipToday}
+                className="planner-btn planner-btn-secondary"
+              >
+                {t.skip}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFocusMinutes((current) => current + 10);
+                  setFocusSecondsLeft((current) => current + 10 * 60);
+                }}
+                disabled={sessionStage === "review"}
+                className="planner-btn planner-btn-secondary"
+              >
+                {t.addTenMinutes}
+              </button>
+            </div>
+          </article>
+        </div>
+
+        {sessionStage === "review" ? (
+          <article className="planner-card border border-slate-200 bg-white">
+            <h3 className="text-lg font-black text-slate-900">{t.reviewTitle}</h3>
+            <p className="mt-1 text-sm text-slate-600">{t.reviewBody}</p>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
               <label className="planner-field">
                 <span className="planner-eyebrow mb-1 block">{t.topic}</span>
                 <input
@@ -392,7 +645,6 @@ export default function PlannerFocusPage() {
                   className="planner-input"
                 />
               </label>
-
               <label className="planner-field">
                 <span className="planner-eyebrow mb-1 block">{t.pagesInput}</span>
                 <input
@@ -404,146 +656,27 @@ export default function PlannerFocusPage() {
                 />
               </label>
             </div>
-
-            {selectedExam ? (
-              <div className="grid gap-3 md:grid-cols-3">
-                <div className="planner-card-soft bg-white">
-                  <p className="planner-eyebrow">{t.suggested}</p>
-                  <p className="mt-1 text-lg font-semibold text-slate-900">
-                    {suggestedMinutes ?? selectedExam.dailyTargetMinutes} {t.minutes}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-600">{t.suggestedHint}</p>
-                </div>
-                <div className="planner-card-soft bg-white">
-                  <p className="planner-eyebrow">{t.dailyTarget}</p>
-                  <p className="mt-1 text-lg font-semibold text-slate-900">
-                    {selectedExam.dailyTargetPages} {t.pages}
-                  </p>
-                </div>
-                <div className="planner-card-soft bg-white">
-                  <p className="planner-eyebrow">{t.weeklyTime}</p>
-                  <p className="mt-1 text-lg font-semibold text-slate-900">
-                    {selectedExam.weeklyAllocationHours} h
-                  </p>
-                </div>
-              </div>
-            ) : null}
-
-            <div className="planner-card bg-gradient-to-br from-sky-50 to-cyan-50">
-              <p className="planner-eyebrow">{t.timer}</p>
-              <p className="mt-1 text-5xl font-extrabold tracking-tight text-slate-900">
-                {String(minutesLeft).padStart(2, "0")}:{String(secondsLeft).padStart(2, "0")}
-              </p>
-            </div>
-
-            <div className="grid gap-2 sm:grid-cols-3">
-              {FOCUS_PRESETS.map((preset) => (
-                <button
-                  key={preset.minutes}
-                  type="button"
-                  onClick={() => {
-                    setFocusMinutes(preset.minutes);
-                    if (!focusRunning) {
-                      setFocusSecondsLeft(preset.minutes * 60);
-                    }
-                  }}
-                  disabled={focusRunning}
-                  className={`planner-card text-left ${
-                    focusMinutes === preset.minutes
-                      ? "border-sky-300 bg-sky-50"
-                      : "bg-white hover:bg-slate-50"
-                  } ${focusRunning ? "cursor-not-allowed opacity-60" : ""}`}
-                >
-                  <p className="text-sm font-bold text-slate-900">{preset.minutes} min</p>
-                  <p className="text-xs text-slate-600">{preset.label}</p>
-                  <p className="mt-1 text-xs text-slate-500">{preset.subtitle}</p>
-                </button>
-              ))}
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={startSession} className="planner-btn planner-btn-accent">
-                {t.start}
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void submitReview()}
+                className="planner-btn planner-btn-accent"
+              >
+                {sessionOutcome === "completed" ? t.saveCompleted : t.savePartial}
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  setFocusRunning(false);
-                  setMessage(t.paused);
+                  setSessionStage("paused");
+                  setSessionOutcome(null);
                 }}
                 className="planner-btn planner-btn-secondary"
               >
-                {t.pause}
+                {t.cancelReview}
               </button>
-              <button
-                type="button"
-                onClick={() => void finishSession("partial")}
-                className="planner-btn planner-btn-secondary"
-              >
-                {t.stop}
-              </button>
-              <button
-                type="button"
-                onClick={() => void finishSession("skipped")}
-                className="planner-btn planner-btn-secondary"
-              >
-                {t.skip}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!focusRunning) return;
-                  setFocusMinutes((current) => current + 10);
-                  setFocusSecondsLeft((current) => current + 10 * 60);
-                }}
-                className="planner-btn planner-btn-secondary"
-              >
-                {t.addTenMinutes}
-              </button>
-              {suggestedMinutes ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const cappedMinutes = Math.min(
-                      suggestedMinutes,
-                      Number(availableTimeMinutes),
-                    );
-                    setFocusMinutes(cappedMinutes);
-                    setFocusSecondsLeft(cappedMinutes * 60);
-                  }}
-                  className="planner-btn planner-btn-secondary"
-                >
-                  {t.suggested}: {suggestedMinutes} {t.minutes}
-                </button>
-              ) : null}
             </div>
-
-            <div>
-              <p className="planner-eyebrow">{t.progressStrip}</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {overview.examRecommendations.map((exam) => (
-                  <button
-                    key={exam.examId}
-                    type="button"
-                    onClick={() => setSelectedExamId(exam.examId)}
-                    className="planner-chip border-slate-200 bg-white text-slate-700"
-                  >
-                    {exam.subjectName}: {exam.completionPercent}%
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {selectedExam ? (
-              <div className="planner-card bg-slate-50/90">
-                <p className="planner-eyebrow">{selectedExam.examTitle}</p>
-                <p className="mt-1 text-sm text-slate-700">
-                  {selectedExam.studyLogSummary.lastTopic || t.noMessage}
-                </p>
-              </div>
-            ) : null}
-          </div>
-        )}
+          </article>
+        ) : null}
       </section>
 
       {message ? (

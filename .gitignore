@@ -48,9 +48,10 @@ prisma/*.db
 prisma/*.db-journal
 *.sqlite
 *.sqlite3
+qa/artifacts/
+test-results/
+*.log
+build_output.txt
 
 # local-only documentation (keep off GitHub for now)
 README.dev.md
-docs/*.md
-docs/**/*.md
-AGENTS.md

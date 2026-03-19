@@ -1,25 +1,26 @@
 # StudyApp
 
-StudyApp is a planning platform for students in high school and beyond.
+StudyApp is an adaptive planning platform for students in high school, university, and self-study.
 
-The objective is simple: convert study material (books, notes, topics) into a realistic weekly plan that helps users reach exam dates with stronger preparation and lower stress.
+The objective is simple: convert study material, links, and student notes into a realistic weekly plan that helps users reach study goals with stronger preparation and lower stress.
 
 ## Why This Project
 
 - Students often know what to study but not how to pace it.
-- This app translates workload into concrete weekly effort.
+- This app translates workload into concrete weekly effort and daily actions.
 - The roadmap includes AI support for study guidance and content understanding.
 
 ## Current MVP Scope
 
 - Health endpoint to verify server and DB connectivity.
 - Cookie-based authentication (register, login, logout, current session).
-- Protected planner area with split feature pages (overview, focus, profile, subjects, exams, estimate).
+- Protected planner area with split feature pages (planner, study today, profile, subjects, objectives).
 - Student profile update with weekly study capacity.
 - Subject creation and listing for authenticated user.
-- Exam creation and listing for authenticated user.
+- Goal creation and listing for authenticated user.
 - Stochastic planning estimate with personalized calibration hooks.
 - Focus lock timer with XP/streak reward loop.
+- Rights-safe material discovery for public PDF/HTML links plus user-provided uploads.
 - Responsive UI flow with dedicated pages instead of a single long console.
 
 ## Tech Stack
@@ -38,13 +39,14 @@ The objective is simple: convert study material (books, notes, topics) into a re
 npm install
 ```
 
-2. Copy env defaults and enable one-click dev access if you want the browser shortcut
+2. Copy env defaults and decide how you want to enter the app
 
 ```bash
 cp .env.example .env.local
 ```
 
-Set `DEV_BOOTSTRAP_ENABLED=true` in `.env.local` to show the `Enter dev app` button on `/` and `/login`.
+Set `DEV_BOOTSTRAP_ENABLED=true` in `.env.local` only if you want the browser shortcut on `/` and `/login`.
+For stable QA, prefer the seeded login flow described below.
 
 3. Start the app
 
@@ -56,12 +58,22 @@ npm run dev
 Use `localhost`, not `127.0.0.1`, as the canonical local origin.
 No Python or `venv` is required for the normal local flow.
 
-4. Open the app
+4. Seed test data for visual QA and browser flows
+
+```bash
+npm run seed:simulation
+```
+
+Seeded login:
+- `simulation-balanced@studyapp.local`
+- `StudyApp2026!`
+
+5. Open the app
 
 Open `http://localhost:3000`.
-If `DEV_BOOTSTRAP_ENABLED=true`, click `Enter dev app` on the homepage or login page to create a browser session and jump to `/planner`.
+You can still use `Enter dev app` when the dev bootstrap flag is enabled, but seeded login is the preferred testing path.
 
-5. First-run database sync only when needed
+6. First-run database sync only when needed
 
 ```bash
 npx prisma migrate dev
@@ -69,6 +81,13 @@ npx prisma generate
 ```
 
 `AUTH_SECRET` is optional in local development because the app falls back to a dev-only secret outside production.
+
+## Visual QA Workflow
+
+- `npm run test:visual` captures screenshots for the key routes and saves them outside git in `qa/artifacts/screenshots/`.
+- `npm run demo:record` records the demo flow and writes website-ready `MP4` and `GIF` artifacts to `qa/artifacts/demos/`.
+- The visual manifest lives in `qa/visual/manifest.ts`.
+- The demo flow still records frames first, then encodes them locally so the route manifest stays reusable.
 
 ## API Endpoints (MVP)
 
@@ -108,6 +127,7 @@ npx prisma generate
 - Keep auth/testing shortcuts behind explicit dev-only environment flags.
 - Keep public docs free of sensitive account details or personal access data.
 - Keep mascot and visual assets under open-source compatible licensing.
+- Keep generated QA screenshots and demo artifacts out of git.
 
 ## Contribution
 

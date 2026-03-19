@@ -1,25 +1,26 @@
 import { defineConfig, devices } from "@playwright/test";
+
 import { resolveTcpDatabaseUrl } from "./playwright.shared";
 
 const tcpDatabaseUrl = resolveTcpDatabaseUrl();
 
 export default defineConfig({
-  testDir: "./qa/e2e",
+  testDir: "./qa/visual",
+  testMatch: "capture.spec.ts",
   timeout: 120_000,
   expect: {
     timeout: 10_000,
   },
-  testMatch: "**/*.spec.ts",
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   workers: 1,
   use: {
-    baseURL: "http://127.0.0.1:3100",
-    viewport: { width: 1280, height: 720 },
+    baseURL: "http://127.0.0.1:3200",
+    viewport: { width: 1440, height: 960 },
     actionTimeout: 30_000,
-    trace: "retain-on-failure",
-    screenshot: "only-on-failure",
-    video: "retain-on-failure",
+    trace: "off",
+    screenshot: "off",
+    video: "off",
   },
   projects: [
     {
@@ -30,8 +31,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npx next start --hostname 127.0.0.1 -p 3100",
-    port: 3100,
+    command: "npx next start --hostname 127.0.0.1 -p 3200",
+    port: 3200,
     reuseExistingServer: false,
     timeout: 120_000,
     env: {

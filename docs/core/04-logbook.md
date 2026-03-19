@@ -5257,3 +5257,120 @@ pm run lint\ ? 0 errors, 0 warnings.
 
 - First command/file: add Playwright coverage for dev-bootstrap fallback, focus empty state, and target postpone/material flows.
 - Next owner: QA/Reliability.
+
+---
+
+## Entry - PHASE-7-VISUAL-QA-001 Material + Visual QA Foundation
+
+- Date: 2026-03-19
+- Task ID: PHASE-7-VISUAL-QA-001
+- Role: Builder + Reviewer
+- Owner: Codex
+
+### Decisions Taken
+
+- Added a conservative material-link inspector that only accepts public http/https PDF and HTML links.
+- Kept the visual QA flow artifact-driven and outside git, with explicit screenshot and demo manifests.
+- Used seeded login as the default browser QA entrypoint.
+
+### What Was Done
+
+- Added safe material extraction foundation:
+  - `src/server/services/material-link-inspector.ts`
+- Added visual QA manifest, capture, and demo pipelines:
+  - `qa/visual/manifest.ts`
+  - `qa/visual/helpers.ts`
+  - `qa/visual/capture.spec.ts`
+  - `qa/visual/demo-record.spec.ts`
+  - `playwright.shared.ts`
+  - `playwright.visual.config.ts`
+  - `playwright.demo.config.ts`
+- Updated repo workflow docs:
+  - `README.md`
+  - `.gitignore`
+  - `package.json`
+- Added QA evidence/reporting:
+  - `tests/unit/material-link-inspector.test.ts`
+  - `qa/reports/PHASE-7-VISUAL-QA-001-qa-gate-2026-03-19.md`
+- Repaired the planner focus page after a concurrent truncation issue so the build could pass again:
+  - `src/app/planner/focus/page.tsx`
+
+### Evidence
+
+- Lint: `npm run lint` passed.
+- Build: `npm run build` passed.
+- Tests: `npm run test:unit` passed.
+- Manual checks:
+  - `npm run test:visual` passed and wrote screenshots outside git
+  - `npm run demo:record` passed and wrote demo artifacts outside git
+
+### Residual Risks
+
+- The material inspector is intentionally conservative and not yet wired into the live creation flow.
+- Visual capture still depends on seeded login staying deterministic across future auth changes.
+
+### Assumptions
+
+- `qa/artifacts/` stays ignored and is the canonical local review output location.
+- Seeded login remains the standard QA path while dev bootstrap is treated as secondary.
+
+### Next Action (Concrete)
+
+- First command/file: wire the material inspector into the material creation flow when the owning surface is ready.
+- Next owner: Material/UX track.
+
+---
+
+## Entry - PHASE-7-PLANNER-COACH-001 Planner Coach + Study Today Refactor
+
+- Date: 2026-03-19
+- Task ID: PHASE-7-PLANNER-COACH-001
+- Role: Builder + Reviewer
+- Owner: Codex
+
+### Decisions Taken
+
+- Kept the planner server-driven and treated the new circular metrics as a presentation layer over existing planner payload values.
+- Moved study outcome capture after the timer flow so `Studia oggi` behaves like a real focus session instead of a pre-session form.
+- Refreshed planner overview on focus-progress revisions so study logging updates the planner without a manual reload.
+
+### What Was Done
+
+- Reworked planner overview into a student-coach summary:
+  - `src/app/planner/page.tsx`
+- Rebuilt `Studia oggi` around a dominant timer, review state, and materials-aware context:
+  - `src/app/planner/focus/page.tsx`
+- Refreshed planner data whenever focus progress emits a revision:
+  - `src/app/planner/_hooks/use-planner-overview.ts`
+- Added the circular metrics and timer styles used by planner/focus:
+  - `src/app/globals.css`
+- Added the governing slice spec:
+  - `docs/specs/PHASE-7-PLANNER-COACH-001.md`
+
+### Evidence
+
+- Lint: `npm run lint` passed.
+- Build: `npm run build` passed.
+- Tests:
+  - `npm run test:unit` passed
+  - `npm run test:visual` passed
+  - `npm run demo:record` passed
+- Manual checks:
+  - planner overview now uses `Obiettivi / Piano di studio / Studia oggi`
+  - focus logging updates planner overview through revision propagation
+  - study pages/topic are requested only in the post-session review step
+
+### Residual Risks
+
+- The new circular metrics are presentation-only and still depend on the current planner payload quality.
+- The focus timer still uses client-side timing and does not yet persist pause/resume state across reloads.
+
+### Assumptions
+
+- The hero metrics are intentionally limited to the planner summary and should not spread across every planner surface in this slice.
+- Material context shown in planner/focus should reflect linked materials count and scope summary without adding new business logic to UI components.
+
+### Next Action (Concrete)
+
+- First command/file: continue with `PHASE-7-OBJECTIVES-001` to finish the objective setup flow and study rhythm UI.
+- Next owner: Product/UI track.
