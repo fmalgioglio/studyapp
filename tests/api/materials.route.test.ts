@@ -5,7 +5,7 @@ const examFindFirstMock = vi.fn();
 const materialCreateMock = vi.fn();
 const materialFindFirstMock = vi.fn();
 const materialUpdateMock = vi.fn();
-const inspectPublicMaterialLinkMock = vi.fn();
+const enrichMaterialFromLinkMock = vi.fn();
 const isSupportedMaterialLinkMock = vi.fn();
 
 vi.mock("@/server/auth/require-session", () => ({
@@ -26,7 +26,7 @@ vi.mock("@/server/db/client", () => ({
 }));
 
 vi.mock("@/server/services/material-link-inspector", () => ({
-  inspectPublicMaterialLink: inspectPublicMaterialLinkMock,
+  enrichMaterialFromLink: enrichMaterialFromLinkMock,
   isSupportedMaterialLink: isSupportedMaterialLinkMock,
 }));
 
@@ -79,10 +79,12 @@ describe("/api/materials", () => {
     });
     examFindFirstMock.mockResolvedValue({ id: "exam-1", subjectId: "subject-1" });
     isSupportedMaterialLinkMock.mockReturnValue(true);
-    inspectPublicMaterialLinkMock.mockResolvedValue({
-      extractionSummary: "Estimated from linked material preview.",
-      scopeHints: ["about 42 pages in scope"],
+    enrichMaterialFromLinkMock.mockResolvedValue({
+      analysis: null,
+      availabilityHint: "Estimated from linked material preview.",
       estimatedScopePages: 42,
+      notes: "Planner scope estimate added from the linked public page.",
+      verificationLevel: "DISCOVERED",
     });
     materialCreateMock.mockResolvedValue({
       id: "material-1",
@@ -99,9 +101,9 @@ describe("/api/materials", () => {
       fileSizeBytes: null,
       licenseHint: null,
       availabilityHint: "Estimated from linked material preview.",
-      verificationLevel: "USER_PROVIDED",
+      verificationLevel: "DISCOVERED",
       estimatedScopePages: 42,
-      notes: "Estimated from linked material preview. | about 42 pages in scope",
+      notes: "Planner scope estimate added from the linked public page.",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       subject: {
@@ -133,16 +135,14 @@ describe("/api/materials", () => {
     const body = await response.json();
 
     expect(response.status).toBe(201);
-    expect(inspectPublicMaterialLinkMock).toHaveBeenCalledWith({
-      url: "https://example.edu/handout.html",
-      titleHint: "Official handout",
-    });
+    expect(enrichMaterialFromLinkMock).toHaveBeenCalled();
     expect(materialCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           estimatedScopePages: 42,
           availabilityHint: "Estimated from linked material preview.",
-          notes: "Estimated from linked material preview. | about 42 pages in scope",
+          verificationLevel: "DISCOVERED",
+          notes: "Planner scope estimate added from the linked public page.",
         }),
       }),
     );

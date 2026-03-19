@@ -5377,6 +5377,56 @@ pm run lint\ ? 0 errors, 0 warnings.
 
 ---
 
+## Entry - PHASE-7-MATERIAL-INTELLIGENCE-001 Link Enrichment Wiring
+
+- Date: 2026-03-19
+- Task ID: PHASE-7-MATERIAL-INTELLIGENCE-001
+- Role: Builder + Reviewer
+- Owner: Codex
+
+### Decisions Taken
+
+- Reused the conservative material-link inspector as the canonical enrichment path instead of duplicating derivation logic in the route.
+- Kept manual student input dominant over derived metadata.
+- Refreshed derived values on edit as well as create, because the planner engine already depends on linked material page estimates.
+
+### What Was Done
+
+- Extended the link inspector with a reusable enrichment helper:
+  - `src/server/services/material-link-inspector.ts`
+- Wired material create/update flows to keep derived hints aligned with the latest public link:
+  - `src/app/api/materials/route.ts`
+- Added coverage for enrichment and manual-override behavior:
+  - `tests/unit/material-link-inspector.test.ts`
+  - `tests/api/materials.route.test.ts`
+- Added the governing slice spec:
+  - `docs/specs/PHASE-7-MATERIAL-INTELLIGENCE-001.md`
+
+### Evidence
+
+- Lint: `npm run lint` passed.
+- Tests: `npm run test:unit` passed.
+- Manual checks:
+  - linked material creation can derive `estimatedScopePages`, `availabilityHint`, and a planning note from a public PDF/HTML link
+  - linked material updates now refresh the derived hints instead of leaving stale values behind
+
+### Residual Risks
+
+- This slice still stores only compact derived hints; it does not persist extracted text or section structure.
+- The API still rejects non-public links for linked materials, so some private course portals remain metadata-only or unsupported.
+
+### Assumptions
+
+- Derived metadata should improve planner scope quality without changing the student-visible material schema.
+- The conservative public-link policy remains stricter than generic bookmarking by design.
+
+### Next Action (Concrete)
+
+- First command/file: continue with `PHASE-7-OBJECTIVES-001` so the enriched materials are surfaced more clearly inside the objective setup flow.
+- Next owner: Product/UI track.
+
+---
+
 ## Entry - PHASE-7-MATERIAL-INTELLIGENCE-001 Live Material Inspector Wiring
 
 - Date: 2026-03-19

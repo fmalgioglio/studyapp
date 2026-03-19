@@ -4,7 +4,7 @@ import { requireSession } from "@/server/auth/require-session";
 import { prisma } from "@/server/db/client";
 import { apiError, apiSuccess, getErrorDetails } from "@/server/http/response";
 import {
-  inspectPublicMaterialLink,
+  enrichMaterialFromLink,
   isSupportedMaterialLink,
 } from "@/server/services/material-link-inspector";
 import {
@@ -21,6 +21,13 @@ type LinkedMaterialEnrichment =
       estimatedScopePages: number | null | undefined;
       availabilityHint: string | null | undefined;
       notes: string | null | undefined;
+      verificationLevel:
+        | "VERIFIED"
+        | "OFFICIAL"
+        | "USER_PROVIDED"
+        | "DISCOVERED"
+        | null
+        | undefined;
     }
   | {
       error: string;
@@ -55,12 +62,19 @@ async function enrichLinkedMaterial(input: {
   estimatedScopePages?: number | null;
   availabilityHint?: string | null;
   notes?: string | null;
+  verificationLevel?:
+    | "VERIFIED"
+    | "OFFICIAL"
+    | "USER_PROVIDED"
+    | "DISCOVERED"
+    | null;
 }): Promise<LinkedMaterialEnrichment> {
   if (!input.url || input.origin === "USER_UPLOAD") {
     return {
       estimatedScopePages: input.estimatedScopePages ?? null,
       availabilityHint: input.availabilityHint ?? null,
       notes: input.notes ?? null,
+      verificationLevel: input.verificationLevel ?? null,
     };
   }
 
@@ -71,27 +85,21 @@ async function enrichLinkedMaterial(input: {
   }
 
   try {
-    const analysis = await inspectPublicMaterialLink({
+    return await enrichMaterialFromLink({
+      title: input.title,
       url: input.url,
-      titleHint: input.title,
+      origin: input.origin as "OPEN_VERIFIED" | "OFFICIAL_SOURCE" | "USER_LINK",
+      estimatedScopePages: input.estimatedScopePages ?? null,
+      availabilityHint: input.availabilityHint ?? null,
+      notes: input.notes ?? null,
+      verificationLevel: input.verificationLevel ?? null,
     });
-
-    const generatedNotes = [analysis.extractionSummary, ...analysis.scopeHints]
-      .filter(Boolean)
-      .slice(0, 2)
-      .join(" | ");
-
-    return {
-      estimatedScopePages:
-        input.estimatedScopePages ?? analysis.estimatedScopePages ?? null,
-      availabilityHint: input.availabilityHint ?? analysis.extractionSummary,
-      notes: input.notes ?? (generatedNotes || null),
-    };
   } catch {
     return {
       estimatedScopePages: input.estimatedScopePages ?? null,
       availabilityHint: input.availabilityHint ?? null,
       notes: input.notes ?? null,
+      verificationLevel: input.verificationLevel ?? null,
     };
   }
 }
@@ -274,6 +282,7 @@ export async function POST(request: Request) {
       estimatedScopePages: parsed.data.estimatedScopePages ?? null,
       availabilityHint: parsed.data.availabilityHint ?? null,
       notes: parsed.data.notes ?? null,
+      verificationLevel: parsed.data.verificationLevel ?? null,
     });
 
     if ("error" in enriched) {
@@ -295,6 +304,7 @@ export async function POST(request: Request) {
         licenseHint: parsed.data.licenseHint ?? null,
         availabilityHint: enriched.availabilityHint,
         verificationLevel:
+          enriched.verificationLevel ??
           parsed.data.verificationLevel ??
           (parsed.data.origin === "OPEN_VERIFIED"
             ? "OFFICIAL"
@@ -378,6 +388,10 @@ export async function PATCH(request: Request) {
         origin: true,
         url: true,
         title: true,
+        notes: true,
+        availabilityHint: true,
+        verificationLevel: true,
+        estimatedScopePages: true,
       },
     });
 
@@ -392,13 +406,17 @@ export async function PATCH(request: Request) {
       title: parsed.data.title ?? existing.title,
       estimatedScopePages:
         parsed.data.estimatedScopePages === undefined
-          ? undefined
+          ? existing.estimatedScopePages
           : parsed.data.estimatedScopePages ?? null,
       availabilityHint:
         parsed.data.availabilityHint === undefined
-          ? undefined
+          ? existing.availabilityHint
           : parsed.data.availabilityHint ?? null,
-      notes: parsed.data.notes === undefined ? undefined : parsed.data.notes ?? null,
+      notes: parsed.data.notes === undefined ? existing.notes : parsed.data.notes ?? null,
+      verificationLevel:
+        parsed.data.verificationLevel === undefined
+          ? existing.verificationLevel
+          : parsed.data.verificationLevel ?? null,
     });
 
     if ("error" in enriched) {
@@ -427,16 +445,10 @@ export async function PATCH(request: Request) {
           parsed.data.licenseHint === undefined
             ? undefined
             : parsed.data.licenseHint ?? null,
-        availabilityHint:
-          parsed.data.availabilityHint === undefined
-            ? undefined
-            : enriched.availabilityHint,
-        verificationLevel: parsed.data.verificationLevel,
-        estimatedScopePages:
-          parsed.data.estimatedScopePages === undefined
-            ? undefined
-            : enriched.estimatedScopePages,
-        notes: parsed.data.notes === undefined ? undefined : enriched.notes,
+        availabilityHint: enriched.availabilityHint,
+        verificationLevel: enriched.verificationLevel ?? existing.verificationLevel,
+        estimatedScopePages: enriched.estimatedScopePages,
+        notes: enriched.notes,
       },
       select: {
         id: true,
