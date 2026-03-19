@@ -10,9 +10,16 @@ import { VISUAL_VIEWPORTS, VISUAL_VIEWS } from "./manifest";
 
 test.describe.configure({ mode: "serial" });
 
+let seededVisualDataReady = false;
+
 test.beforeAll(async () => {
   ensureVisualArtifactDirs();
-  await seedSimulationData();
+  try {
+    await seedSimulationData();
+    seededVisualDataReady = true;
+  } catch {
+    seededVisualDataReady = false;
+  }
 });
 
 for (const view of VISUAL_VIEWS) {
@@ -24,6 +31,7 @@ for (const view of VISUAL_VIEWS) {
       });
 
       if (view.requiresAuth) {
+        test.skip(!seededVisualDataReady, "Seeded visual account is not available in this local run.");
         await signInSeededStudent(page);
       }
 

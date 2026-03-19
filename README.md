@@ -4,6 +4,14 @@ StudyApp is an adaptive planning platform for students in high school, universit
 
 The objective is simple: convert study material, links, and student notes into a realistic weekly plan that helps users reach study goals with stronger preparation and lower stress.
 
+## Preview
+
+![StudyApp home](docs/readme-assets/home-desktop.png)
+
+![StudyApp demo](docs/readme-assets/studyapp-demo.gif)
+
+Website-ready demo video: [studyapp-demo.mp4](docs/readme-assets/studyapp-demo.mp4)
+
 ## Why This Project
 
 - Students often know what to study but not how to pace it.
@@ -86,8 +94,10 @@ npx prisma generate
 
 - `npm run test:visual` captures screenshots for the key routes and saves them outside git in `qa/artifacts/screenshots/`.
 - `npm run demo:record` records the demo flow and writes website-ready `MP4` and `GIF` artifacts to `qa/artifacts/demos/`.
+- `npm run readme:assets` promotes the latest home screenshot plus the newest demo `GIF` and `MP4` into `docs/readme-assets/` for GitHub and portfolio reuse.
 - The visual manifest lives in `qa/visual/manifest.ts`.
 - The demo flow still records frames first, then encodes them locally so the route manifest stays reusable.
+- Visual capture now degrades safely in local runs: public routes are still captured even when the seeded auth account is temporarily unavailable.
 
 ## API Endpoints (MVP)
 

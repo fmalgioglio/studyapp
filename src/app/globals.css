@@ -642,11 +642,152 @@ textarea:focus {
     background: var(--s1-color-surface-soft);
   }
 
+  .home-dev-card {
+    border-radius: 1.5rem;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.86));
+    padding: 1rem;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
+  }
+
   .home-card {
     border-radius: var(--s1-radius-card);
     border: 1px solid var(--s1-color-border);
     background: var(--s1-color-surface);
     box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+  }
+
+  .home-story-panel {
+    position: relative;
+    display: grid;
+    gap: 1rem;
+    padding: 1.2rem;
+    border-radius: calc(var(--s1-radius-card) + 0.5rem);
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    background:
+      radial-gradient(circle at top right, rgba(56, 189, 248, 0.18), transparent 38%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 250, 255, 0.88));
+    box-shadow:
+      0 18px 44px rgba(15, 23, 42, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  }
+
+  .home-story-header {
+    display: grid;
+    gap: 0.35rem;
+    padding: 0.2rem 0.15rem 0;
+  }
+
+  .home-story-kicker {
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #475569;
+  }
+
+  .home-story-intro {
+    max-width: 34ch;
+    font-size: 0.98rem;
+    line-height: 1.55;
+    color: #334155;
+  }
+
+  .home-story-grid {
+    display: grid;
+    gap: 0.95rem;
+  }
+
+  .home-story-card {
+    display: grid;
+    gap: 0.7rem;
+    min-height: 10.25rem;
+    padding: 1rem 1rem 1.05rem;
+    border-radius: 1.6rem;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.9));
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.06);
+  }
+
+  .home-story-card:first-child {
+    background:
+      radial-gradient(circle at top right, rgba(59, 130, 246, 0.12), transparent 34%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(239, 246, 255, 0.84));
+  }
+
+  .home-story-card:nth-child(2) .home-story-orbit {
+    background:
+      radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.95), rgba(191, 219, 254, 0.72));
+  }
+
+  .home-story-card:nth-child(3) .home-story-orbit {
+    background:
+      radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.95), rgba(165, 243, 252, 0.7));
+  }
+
+  .home-story-card:nth-child(4) .home-story-orbit {
+    background:
+      radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.95), rgba(196, 181, 253, 0.68));
+  }
+
+  .home-story-topline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .home-story-orbit {
+    display: inline-flex;
+    width: 2.55rem;
+    height: 2.55rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    border: 1px solid rgba(var(--accent-rgb), 0.24);
+    background:
+      radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.95), rgba(191, 219, 254, 0.72));
+    color: var(--s1-color-primary);
+    font-size: 0.83rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+  }
+
+  .home-story-tag {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2rem;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: rgba(255, 255, 255, 0.88);
+    padding: 0.32rem 0.82rem;
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: #475569;
+  }
+
+  .home-story-title {
+    max-width: 18ch;
+    color: #0f172a;
+    font-size: 1.18rem;
+    font-weight: 800;
+    line-height: 1.18;
+    letter-spacing: -0.02em;
+  }
+
+  .home-story-body {
+    color: #475569;
+    font-size: 0.92rem;
+    line-height: 1.58;
+  }
+
+  .home-story-meta {
+    margin-top: auto;
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--s1-color-primary);
   }
 
   .home-mascot-card {
@@ -781,6 +922,15 @@ textarea:focus {
     padding-top: 4rem;
     padding-bottom: 4rem;
   }
+
+  .home-story-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-story-card:first-child {
+    grid-column: 1 / -1;
+    min-height: 0;
+  }
 }
 
 @media (max-width: 900px) {
@@ -804,5 +954,13 @@ textarea:focus {
 
   .install-banner-actions {
     width: 100%;
+  }
+
+  .home-story-card {
+    min-height: 0;
+  }
+
+  .home-story-title {
+    max-width: none;
   }
 }

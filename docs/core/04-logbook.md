@@ -5524,6 +5524,55 @@ pm run lint\ ? 0 errors, 0 warnings.
 
 ---
 
+## Entry - PHASE-7-OBJECTIVES-FLOW-002 Goal-To-Materials Handoff Polish
+
+- Date: 2026-03-19
+- Task ID: PHASE-7-OBJECTIVES-FLOW-002
+- Role: Builder + Reviewer
+- Owner: Codex
+
+### Decisions Taken
+
+- Treated this as a local UX continuity slice, not a domain change: no API or planner-engine behavior changed.
+- Kept the guidance server-driven by reusing the created `Exam` payload instead of inventing new client-only business state.
+- Focused the slice on the weak handoff from goal creation to linked materials, because that was the main gap still visible in the `Obiettivi` flow.
+
+### What Was Done
+
+- Added a guided post-create handoff in:
+  - `src/app/planner/exams/page.tsx`
+- The newly created goal now:
+  - opens its edit context immediately
+  - scrolls into view
+  - shows a short "next step" callout that points the student to materials
+- Kept the linked materials area highlighted after material updates so the student stays anchored in the same workflow.
+
+### Evidence
+
+- Lint: `npm run lint` passed.
+- Tests: `npm run test:unit` passed.
+- Build: `npm run build` passed.
+- Manual checks:
+  - a newly created goal no longer leaves the user at the top of the page with no clear next action
+  - the goal card becomes the immediate working surface for linking materials
+
+### Residual Risks
+
+- The `Obiettivi` page still deserves a broader visual/layout pass for create vs list density.
+- `TargetMaterialManager` is improved but still uses a compact utility layout rather than a richer guided flow.
+
+### Assumptions
+
+- It is better to guide the student to the existing linked-materials surface than to duplicate material-entry UI inside the create form.
+- A small continuity improvement is the right next slice before a larger `Obiettivi` redesign.
+
+### Next Action (Concrete)
+
+- First command/file: continue refining `src/app/planner/_components/target-material-manager.tsx` and `src/app/home-page-client.tsx` for the next visual/product polish slice.
+- Next owner: Product/UI track.
+
+---
+
 ## Entry - PHASE-7-OBJECTIVES-001 Objective Materials Continuity Polish
 
 - Date: 2026-03-19
@@ -5568,3 +5617,54 @@ pm run lint\ ? 0 errors, 0 warnings.
 
 - First command/file: continue the remaining Phase 7 polish from `src/app/home-page-client.tsx` and the planner summary surfaces before final merge.
 - Next owner: Product/UI track.
+
+---
+
+## Entry - PHASE-7-VISUAL-QA-002 Home Story Refresh And README Media Delivery
+
+- Date: 2026-03-19
+- Task ID: PHASE-7-VISUAL-QA-002
+- Role: Builder + Reviewer
+- Owner: Codex
+
+### Decisions Taken
+
+- Reframed the right side of the home hero as a stronger product story instead of three generic utility blurbs.
+- Kept raw QA artifacts outside git, but promoted curated assets into a tracked README media folder for GitHub and portfolio reuse.
+- Made the visual capture suite resilient so public-route screenshots still run even when seeded auth data is temporarily unavailable.
+
+### What Was Done
+
+- Redesigned the home right-column copy and card structure:
+  - `src/app/home-page-client.tsx`
+  - `src/app/globals.css`
+- Added a small promotion script for stable README media:
+  - `scripts/promote-readme-assets.js`
+  - `package.json`
+- Updated README with live preview media and regeneration instructions:
+  - `README.md`
+- Hardened visual capture so it skips auth-only routes when local seeded login is unavailable instead of failing the whole run:
+  - `qa/visual/capture.spec.ts`
+
+### Evidence
+
+- Lint: `npm run lint` passed.
+- Build: `npm run build` passed.
+- Visual QA: `npm run test:visual` passed for public routes and safely skipped auth-required routes when the local seed account was unavailable.
+- Demo recording: `npm run demo:record` passed.
+- README asset promotion: `npm run readme:assets` passed.
+
+### Residual Risks
+
+- The promoted planner screenshot is still from the latest available desktop capture and should be refreshed again once auth visual capture is fully green locally.
+- The home hero now reads better, but broader marketing polish across the rest of the landing page can still go further.
+
+### Assumptions
+
+- A tracked `docs/readme-assets/` folder is acceptable for curated public-facing media, while `qa/artifacts/` remains local and gitignored.
+- Skipping auth views in degraded local visual QA is better than failing the entire screenshot job.
+
+### Next Action (Concrete)
+
+- First command/file: refresh the authenticated screenshot set once seeded visual auth is stable again, then continue merge prep from `README.md` and branch hygiene.
+- Next owner: Product/Release track.

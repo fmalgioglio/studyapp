@@ -13,6 +13,7 @@
     "test:e2e": "npm run build && playwright test --config playwright.config.ts",
     "test:visual": "npm run build && playwright test --config playwright.visual.config.ts",
     "demo:record": "npm run build && playwright test --config playwright.demo.config.ts",
+    "readme:assets": "node scripts/promote-readme-assets.js",
     "test:smoke": "powershell -ExecutionPolicy Bypass -File ./scripts/dev-smoke.ps1",
     "git:status": "git status -sb",
     "git:push": "git push -u origin main",

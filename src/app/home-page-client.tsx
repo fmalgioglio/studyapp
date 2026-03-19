@@ -14,14 +14,22 @@ const COPY = {
       "StudyApp keeps exam scope, weekly time, and real study sessions in one place so students can study better and still protect free time.",
     openStudyHub: "Open Planner",
     login: "Log in",
-    devNote: "Local development shortcut.",
-    devHint: "Open a browser session directly in the planner without going through signup.",
-    metric1: "Daily next step",
-    metric1Body: "See what to study today without rethinking the whole week.",
-    metric2: "Targets + materials",
-    metric2Body: "Keep exams, tests, oral checks, notes, books, and useful links together.",
-    metric3: "More calm, less chaos",
-    metric3Body: "Protect free time with a realistic pace instead of vague study intentions.",
+    devNote: "Local tools",
+    devHint: "Jump straight into the planner during development without going through signup.",
+    railTitle: "What the planner fixes",
+    railIntro: "StudyApp turns scattered material and vague intentions into one daily loop you can actually follow.",
+    metric1Tag: "Today-first",
+    metric1: "Start from one clear move, not from the whole mess.",
+    metric1Body: "Open Studia oggi and get one concrete block with the right objective, the right scope, and a pace you can keep.",
+    metric1Meta: "Clear start",
+    metric2Tag: "All in one place",
+    metric2: "Keep goals, books, notes, slides, and links attached.",
+    metric2Body: "Every exam, test, or oral check stays connected to the material you really need to cover, not lost across tabs and chats.",
+    metric2Meta: "Less searching",
+    metric3Tag: "Protected time",
+    metric3: "Push when it matters, keep evenings more open.",
+    metric3Body: "The weekly rhythm adapts to workload and real sessions so strong preparation does not consume all your free time.",
+    metric3Meta: "Lower stress",
   },
   it: {
     badge: "Planner studio adattivo",
@@ -30,15 +38,23 @@ const COPY = {
     description:
       "StudyApp tiene insieme perimetro dell'esame, tempo settimanale e sessioni di studio reali, cosi studi meglio e proteggi anche il tempo libero.",
     openStudyHub: "Apri Planner",
-    login: "Accesso",
-    devNote: "Scorciatoia locale di sviluppo.",
-    devHint: "Apre subito una sessione browser nel planner senza passare dal signup.",
-    metric1: "Prossimo passo chiaro",
-    metric1Body: "Vedi cosa studiare oggi senza ripensare ogni volta tutta la settimana.",
-    metric2: "Target + materiali",
-    metric2Body: "Tieni insieme esami, verifiche, interrogazioni, libri, appunti e link utili.",
-    metric3: "Meno caos, piu calma",
-    metric3Body: "Proteggi il tempo libero con un ritmo realistico invece di intenzioni vaghe.",
+    login: "Accedi",
+    devNote: "Strumenti locali",
+    devHint: "Entra subito nel planner durante lo sviluppo senza passare dal signup.",
+    railTitle: "Cosa sistema davvero il planner",
+    railIntro: "StudyApp trasforma materiale sparso e intenzioni vaghe in un loop quotidiano chiaro da seguire davvero.",
+    metric1Tag: "Parti da oggi",
+    metric1: "Parti da un passo chiaro, non da tutto il caos insieme.",
+    metric1Body: "Apri Studia oggi e trovi un blocco concreto con l'obiettivo giusto, il materiale giusto e un ritmo che riesci a seguire.",
+    metric1Meta: "Partenza chiara",
+    metric2Tag: "Tutto collegato",
+    metric2: "Tieni insieme obiettivi, libri, appunti, slide e link.",
+    metric2Body: "Ogni esame, verifica o interrogazione resta collegato al materiale che devi davvero coprire, non disperso tra schede e chat.",
+    metric2Meta: "Meno ricerca",
+    metric3Tag: "Tempo protetto",
+    metric3: "Spingi quando conta, tieni piu libere le serate.",
+    metric3Body: "Il ritmo settimanale si adatta al carico e alle sessioni reali cosi una buona preparazione non si mangia tutto il tempo libero.",
+    metric3Meta: "Meno stress",
   },
 } as const;
 
@@ -51,6 +67,29 @@ export default function HomePageClient({
 }: HomePageClientProps) {
   const { language } = useUiLanguage("en");
   const t = COPY[language];
+  const storyCards = [
+    {
+      id: "01",
+      tag: t.metric1Tag,
+      title: t.metric1,
+      body: t.metric1Body,
+      meta: t.metric1Meta,
+    },
+    {
+      id: "02",
+      tag: t.metric2Tag,
+      title: t.metric2,
+      body: t.metric2Body,
+      meta: t.metric2Meta,
+    },
+    {
+      id: "03",
+      tag: t.metric3Tag,
+      title: t.metric3,
+      body: t.metric3Body,
+      meta: t.metric3Meta,
+    },
+  ];
 
   return (
     <main className="home-shell">
@@ -80,7 +119,7 @@ export default function HomePageClient({
             </Link>
           </div>
           {devBootstrapEnabled ? (
-            <div className="rounded-2xl border border-slate-200 bg-white/88 p-4">
+            <div className="home-dev-card">
               <p className="text-sm font-semibold text-slate-900">{t.devNote}</p>
               <p className="mt-1 text-sm text-slate-600">{t.devHint}</p>
               <div className="mt-3">
@@ -90,19 +129,24 @@ export default function HomePageClient({
           ) : null}
         </div>
 
-        <div className="grid gap-4">
-          <article className="home-card border border-slate-200 bg-white/90">
-            <p className="planner-eyebrow">{t.metric1}</p>
-            <p className="mt-2 text-sm text-slate-700">{t.metric1Body}</p>
-          </article>
-          <article className="home-card border border-slate-200 bg-white/90">
-            <p className="planner-eyebrow">{t.metric2}</p>
-            <p className="mt-2 text-sm text-slate-700">{t.metric2Body}</p>
-          </article>
-          <article className="home-card border border-slate-200 bg-white/90">
-            <p className="planner-eyebrow">{t.metric3}</p>
-            <p className="mt-2 text-sm text-slate-700">{t.metric3Body}</p>
-          </article>
+        <div className="home-story-panel">
+          <div className="home-story-header">
+            <p className="home-story-kicker">{t.railTitle}</p>
+            <p className="home-story-intro">{t.railIntro}</p>
+          </div>
+          <div className="home-story-grid">
+            {storyCards.map((card) => (
+              <article key={card.id} className="home-story-card">
+                <div className="home-story-topline">
+                  <span className="home-story-orbit">{card.id}</span>
+                  <span className="home-story-tag">{card.tag}</span>
+                </div>
+                <h2 className="home-story-title">{card.title}</h2>
+                <p className="home-story-body">{card.body}</p>
+                <p className="home-story-meta">{card.meta}</p>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
     </main>
