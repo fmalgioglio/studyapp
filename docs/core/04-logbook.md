@@ -5521,3 +5521,50 @@ pm run lint\ ? 0 errors, 0 warnings.
 
 - First command/file: expose the derived material hints more clearly in the objective materials UI once the next UI slice opens.
 - Next owner: Material/UX track.
+
+---
+
+## Entry - PHASE-7-OBJECTIVES-001 Objective Materials Continuity Polish
+
+- Date: 2026-03-19
+- Task ID: PHASE-7-OBJECTIVES-001
+- Role: Builder + Reviewer
+- Owner: Codex
+
+### Decisions Taken
+
+- Kept the goals page server-driven and avoided new planner logic in the UI.
+- Changed the post-create flow to guide users straight into linked materials instead of auto-opening the full edit form.
+- Reused the existing goal highlight pattern and extended it to the materials anchor so the next step is visible immediately.
+
+### What Was Done
+
+- Refined the post-create experience on the goals page:
+  - `src/app/planner/exams/page.tsx`
+- Localized the linked-materials surface so the create -> materials flow no longer drops back into English:
+  - `src/app/planner/_components/target-material-manager.tsx`
+- Added a direct CTA from the highlighted success state to the materials section for the created goal:
+  - `src/app/planner/exams/page.tsx`
+- Anchored the materials block so creation, material linking, and planner refresh are connected in one visible flow:
+  - `src/app/planner/exams/page.tsx`
+
+### Evidence
+
+- Lint: `npm run lint` passed.
+- Tests: `npm run test:unit` passed.
+- Build: `npm run build` passed.
+
+### Residual Risks
+
+- The goals create/edit layout still deserves a broader visual pass beyond this continuity fix.
+- The materials manager already carries localized copy, but some wider EN/IT cleanup outside this surface still remains for later slices.
+
+### Assumptions
+
+- The highest-value next step after creating a goal is linking material, not reopening the full workload editor immediately.
+- Highlight + scroll is sufficient here without introducing a new modal or multi-step wizard.
+
+### Next Action (Concrete)
+
+- First command/file: continue the remaining Phase 7 polish from `src/app/home-page-client.tsx` and the planner summary surfaces before final merge.
+- Next owner: Product/UI track.

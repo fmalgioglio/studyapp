@@ -200,7 +200,14 @@ const COPY = {
     postponed7: "Goal postponed by 7 days.",
     postponed14: "Goal postponed by 14 days.",
     completedTarget: "Goal completed.",
+    completeAction: "Mark complete",
+    savedPlanMessage: "Study rhythm saved.",
+    savedGoalMessage: "Goal saved.",
     noPages: "-",
+    createdFollowUp: "Now link the right materials below and refine the study rhythm if needed.",
+    createdHintTitle: "Next step",
+    createdHintBody: "This goal is ready. Add books, notes, slides, or official links in the materials section below.",
+    jumpToMaterials: "Go to materials",
   },
   it: {
     title: "Obiettivi",
@@ -351,6 +358,13 @@ const COPY = {
     postponed7: "Obiettivo rinviato di 7 giorni.",
     postponed14: "Obiettivo rinviato di 14 giorni.",
     completedTarget: "Obiettivo completato.",
+    completeAction: "Segna completato",
+    savedPlanMessage: "Ritmo di studio salvato.",
+    savedGoalMessage: "Obiettivo salvato.",
+    createdFollowUp: "Ora collega i materiali giusti e rifinisci il ritmo di studio se serve.",
+    createdHintTitle: "Prossimo passo",
+    createdHintBody: "Questo obiettivo e pronto. Aggiungi libri, appunti, slide o link ufficiali nella sezione materiali qui sotto.",
+    jumpToMaterials: "Vai ai materiali",
   },
 } as const;
 
@@ -546,6 +560,7 @@ export default function PlannerExamsPage() {
   const [pagesTouched, setPagesTouched] = useState(false);
   const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
   const [examHints] = useState<ExamHintsMap>(() => readExamHints());
+  const [highlightedExamId, setHighlightedExamId] = useState<string | null>(null);
 
   const dataErrorMessage = errors.subjects ?? errors.exams ?? "";
   const activeNotebook = activeNotebookCase(materialType, t);
@@ -562,6 +577,27 @@ export default function PlannerExamsPage() {
       setFocusProgress(readFocusProgress());
     });
   }, []);
+
+  useEffect(() => {
+    if (!highlightedExamId) {
+      return;
+    }
+
+    const target =
+      document.getElementById(`goal-materials-${highlightedExamId}`) ??
+      document.getElementById(`goal-card-${highlightedExamId}`);
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    const timer = window.setTimeout(() => {
+      setHighlightedExamId((current) =>
+        current === highlightedExamId ? null : current,
+      );
+    }, 6000);
+
+    return () => window.clearTimeout(timer);
+  }, [highlightedExamId, exams.length]);
 
   async function createSubjectByValues(name: string, color?: string) {
     const { ok, payload } = await requestJson<CreatedSubject>("/api/subjects", {
@@ -594,8 +630,12 @@ export default function PlannerExamsPage() {
   function openEditWorkload(examId: string) {
     const exam = examById.get(examId);
     if (!exam) return;
+    primeEditWorkload(exam);
+  }
+
+  function primeEditWorkload(exam: PlannerExam) {
     const workloadPayload = exam.workloadPayload;
-    setEditingExamId(examId);
+    setEditingExamId(exam.id);
     setEditTitle(exam.title);
     setEditExamDate(exam.examDate.slice(0, 10));
     setEditAssessmentType((exam.assessmentType ?? "EXAM") as AssessmentType);
@@ -740,7 +780,7 @@ export default function PlannerExamsPage() {
       upsertExam(payload.data);
     }
     closeEditWorkload();
-    setMessage(`${t.saveWorkload} ✓`);
+    setMessage(t.savedGoalMessage);
     setCurrentTimeMs(Date.now());
     notifyDataRevision();
     void refresh({ force: true }).then((refreshResult) => {
@@ -769,7 +809,7 @@ export default function PlannerExamsPage() {
       return;
     }
 
-    setMessage(`${t.savePlan} ✓`);
+    setMessage(t.savedPlanMessage);
     notifyDataRevision();
     void refresh({ force: true }).then((refreshResult) => {
       if (!refreshResult.ok && !refreshResult.skipped) {
@@ -912,7 +952,8 @@ export default function PlannerExamsPage() {
     setNotesSummary("");
     setMaterialDetails("");
     setPagesTouched(false);
-    setMessage(`${t.created}: ${payload.data.title}`);
+    setHighlightedExamId(payload.data.id);
+    setMessage(`${t.created}: ${payload.data.title}. ${t.createdFollowUp}`);
     setCurrentTimeMs(Date.now());
     notifyDataRevision();
     void refresh({ force: true }).then((refreshResult) => {
@@ -980,7 +1021,10 @@ export default function PlannerExamsPage() {
     void refresh({ force: true });
   }
 
-  function handleMaterialsChanged() {
+  function handleMaterialsChanged(examId?: string) {
+    if (examId) {
+      setHighlightedExamId(examId);
+    }
     notifyDataRevision();
     void refresh({ force: true });
   }
@@ -1540,8 +1584,18 @@ export default function PlannerExamsPage() {
               const notesSummaryPreview = workloadPayload?.notesSummary
                 ? truncateText(workloadPayload.notesSummary, 60)
                 : null;
+              const isHighlighted = highlightedExamId === track.examId;
+
               return (
-                <li key={track.examId} className="planner-card bg-slate-50">
+                <li
+                  key={track.examId}
+                  id={`goal-card-${track.examId}`}
+                  className={`planner-card scroll-mt-28 transition ${
+                    isHighlighted
+                      ? "border-sky-300 bg-sky-50 shadow-[0_18px_40px_-28px_rgba(14,165,233,0.45)]"
+                      : "bg-slate-50"
+                  }`}
+                >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
@@ -1742,7 +1796,7 @@ export default function PlannerExamsPage() {
                         }
                         className="planner-btn planner-btn-secondary min-h-0 rounded-full py-1.5"
                       >
-                        {t.completedTarget}
+                        {t.completeAction}
                       </button>
                       <button
                         type="button"
@@ -1767,6 +1821,24 @@ export default function PlannerExamsPage() {
                       </button>
                     </div>
                   </div>
+                  {isHighlighted ? (
+                    <div className="mt-3 rounded-2xl border border-sky-200 bg-white/90 px-4 py-3 text-sm text-slate-700">
+                      <p className="font-semibold text-slate-900">{t.createdHintTitle}</p>
+                      <p className="mt-1 text-slate-600">{t.createdHintBody}</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const target =
+                            document.getElementById(`goal-materials-${track.examId}`) ??
+                            document.getElementById(`goal-card-${track.examId}`);
+                          target?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }}
+                        className="planner-btn planner-btn-secondary mt-3 min-h-0 rounded-full py-1.5"
+                      >
+                        {t.jumpToMaterials}
+                      </button>
+                    </div>
+                  ) : null}
                   {editingExamId === track.examId ? (
                     <div className="mt-3 w-full space-y-3 border-t border-slate-200 pt-3">
                       <p className="planner-eyebrow">
@@ -2099,14 +2171,14 @@ export default function PlannerExamsPage() {
                       </div>
                     </div>
                   ) : null}
-                  <div className="mt-3 border-t border-slate-200 pt-3">
+                  <div id={`goal-materials-${track.examId}`} className="mt-3 border-t border-slate-200 pt-3">
                     <TargetMaterialManager
                       examId={track.examId}
                       subjectId={examMeta?.subject.id ?? ""}
                       subjectName={track.subjectName}
                       examTitle={track.examTitle}
                       initialMaterials={examMeta?.studyMaterials ?? []}
-                      onChange={handleMaterialsChanged}
+                      onChange={() => handleMaterialsChanged(track.examId)}
                     />
                   </div>
                 </li>
