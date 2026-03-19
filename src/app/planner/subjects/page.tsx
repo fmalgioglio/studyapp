@@ -362,7 +362,7 @@ export default function PlannerSubjectsPage() {
                             <p className="font-semibold text-slate-900">{exam.title}</p>
                             <p className="mt-1 text-xs text-slate-500">
                               {new Date(exam.examDate).toLocaleDateString(language === "it" ? "it-IT" : "en-US")}
-                              {" · "}
+                              {" | "}
                               {studyRhythmLabel(exam.importance, language)}
                             </p>
                           </div>

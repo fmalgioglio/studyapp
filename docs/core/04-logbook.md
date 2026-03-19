@@ -5427,6 +5427,57 @@ pm run lint\ ? 0 errors, 0 warnings.
 
 ---
 
+## Entry - PHASE-7-SURFACES-REPAIR-001 Objectives + Subjects + Profile Cleanup
+
+- Date: 2026-03-19
+- Task ID: PHASE-7-SURFACES-REPAIR-001
+- Role: Builder + Reviewer
+- Owner: Codex
+
+### Decisions Taken
+
+- Treated this as a UI-only cleanup slice: no domain or API changes.
+- Localized `Profilo` directly in the page surface instead of adding a larger i18n refactor.
+- Kept `Obiettivi` and `Materie` adjustments focused on high-visibility product labels and badges.
+
+### What Was Done
+
+- Localized and cleaned the profile surface:
+  - `src/app/planner/students/page.tsx`
+- Removed a broken separator and tightened subject-linked objective details:
+  - `src/app/planner/subjects/page.tsx`
+- Polished key objective labels for study rhythm, page progress, linked materials, and fallback values:
+  - `src/app/planner/exams/page.tsx`
+- Added the governing slice spec:
+  - `docs/specs/PHASE-7-SURFACES-REPAIR-001.md`
+
+### Evidence
+
+- Lint: `npm run lint` passed.
+- Tests: `npm run test:unit` passed.
+- Build: `npm run build` passed.
+- Manual checks:
+  - `Profilo` now uses coherent EN/IT copy across overview, details, and preferences
+  - `Materie` no longer shows the broken middle separator in linked-objective cards
+  - `Obiettivi` cards now speak in the same product language as the rest of the planner
+
+### Residual Risks
+
+- The objectives page still deserves a larger layout pass for the create/edit flow, beyond copy cleanup.
+- Subject affinity labels remain broad and are not yet personalized by actual subject entities.
+
+### Assumptions
+
+- A compact surface cleanup is preferable here to a larger i18n framework change.
+- This slice intentionally improves clarity first and leaves deeper design changes for the remaining planner polish work.
+
+### Next Action (Concrete)
+
+- First command/file: continue refining `src/app/planner/exams/page.tsx` for the remaining objectives flow polish before mainline merge.
+- Next owner: Product/UI track.
+
+---
+
 ## Entry - PHASE-7-MATERIAL-INTELLIGENCE-001 Live Material Inspector Wiring
 
 - Date: 2026-03-19

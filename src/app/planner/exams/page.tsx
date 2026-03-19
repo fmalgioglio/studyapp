@@ -134,7 +134,7 @@ const COPY = {
     addExam: "Add goal",
     editWorkload: "Edit goal",
     planSettings: "Study rhythm",
-    planIntensity: "Choose a pace before saving",
+    planIntensity: "Choose how intense this goal should feel before saving.",
     planSummary: "Summary support",
     planLighter: "Gentle",
     planBalanced: "Balanced",
@@ -186,6 +186,9 @@ const COPY = {
     sourceOpenLibrary: "Open Library",
     sourceLocal: "Local catalog",
     daysLeft: "days left",
+    pagesDone: "done",
+    materialsLinked: "materials linked",
+    notSet: "Not set",
     sessionHelp: "Sign in again to manage your goals and keep planner data in sync.",
     login: "Go to login",
     createAccount: "Create account",
@@ -280,7 +283,7 @@ const COPY = {
     addExam: "Aggiungi obiettivo",
     editWorkload: "Modifica obiettivo",
     planSettings: "Ritmo di studio",
-    planIntensity: "Scegli il ritmo prima di salvare",
+    planIntensity: "Scegli quanto vuoi spingere questo obiettivo prima di salvarlo.",
     planSummary: "Supporto riassunti",
     planLighter: "Leggero",
     planBalanced: "Bilanciato",
@@ -332,6 +335,9 @@ const COPY = {
     sourceOpenLibrary: "Open Library",
     sourceLocal: "Catalogo locale",
     daysLeft: "giorni rimasti",
+    pagesDone: "fatte",
+    materialsLinked: "materiali collegati",
+    notSet: "Non impostato",
     noPages: "-",
     sessionHelp: "Accedi di nuovo per gestire gli obiettivi e mantenere il planner sincronizzato.",
     login: "Vai al login",
@@ -447,8 +453,8 @@ function truncateText(value: string, maxLength: number) {
   return `${value.slice(0, maxLength)}...`;
 }
 
-function formatEnumLabel(value: string | null | undefined) {
-  if (!value) return "Not set";
+function formatEnumLabel(value: string | null | undefined, fallback: string) {
+  if (!value) return fallback;
   return value
     .toLowerCase()
     .replace(/_/g, " ")
@@ -1517,7 +1523,7 @@ export default function PlannerExamsPage() {
                 displayTotalPages != null
                   ? `${displayCompletedPages}/${displayTotalPages}p`
                   : displayCompletedPages > 0
-                    ? `${displayCompletedPages}p done`
+                    ? `${displayCompletedPages}p ${t.pagesDone}`
                     : t.noPages;
               const daysLeft = Math.max(
                 0,
@@ -1541,10 +1547,10 @@ export default function PlannerExamsPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-semibold text-slate-900">{track.examTitle}</p>
                         <span className="planner-chip bg-white text-slate-700">
-                          {formatEnumLabel(examMeta?.assessmentType)}
+                          {formatEnumLabel(examMeta?.assessmentType, t.notSet)}
                         </span>
                         <span className="planner-chip bg-white text-slate-700">
-                          {formatEnumLabel(examMeta?.status)}
+                          {formatEnumLabel(examMeta?.status, t.notSet)}
                         </span>
                         <span className="planner-chip bg-white text-slate-700">
                           {studyRhythmLabel(examMeta?.importance as StudyRhythmValue, t)}
@@ -1597,7 +1603,7 @@ export default function PlannerExamsPage() {
                         </span>
                         {examMeta?.studyMaterials?.length ? (
                           <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 font-semibold text-slate-700">
-                            {examMeta.studyMaterials.length} materials
+                            {examMeta.studyMaterials.length} {t.materialsLinked}
                           </span>
                         ) : null}
                       </div>

@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 
+import { useUiLanguage } from "@/app/_hooks/use-ui-language";
 import { notifyDataRevision } from "@/app/planner/_lib/focus-progress";
 import type { EducationLevel, SchoolProfile } from "@/lib/study-domain";
 import { requestJson } from "../_lib/client-api";
@@ -54,6 +55,125 @@ const SUBJECT_AFFINITY_SET = new Set<string>(SUBJECT_AFFINITY_OPTIONS);
 
 type SubjectAffinityOption = (typeof SUBJECT_AFFINITY_OPTIONS)[number];
 
+const COPY = {
+  en: {
+    saveProfileError: "Failed to save profile",
+    saveProfileSuccess: "Profile updated.",
+    saveAffinityError: "Failed to save subject preferences",
+    saveAffinitySuccess: "Subject preferences saved.",
+    signInAgain: "Please sign in again to continue.",
+    recommendationName: "Add your name so the planner feels personal.",
+    recommendationHours: "Set a realistic weekly study budget.",
+    recommendationEasy: "Choose one subject that usually feels easier.",
+    recommendationEffort: "Choose one subject that usually needs more effort.",
+    noSessionTitle: "Session required",
+    noSessionBody: "Sign in again to reopen your study profile and planner settings.",
+    login: "Go to login",
+    createAccount: "Create account",
+    title: "Profile",
+    subtitle: "Keep only the details that help the planner suggest a better weekly rhythm.",
+    overview: "Profile overview",
+    ready: "ready",
+    detailsTitle: "Profile details",
+    detailsBody:
+      "Name, weekly time, education level, and school profile are enough for the planner to start well.",
+    hideEditor: "Hide editor",
+    editProfile: "Edit profile",
+    name: "Name",
+    notSet: "Not set",
+    email: "Email",
+    noAccount: "No account",
+    weeklyCapacity: "Weekly capacity",
+    hours: "hours",
+    educationLevel: "Education level",
+    schoolProfile: "School profile",
+    loadingProfile: "Loading profile...",
+    fullName: "Full name",
+    weeklyHours: "Weekly hours",
+    highSchool: "High school",
+    university: "University",
+    independent: "Independent",
+    technical: "Technical",
+    professional: "Professional",
+    selfStudy: "Self study",
+    other: "Other",
+    saveProfile: "Save profile",
+    preferencesTitle: "Study preferences",
+    preferencesBody:
+      "Mark the subjects that usually feel easier and the ones that usually need more effort.",
+    collapseEditor: "Collapse editor",
+    editPreferences: "Edit preferences",
+    feelsEasier: "Feels easier",
+    feelsEasierEmpty: "No easier subjects selected yet.",
+    needsMoreEffort: "Needs more effort",
+    needsMoreEffortEmpty: "No higher-effort subjects selected yet.",
+    selected: "selected",
+    subject: "Subject",
+    easy: "Easy",
+    effort: "Effort",
+    savedProfileSummary: "Saved profile",
+    savePreferences: "Save preferences",
+  },
+  it: {
+    saveProfileError: "Impossibile salvare il profilo",
+    saveProfileSuccess: "Profilo aggiornato.",
+    saveAffinityError: "Impossibile salvare le preferenze sulle materie",
+    saveAffinitySuccess: "Preferenze materie salvate.",
+    signInAgain: "Accedi di nuovo per continuare.",
+    recommendationName: "Aggiungi il tuo nome cosi il planner diventa piu personale.",
+    recommendationHours: "Imposta un monte ore settimanale realistico.",
+    recommendationEasy: "Scegli una materia che di solito senti piu facile.",
+    recommendationEffort: "Scegli una materia che di solito richiede piu sforzo.",
+    noSessionTitle: "Sessione richiesta",
+    noSessionBody: "Accedi di nuovo per riaprire il tuo profilo di studio e le impostazioni del planner.",
+    login: "Vai al login",
+    createAccount: "Crea account",
+    title: "Profilo",
+    subtitle: "Tieni solo i dettagli che aiutano il planner a suggerire un ritmo settimanale migliore.",
+    overview: "Panoramica profilo",
+    ready: "pronto",
+    detailsTitle: "Dettagli profilo",
+    detailsBody:
+      "Nome, tempo settimanale, livello di studio e percorso bastano per far partire bene il planner.",
+    hideEditor: "Nascondi editor",
+    editProfile: "Modifica profilo",
+    name: "Nome",
+    notSet: "Non impostato",
+    email: "Email",
+    noAccount: "Nessun account",
+    weeklyCapacity: "Capacita settimanale",
+    hours: "ore",
+    educationLevel: "Livello di studio",
+    schoolProfile: "Percorso",
+    loadingProfile: "Caricamento profilo...",
+    fullName: "Nome completo",
+    weeklyHours: "Ore settimanali",
+    highSchool: "Scuola superiore",
+    university: "Universita",
+    independent: "Studio autonomo",
+    technical: "Tecnico",
+    professional: "Professionale",
+    selfStudy: "Autonomo",
+    other: "Altro",
+    saveProfile: "Salva profilo",
+    preferencesTitle: "Preferenze di studio",
+    preferencesBody:
+      "Segna le materie che senti piu semplici e quelle che di solito richiedono piu energia.",
+    collapseEditor: "Chiudi editor",
+    editPreferences: "Modifica preferenze",
+    feelsEasier: "Ti viene piu facile",
+    feelsEasierEmpty: "Non hai ancora segnato materie piu facili.",
+    needsMoreEffort: "Richiede piu sforzo",
+    needsMoreEffortEmpty: "Non hai ancora segnato materie piu impegnative.",
+    selected: "selezionate",
+    subject: "Materia",
+    easy: "Facile",
+    effort: "Impegno",
+    savedProfileSummary: "Profilo salvato",
+    savePreferences: "Salva preferenze",
+  },
+} as const;
+
 function normalizeAffinityList(values: string[] | null | undefined): SubjectAffinityOption[] {
   const normalized: SubjectAffinityOption[] = [];
   const seen = new Set<SubjectAffinityOption>();
@@ -83,8 +203,27 @@ function normalizeAffinity(value: Student["subjectAffinity"] | null | undefined)
   };
 }
 
+function formatEducationLevelLabel(value: EducationLevel, language: keyof typeof COPY) {
+  const t = COPY[language];
+  if (value === "HIGH_SCHOOL") return t.highSchool;
+  if (value === "UNIVERSITY") return t.university;
+  return t.independent;
+}
+
+function formatSchoolProfileLabel(value: SchoolProfile, language: keyof typeof COPY) {
+  const t = COPY[language];
+  if (value === "LICEO") return "Liceo";
+  if (value === "TECHNICAL") return t.technical;
+  if (value === "PROFESSIONAL") return t.professional;
+  if (value === "UNIVERSITY") return t.university;
+  if (value === "SELF_STUDY") return t.selfStudy;
+  return t.other;
+}
+
 export default function PlannerStudentsPage() {
   const { student, loading } = useAuthStudent();
+  const { language } = useUiLanguage("en");
+  const t = COPY[language] ?? COPY.en;
   const [fullNameDraft, setFullNameDraft] = useState<string | null>(null);
   const [weeklyHoursDraft, setWeeklyHoursDraft] = useState<number | null>(null);
   const [savedAffinityOverride, setSavedAffinityOverride] = useState<SubjectAffinity | null>(null);
@@ -116,7 +255,7 @@ export default function PlannerStudentsPage() {
     setFeedback(null);
 
     if (!student) {
-      showError("Please sign in again to continue.");
+      showError(t.signInAgain);
       return;
     }
 
@@ -135,11 +274,11 @@ export default function PlannerStudentsPage() {
     });
 
     if (!ok || !payload.data) {
-      showError(payload.error ?? "Failed to save profile");
+      showError(payload.error ?? t.saveProfileError);
       return;
     }
 
-    showSuccess("Profile updated.");
+    showSuccess(t.saveProfileSuccess);
     syncAuthStudentCache(payload.data);
     setFullNameDraft(payload.data.fullName ?? "");
     setWeeklyHoursDraft(payload.data.weeklyHours);
@@ -179,7 +318,7 @@ export default function PlannerStudentsPage() {
     setFeedback(null);
 
     if (!student) {
-      showError("Please sign in again to continue.");
+      showError(t.signInAgain);
       return;
     }
 
@@ -194,11 +333,11 @@ export default function PlannerStudentsPage() {
     });
 
     if (!ok || !payload.data) {
-      showError(payload.error ?? "Failed to save subject preferences");
+      showError(payload.error ?? t.saveAffinityError);
       return;
     }
 
-    showSuccess("Subject preferences saved.");
+    showSuccess(t.saveAffinitySuccess);
     syncAuthStudentCache(payload.data);
     const normalized = normalizeAffinity(payload.data.subjectAffinity);
     setSavedAffinityOverride(normalized);
@@ -223,27 +362,25 @@ export default function PlannerStudentsPage() {
     (easiestCount > 0 ? 25 : 0) +
     (effortCount > 0 ? 25 : 0);
   const recommendations: string[] = [];
-  if (!resolvedName.trim()) recommendations.push("Add your name so the planner feels personal.");
-  if (resolvedWeeklyHours < 6) recommendations.push("Set a realistic weekly study budget.");
-  if (easiestCount === 0) recommendations.push("Choose one subject that usually feels easier.");
-  if (effortCount === 0) recommendations.push("Choose one subject that usually needs more effort.");
+  if (!resolvedName.trim()) recommendations.push(t.recommendationName);
+  if (resolvedWeeklyHours < 6) recommendations.push(t.recommendationHours);
+  if (easiestCount === 0) recommendations.push(t.recommendationEasy);
+  if (effortCount === 0) recommendations.push(t.recommendationEffort);
 
   if (!student && !loading) {
     return (
       <main className="space-y-5 sm:space-y-6">
         <section className="planner-panel">
           <h1 className="text-2xl font-black tracking-tight text-slate-900">
-            Session required
+            {t.noSessionTitle}
           </h1>
-          <p className="mt-2 text-sm text-slate-600">
-            Sign in again to reopen your study profile and planner settings.
-          </p>
+          <p className="mt-2 text-sm text-slate-600">{t.noSessionBody}</p>
           <div className="mt-4 flex flex-wrap gap-3">
             <a href="/login" className="planner-btn planner-btn-accent">
-              Go to login
+              {t.login}
             </a>
             <a href="/signup" className="planner-btn planner-btn-secondary">
-              Create account
+              {t.createAccount}
             </a>
           </div>
         </section>
@@ -254,17 +391,15 @@ export default function PlannerStudentsPage() {
   return (
     <main className="space-y-5 sm:space-y-6">
       <section className="planner-panel planner-hero">
-        <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Profile</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Keep only the details that help the planner suggest a better weekly rhythm.
-        </p>
+        <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">{t.title}</h1>
+        <p className="mt-1 text-sm text-slate-600">{t.subtitle}</p>
       </section>
 
       <section className="planner-panel">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-base font-semibold text-slate-900">Profile overview</h2>
-            <p className="mt-0.5 text-sm text-slate-500">{profileScore}% ready</p>
+            <h2 className="text-base font-semibold text-slate-900">{t.overview}</h2>
+            <p className="mt-0.5 text-sm text-slate-500">{profileScore}% {t.ready}</p>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="h-2 w-32 overflow-hidden rounded-full bg-slate-100">
@@ -293,49 +428,47 @@ export default function PlannerStudentsPage() {
       <section className="planner-panel">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Profile details</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Name, weekly time, education level, and school profile are enough for the planner to start well.
-            </p>
+            <h2 className="text-lg font-bold text-slate-900">{t.detailsTitle}</h2>
+            <p className="mt-1 text-sm text-slate-600">{t.detailsBody}</p>
           </div>
           <button
             type="button"
             onClick={() => setProfileExpanded((current) => !current)}
             className="planner-btn planner-btn-secondary rounded-full"
           >
-            {profileExpanded ? "Hide editor" : "Edit profile"}
+            {profileExpanded ? t.hideEditor : t.editProfile}
           </button>
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-5">
           <article className="planner-card bg-slate-50/80">
-            <p className="planner-eyebrow">Name</p>
+            <p className="planner-eyebrow">{t.name}</p>
             <p className="mt-1 text-base font-semibold text-slate-900">
-              {resolvedName.trim() || "Not set"}
+              {resolvedName.trim() || t.notSet}
             </p>
           </article>
           <article className="planner-card bg-slate-50/80">
-            <p className="planner-eyebrow">Email</p>
+            <p className="planner-eyebrow">{t.email}</p>
             <p className="mt-1 break-all text-sm font-semibold text-slate-900">
-              {student?.email ?? "No account"}
+              {student?.email ?? t.noAccount}
             </p>
           </article>
           <article className="planner-card bg-slate-50/80">
-            <p className="planner-eyebrow">Weekly capacity</p>
+            <p className="planner-eyebrow">{t.weeklyCapacity}</p>
             <p className="mt-1 text-base font-semibold text-slate-900">
-              {resolvedWeeklyHours} hours
+              {resolvedWeeklyHours} {t.hours}
             </p>
           </article>
           <article className="planner-card bg-slate-50/80">
-            <p className="planner-eyebrow">Education level</p>
+            <p className="planner-eyebrow">{t.educationLevel}</p>
             <p className="mt-1 text-base font-semibold text-slate-900">
-              {resolvedEducationLevel.toLowerCase().replace(/_/g, " ")}
+              {formatEducationLevelLabel(resolvedEducationLevel, language)}
             </p>
           </article>
           <article className="planner-card bg-slate-50/80">
-            <p className="planner-eyebrow">School profile</p>
+            <p className="planner-eyebrow">{t.schoolProfile}</p>
             <p className="mt-1 text-base font-semibold text-slate-900">
-              {resolvedSchoolProfile.toLowerCase().replace(/_/g, " ")}
+              {formatSchoolProfileLabel(resolvedSchoolProfile, language)}
             </p>
           </article>
         </div>
@@ -343,7 +476,7 @@ export default function PlannerStudentsPage() {
         {profileExpanded ? (
           loading ? (
             <div className="mt-4 space-y-2">
-              <p className="text-sm text-slate-600">Loading profile...</p>
+              <p className="text-sm text-slate-600">{t.loadingProfile}</p>
               <div className="grid gap-2 sm:grid-cols-2">
                 <div className="planner-skeleton h-12" />
                 <div className="planner-skeleton h-12" />
@@ -352,7 +485,7 @@ export default function PlannerStudentsPage() {
           ) : (
             <form className="mt-4 grid gap-3 md:grid-cols-4" onSubmit={saveProfile}>
               <label className="planner-field space-y-1">
-                <span className="planner-eyebrow mb-1 block">Email</span>
+                <span className="planner-eyebrow mb-1 block">{t.email}</span>
                 <input
                   type="email"
                   value={student?.email ?? ""}
@@ -361,7 +494,7 @@ export default function PlannerStudentsPage() {
                 />
               </label>
               <label className="planner-field space-y-1">
-                <span className="planner-eyebrow mb-1 block">Full name</span>
+                <span className="planner-eyebrow mb-1 block">{t.fullName}</span>
                 <input
                   type="text"
                   value={fullNameDraft ?? student?.fullName ?? ""}
@@ -370,7 +503,7 @@ export default function PlannerStudentsPage() {
                 />
               </label>
               <label className="planner-field space-y-1">
-                <span className="planner-eyebrow mb-1 block">Weekly hours</span>
+                <span className="planner-eyebrow mb-1 block">{t.weeklyHours}</span>
                 <input
                   type="number"
                   min={1}
@@ -381,7 +514,7 @@ export default function PlannerStudentsPage() {
                 />
               </label>
               <label className="planner-field space-y-1">
-                <span className="planner-eyebrow mb-1 block">Education level</span>
+                <span className="planner-eyebrow mb-1 block">{t.educationLevel}</span>
                 <select
                   value={educationLevelDraft ?? student?.educationLevel ?? "INDEPENDENT"}
                   onChange={(event) =>
@@ -389,13 +522,13 @@ export default function PlannerStudentsPage() {
                   }
                   className="planner-input"
                 >
-                  <option value="HIGH_SCHOOL">High school</option>
-                  <option value="UNIVERSITY">University</option>
-                  <option value="INDEPENDENT">Independent</option>
+                  <option value="HIGH_SCHOOL">{t.highSchool}</option>
+                  <option value="UNIVERSITY">{t.university}</option>
+                  <option value="INDEPENDENT">{t.independent}</option>
                 </select>
               </label>
               <label className="planner-field space-y-1">
-                <span className="planner-eyebrow mb-1 block">School profile</span>
+                <span className="planner-eyebrow mb-1 block">{t.schoolProfile}</span>
                 <select
                   value={schoolProfileDraft ?? student?.schoolProfile ?? "SELF_STUDY"}
                   onChange={(event) =>
@@ -404,18 +537,18 @@ export default function PlannerStudentsPage() {
                   className="planner-input"
                 >
                   <option value="LICEO">Liceo</option>
-                  <option value="TECHNICAL">Technical</option>
-                  <option value="PROFESSIONAL">Professional</option>
-                  <option value="UNIVERSITY">University</option>
-                  <option value="SELF_STUDY">Self study</option>
-                  <option value="OTHER">Other</option>
+                  <option value="TECHNICAL">{t.technical}</option>
+                  <option value="PROFESSIONAL">{t.professional}</option>
+                  <option value="UNIVERSITY">{t.university}</option>
+                  <option value="SELF_STUDY">{t.selfStudy}</option>
+                  <option value="OTHER">{t.other}</option>
                 </select>
               </label>
               <button
                 type="submit"
                 className="planner-btn planner-btn-accent w-full rounded-full md:col-span-4"
               >
-                Save profile
+                {t.saveProfile}
               </button>
             </form>
           )
@@ -425,41 +558,39 @@ export default function PlannerStudentsPage() {
       <section className="planner-panel">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Study preferences</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Mark the subjects that usually feel easier and the ones that usually need more effort.
-            </p>
+            <h2 className="text-lg font-bold text-slate-900">{t.preferencesTitle}</h2>
+            <p className="mt-1 text-sm text-slate-600">{t.preferencesBody}</p>
           </div>
           <button
             type="button"
             onClick={() => setPreferencesExpanded((current) => !current)}
             className="planner-btn planner-btn-secondary rounded-full"
           >
-            {preferencesExpanded ? "Collapse editor" : "Edit preferences"}
+            {preferencesExpanded ? t.collapseEditor : t.editPreferences}
           </button>
         </div>
 
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
           <article className="planner-card rounded-3xl bg-emerald-50/70">
-            <p className="planner-eyebrow text-emerald-700">Feels easier</p>
+            <p className="planner-eyebrow text-emerald-700">{t.feelsEasier}</p>
             <p className="mt-1 text-sm text-slate-700">
               {affinity.easiestSubjects.length > 0
                 ? affinity.easiestSubjects.join(" | ")
-                : "No easier subjects selected yet."}
+                : t.feelsEasierEmpty}
             </p>
             <p className="mt-3 text-xs font-semibold text-emerald-800">
-              {easiestCount}/{AFFINITY_LIMIT} selected
+              {easiestCount}/{AFFINITY_LIMIT} {t.selected}
             </p>
           </article>
           <article className="planner-card rounded-3xl bg-amber-50/70">
-            <p className="planner-eyebrow text-amber-700">Needs more effort</p>
+            <p className="planner-eyebrow text-amber-700">{t.needsMoreEffort}</p>
             <p className="mt-1 text-sm text-slate-700">
               {affinity.effortSubjects.length > 0
                 ? affinity.effortSubjects.join(" | ")
-                : "No needs more effort subjects selected yet."}
+                : t.needsMoreEffortEmpty}
             </p>
             <p className="mt-3 text-xs font-semibold text-amber-900">
-              {effortCount}/{AFFINITY_LIMIT} selected
+              {effortCount}/{AFFINITY_LIMIT} {t.selected}
             </p>
           </article>
         </div>
@@ -467,9 +598,9 @@ export default function PlannerStudentsPage() {
         {preferencesExpanded ? (
           <div className="mt-5 space-y-4">
             <div className="grid grid-cols-[1fr_auto_auto] gap-2 border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              <p>Subject</p>
-              <p className="text-center">Easy</p>
-              <p className="text-center">Effort</p>
+              <p>{t.subject}</p>
+              <p className="text-center">{t.easy}</p>
+              <p className="text-center">{t.effort}</p>
             </div>
 
             <div className="space-y-2">
@@ -491,7 +622,7 @@ export default function PlannerStudentsPage() {
                           : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
                       }`}
                     >
-                      Easy
+                      {t.easy}
                     </button>
                     <button
                       type="button"
@@ -502,7 +633,7 @@ export default function PlannerStudentsPage() {
                           : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
                       }`}
                     >
-                      Effort
+                      {t.effort}
                     </button>
                   </div>
                 );
@@ -511,14 +642,14 @@ export default function PlannerStudentsPage() {
 
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="text-xs text-slate-500">
-                Saved profile: {savedAffinity.easiestSubjects.length} easy / {savedAffinity.effortSubjects.length} needs more effort
+                {t.savedProfileSummary}: {savedAffinity.easiestSubjects.length} {t.easy.toLowerCase()} / {savedAffinity.effortSubjects.length} {t.effort.toLowerCase()}
               </div>
               <button
                 type="button"
                 onClick={() => void saveAffinity()}
                 className="planner-btn planner-btn-accent rounded-full"
               >
-                Save preferences
+                {t.savePreferences}
               </button>
             </div>
           </div>
