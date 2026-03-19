@@ -43,9 +43,15 @@ export async function seedSimulationData() {
 
 export async function signInSeededStudent(page: Page) {
   await page.goto("/login", { waitUntil: "domcontentloaded" });
-  await page.getByLabel("Email").fill(SEEDED_VISUAL_LOGIN.email);
-  await page.getByLabel("Password").fill(SEEDED_VISUAL_LOGIN.password);
-  await page.getByRole("button", { name: "Sign in" }).click();
+  const emailField =
+    page.getByLabel(/email/i).or(page.getByPlaceholder(/you@example\.com/i));
+  const passwordField =
+    page.getByLabel(/password/i).or(page.getByPlaceholder(/\*{4,}/i));
+  const signInButton = page.getByRole("button", { name: /sign in|entra/i });
+
+  await emailField.first().fill(SEEDED_VISUAL_LOGIN.email);
+  await passwordField.first().fill(SEEDED_VISUAL_LOGIN.password);
+  await signInButton.click();
   await page.waitForLoadState("domcontentloaded");
 }
 
