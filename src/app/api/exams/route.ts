@@ -1,6 +1,12 @@
 import { Prisma } from "@/generated/prisma/client";
 import { requireSession } from "@/server/auth/require-session";
 import { isLocalDevSession } from "@/server/auth/local-dev";
+import {
+  createLocalDevExam,
+  deleteLocalDevExam,
+  listLocalDevExams,
+  updateLocalDevExam,
+} from "@/server/auth/local-dev-store";
 import { prisma } from "@/server/db/client";
 import { apiError, apiSuccess, getErrorDetails } from "@/server/http/response";
 import {
@@ -30,6 +36,10 @@ export async function GET() {
   const session = await requireSession();
   if (!session) {
     return apiError("Unauthorized", 401);
+  }
+
+  if (isLocalDevSession(session)) {
+    return apiSuccess(listLocalDevExams(session.email));
   }
 
   try {
@@ -113,6 +123,44 @@ export async function POST(request: Request) {
     );
   }
 
+  const workloadReadiness =
+    parsed.data.workloadReadiness === "known" ||
+    parsed.data.workloadReadiness === "unknown"
+      ? parsed.data.workloadReadiness
+      : null;
+  const materialType =
+    parsed.data.materialType === "book" ||
+    parsed.data.materialType === "notes" ||
+    parsed.data.materialType === "mixed"
+      ? parsed.data.materialType
+      : null;
+  const workloadPayload = normalizeExamWorkloadPayload(parsed.data.workloadPayload);
+
+  if (isLocalDevSession(session)) {
+    const exam = createLocalDevExam(session.email, {
+      subjectId: parsed.data.subjectId,
+      title: parsed.data.title,
+      examDate: (
+        parsed.data.examDate
+          ? parseExamDate(parsed.data.examDate)
+          : getFlexibleTargetDate()
+      ).toISOString(),
+      assessmentType: parsed.data.assessmentType ?? "EXAM",
+      status: parsed.data.status ?? "ACTIVE",
+      importance: parsed.data.importance ?? "MEDIUM",
+      targetGrade: parsed.data.targetGrade,
+      workloadReadiness,
+      materialType,
+      workloadPayload,
+    });
+
+    if (!exam) {
+      return apiError("Subject not found", 404);
+    }
+
+    return apiSuccess(exam, 201);
+  }
+
   try {
     const subject = await prisma.subject.findFirst({
       where: {
@@ -125,19 +173,6 @@ export async function POST(request: Request) {
     if (!subject) {
       return apiError("Subject not found", 404);
     }
-
-    const workloadReadiness =
-      parsed.data.workloadReadiness === "known" ||
-      parsed.data.workloadReadiness === "unknown"
-        ? parsed.data.workloadReadiness
-        : null;
-    const materialType =
-      parsed.data.materialType === "book" ||
-      parsed.data.materialType === "notes" ||
-      parsed.data.materialType === "mixed"
-        ? parsed.data.materialType
-        : null;
-    const workloadPayload = normalizeExamWorkloadPayload(parsed.data.workloadPayload);
 
     const exam = await prisma.exam.create({
       data: {
@@ -237,6 +272,56 @@ export async function PATCH(request: Request) {
 
   if (Object.keys(parsed.data).length === 0) {
     return apiError("No workload fields provided", 400);
+  }
+
+  if (isLocalDevSession(session)) {
+    const localExamDate =
+      "examDate" in parsed.data ? parsed.data.examDate : undefined;
+    const normalizedLocalWorkloadPayload =
+      "workloadPayload" in parsed.data
+        ? normalizeOptionalExamWorkloadPayload(parsed.data.workloadPayload)
+        : undefined;
+    const localUpdate = updateLocalDevExam(session.email, examId, {
+      title: "title" in parsed.data ? parsed.data.title : undefined,
+      assessmentType:
+        "assessmentType" in parsed.data ? parsed.data.assessmentType : undefined,
+      importance: "importance" in parsed.data ? parsed.data.importance : undefined,
+      targetGrade:
+        "targetGrade" in parsed.data ? parsed.data.targetGrade ?? null : undefined,
+      examDate:
+        localExamDate !== undefined
+          ? (
+              localExamDate === null
+                ? getFlexibleTargetDate()
+                : parseExamDate(localExamDate)
+            ).toISOString()
+          : undefined,
+      rescheduledFromDate:
+        localExamDate !== undefined ? new Date().toISOString() : undefined,
+      status: "status" in parsed.data ? parsed.data.status : undefined,
+      completedAt:
+        "status" in parsed.data
+          ? parsed.data.status === "COMPLETED"
+            ? new Date().toISOString()
+            : null
+          : undefined,
+      workloadReadiness:
+        "workloadReadiness" in parsed.data
+          ? parsed.data.workloadReadiness ?? null
+          : undefined,
+      materialType:
+        "materialType" in parsed.data ? parsed.data.materialType ?? null : undefined,
+      workloadPayload:
+        normalizedLocalWorkloadPayload === undefined
+          ? undefined
+          : normalizedLocalWorkloadPayload,
+    });
+
+    if (!localUpdate) {
+      return apiError("Exam not found", 404);
+    }
+
+    return apiSuccess(localUpdate);
   }
 
   try {
@@ -397,6 +482,14 @@ export async function DELETE(request: Request) {
   const examId = url.searchParams.get("id");
   if (!examId) {
     return apiError("Exam id is required", 400);
+  }
+
+  if (isLocalDevSession(session)) {
+    const deleted = deleteLocalDevExam(session.email, examId);
+    if (!deleted) {
+      return apiError("Exam not found", 404);
+    }
+    return apiSuccess({ id: examId });
   }
 
   try {

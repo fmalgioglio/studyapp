@@ -9,7 +9,7 @@ const plannerLinks = [
   { href: "/planner", label: "Planner" },
   { href: "/planner/focus", label: "Study Today" },
   { href: "/planner/subjects", label: "Subjects" },
-  { href: "/planner/exams", label: "Targets" },
+  { href: "/planner/exams", label: "Objectives" },
 ] as const;
 
 export default async function PlannerLayout({

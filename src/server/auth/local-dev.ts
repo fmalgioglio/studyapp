@@ -35,7 +35,7 @@ export function buildLocalDevStudent() {
     schoolProfile: "UNIVERSITY" as const,
     subjectAffinity: null,
     warning:
-      "Local dev guest mode is active. Database-backed edits stay unavailable until Prisma local sync is restored.",
+      "Local dev guest mode is active. Database-backed sync is temporarily unavailable while Prisma local sync is being restored.",
   };
 }
 
@@ -52,7 +52,7 @@ export function buildLocalDevPlannerOverview(): PlannerOverview {
       averageConfidenceScore: 0,
       risk: "low",
       riskMessage:
-        "Local dev guest mode is active. Add Prisma sync back to load real planner data.",
+        "Local dev guest mode is active. Restore Prisma local sync to load the full planner history.",
     },
     examRecommendations: [],
     todayFocus: [],

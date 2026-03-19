@@ -5726,3 +5726,62 @@ pm run lint\ ? 0 errors, 0 warnings.
 
 - First command/file: continue from `src/server/db/client.ts` and the local Prisma runtime path to restore full DB-backed local auth, then regenerate authenticated README/demo assets.
 - Next owner: Auth/Runtime track.
+
+---
+
+## Entry - PHASE-7-DEV-UX-002 Objectives Surface And Public Repo Cleanup
+
+- Date: 2026-03-19
+- Task ID: PHASE-7-DEV-UX-002
+- Role: Builder + Reviewer
+- Owner: Codex
+
+### Decisions Taken
+
+- Kept the public README centered on the product preview and removed the downloadable MP4 from the tracked README assets.
+- Removed tracked QA report output from Git and expanded `.gitignore` so future local agent/QA traces stay out of the public repo.
+- Added a dev-only in-memory store for `Materie` and `Obiettivi` so local development remains usable even while the Prisma local runtime is still degraded.
+
+### What Was Done
+
+- Cleaned the public repo surface:
+  - `.gitignore`
+  - `README.md`
+  - `scripts/promote-readme-assets.js`
+  - removed `docs/readme-assets/studyapp-demo.mp4`
+  - removed `qa/reports/PHASE-7-VISUAL-QA-001-qa-gate-2026-03-19.md`
+- Added local dev in-memory subject/objective support:
+  - `src/server/auth/local-dev-store.ts`
+  - `src/app/api/subjects/route.ts`
+  - `src/app/api/exams/route.ts`
+  - `src/app/api/planner/overview/route.ts`
+- Updated product naming and tightened the objectives surface:
+  - `src/app/planner/layout.tsx`
+  - `src/app/planner/exams/page.tsx`
+  - `src/app/planner/subjects/page.tsx`
+  - `src/app/globals.css`
+
+### Evidence
+
+- Lint: `npm run lint` passed.
+- Browser verification:
+  - created subject `Matematica` successfully from `/planner/subjects`
+  - created objective `Verifica algebra` successfully from `/planner/exams`
+  - verified the new objective appeared in the objectives list and fed the planner-facing local state
+- Snapshot review:
+  - recaptured the current objectives page after layout tightening to confirm the top form was more compact and the rhythm selector no longer collapsed into an overly narrow tall column
+
+### Residual Risks
+
+- The local dev store is intentionally temporary and in-memory only; it makes development usable again but does not replace the real database-backed path.
+- The objectives detail card still has room for another visual polish pass, especially around the lower materials block and dense chip groups.
+
+### Assumptions
+
+- For the public repo, product-facing visuals and setup are more important than retaining internal QA report artifacts.
+- During local development, usable in-memory CRUD is preferable to a blocked interface while the Prisma runtime mismatch remains unresolved.
+
+### Next Action (Concrete)
+
+- First command/file: continue from `src/app/planner/exams/page.tsx` and `src/app/planner/page.tsx` to further refine the objective detail card and planner visual density, then restore the real DB-backed local path.
+- Next owner: Product/UI + Runtime track.

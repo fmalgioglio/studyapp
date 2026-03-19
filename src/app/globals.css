@@ -895,6 +895,40 @@ textarea:focus {
     padding-block: 1rem;
   }
 
+  .objectives-builder-shell {
+    max-width: 72rem;
+    margin-inline: auto;
+  }
+
+  .objectives-builder-grid {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .objectives-builder-main {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .objectives-section-card {
+    border-radius: 1.75rem;
+    padding: 1rem;
+  }
+
+  .objective-subcard {
+    border-radius: 1.25rem;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(248, 250, 252, 0.8);
+    padding: 0.9rem;
+  }
+
+  .objective-subcard-inner {
+    border-radius: 1rem;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    background: rgba(255, 255, 255, 0.96);
+    padding: 0.8rem 0.9rem;
+  }
+
   .install-banner-btn {
     border-radius: 999px;
     border: 1px solid transparent;
@@ -930,6 +964,10 @@ textarea:focus {
   .home-story-card:first-child {
     grid-column: 1 / -1;
     min-height: 0;
+  }
+
+  .objectives-builder-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

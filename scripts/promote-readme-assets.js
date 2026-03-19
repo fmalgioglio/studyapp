@@ -43,7 +43,6 @@ function main() {
   const copied = [];
 
   const demoGif = join(latestRun, "studyapp-demo.gif");
-  const demoMp4 = join(latestRun, "studyapp-demo.mp4");
   const homeShot = join(SCREENSHOT_DIR, "home-desktop.png");
 
   if (copyIfPresent(homeShot, join(README_ASSET_DIR, "home-desktop.png"))) {
@@ -51,9 +50,6 @@ function main() {
   }
   if (copyIfPresent(demoGif, join(README_ASSET_DIR, "studyapp-demo.gif"))) {
     copied.push("studyapp-demo.gif");
-  }
-  if (copyIfPresent(demoMp4, join(README_ASSET_DIR, "studyapp-demo.mp4"))) {
-    copied.push("studyapp-demo.mp4");
   }
 
   if (copied.length === 0) {

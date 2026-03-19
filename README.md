@@ -6,11 +6,9 @@ The objective is simple: turn books, notes, slides, and official resources into 
 
 ## Preview
 
-![StudyApp home](docs/readme-assets/home-desktop.png)
-
 ![StudyApp demo](docs/readme-assets/studyapp-demo.gif)
 
-Website-ready demo video: [studyapp-demo.mp4](docs/readme-assets/studyapp-demo.mp4)
+![StudyApp home](docs/readme-assets/home-desktop.png)
 
 ## What StudyApp Does
 
@@ -91,7 +89,6 @@ StudyApp is being shaped around a simple idea:
 - `prisma/schema.prisma`: data model source of truth.
 - `docs/*`: implementation and workflow documentation.
 - `docs/ml-maturity-plan.md`: model roadmap from baseline to advanced ML.
-- `docs/interaction-os-skeleton.md`: human-AI operating framework for multi-role collaboration.
 
 ## Open-Source Guardrails
 

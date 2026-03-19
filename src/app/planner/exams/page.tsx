@@ -54,8 +54,8 @@ const MS_PER_DAY = 86_400_000;
 
 const COPY = {
   en: {
-    title: "Goals",
-    subtitle: "Create, adjust, and study every goal from one practical workspace.",
+    title: "Objectives",
+    subtitle: "Create, adjust, and study every objective from one practical workspace.",
     subjectSection: "1. Subject",
     subjectSectionHint: "Pick one subject and continue.",
     subjectModeExisting: "Use existing subject",
@@ -65,11 +65,11 @@ const COPY = {
     newSubjectName: "New subject name",
     newSubjectColor: "Subject color (optional)",
     createSubjectHint: "Create a subject inline and continue in one step.",
-    basicsSection: "2. Goal basics",
-    examTitle: "Goal title",
-    examDate: "Goal date",
-    targetGrade: "Goal grade (optional)",
-    goalType: "Goal type",
+    basicsSection: "2. Objective basics",
+    examTitle: "Objective title",
+    examDate: "Objective date",
+    targetGrade: "Target grade (optional)",
+    goalType: "Objective type",
     workloadSection: "Study workload",
     workloadHelp: "Set workload now, or mark it unknown and refine later.",
     workloadStatus: "Workload status",
@@ -131,10 +131,10 @@ const COPY = {
       "For notes-heavy goals, describe the material type and estimate the size of the pack you need to cover.",
     bookRecommendation:
       "If only part of the book matters, use a page range so the planner reflects the real study scope.",
-    addExam: "Add goal",
-    editWorkload: "Edit goal",
+    addExam: "Add objective",
+    editWorkload: "Edit objective",
     planSettings: "Study rhythm",
-    planIntensity: "Choose how intense this goal should feel before saving.",
+    planIntensity: "Choose how intense this objective should feel before saving.",
     planSummary: "Summary support",
     planLighter: "Gentle",
     planBalanced: "Balanced",
@@ -144,10 +144,10 @@ const COPY = {
     planStrongerBody: "Higher intensity for dense material or close dates.",
     planLocked: "Keep this pace fixed",
     savePlan: "Save rhythm",
-    saveWorkload: "Save goal",
+    saveWorkload: "Save objective",
     cancelEdit: "Cancel",
-    list: "Goal list",
-    none: "No goals yet.",
+    list: "Objectives list",
+    none: "No objectives yet.",
     refresh: "Refresh",
     openTimeline: "Open planner view",
     delete: "Delete",
@@ -160,13 +160,13 @@ const COPY = {
     noAccount: "Your session is missing or expired.",
     subjectRequired: "Select a subject or create a new one.",
     subjectCreateError: "Failed to create subject",
-    noDate: "Choose a goal date.",
-    created: "Goal created",
-    deleted: "Goal deleted.",
+    noDate: "Choose an objective date.",
+    created: "Objective created",
+    deleted: "Objective deleted.",
     loadSubjectsError: "Failed to load subjects",
-    loadExamsError: "Failed to load goals",
-    createError: "Failed to save goal",
-    deleteError: "Failed to delete goal",
+    loadExamsError: "Failed to load objectives",
+    createError: "Failed to save objective",
+    deleteError: "Failed to delete objective",
     statusNotStarted: "Not started",
     statusWarmingUp: "Warming up",
     statusSteady: "Steady",
@@ -189,24 +189,24 @@ const COPY = {
     pagesDone: "done",
     materialsLinked: "materials linked",
     notSet: "Not set",
-    sessionHelp: "Sign in again to manage your goals and keep planner data in sync.",
+    sessionHelp: "Sign in again to manage your objectives and keep planner data in sync.",
     login: "Go to login",
     createAccount: "Create account",
-    listHint: "Keep the active goals clean. Update dates, postpone when needed, and link material here.",
-    emptyBody: "Create the first goal now so the planner can suggest a realistic daily next step.",
-    emptyAction: "Build first goal",
+    listHint: "Keep active objectives tidy. Update dates, postpone when needed, and link the right material here.",
+    emptyBody: "Create the first objective now so the planner can suggest a realistic daily next step.",
+    emptyAction: "Build first objective",
     saveTitleFirst: "Add a title before saving.",
-    saveDateFirst: "Choose a goal date before saving.",
-    postponed7: "Goal postponed by 7 days.",
-    postponed14: "Goal postponed by 14 days.",
-    completedTarget: "Goal completed.",
+    saveDateFirst: "Choose an objective date before saving.",
+    postponed7: "Objective postponed by 7 days.",
+    postponed14: "Objective postponed by 14 days.",
+    completedTarget: "Objective completed.",
     completeAction: "Mark complete",
     savedPlanMessage: "Study rhythm saved.",
-    savedGoalMessage: "Goal saved.",
+    savedGoalMessage: "Objective saved.",
     noPages: "-",
     createdFollowUp: "Now link the right materials below and refine the study rhythm if needed.",
     createdHintTitle: "Next step",
-    createdHintBody: "This goal is ready. Add books, notes, slides, or official links in the materials section below.",
+    createdHintBody: "This objective is ready. Add books, notes, slides, or official links in the materials section below.",
     jumpToMaterials: "Go to materials",
   },
   it: {
@@ -1057,7 +1057,7 @@ export default function PlannerExamsPage() {
         <p className="mt-1 text-sm text-slate-600">{t.subtitle}</p>
       </section>
 
-      <section className="planner-panel">
+      <section className="planner-panel objectives-builder-shell">
         {loading ? (
           <div className="space-y-2">
             <p className="text-sm text-slate-600">{t.loading}</p>
@@ -1067,8 +1067,9 @@ export default function PlannerExamsPage() {
             </div>
           </div>
         ) : (
-          <form className="space-y-4" onSubmit={createExam}>
-            <section className="planner-card-soft">
+          <form className="objectives-builder-grid" onSubmit={createExam}>
+            <div className="objectives-builder-main">
+            <section className="planner-card-soft objectives-section-card">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="planner-eyebrow">{t.subjectSection}</p>
@@ -1145,51 +1146,63 @@ export default function PlannerExamsPage() {
               ) : null}
             </section>
 
-            <section className="grid gap-3 md:grid-cols-5">
-              <label className="planner-field">
-                <span className="planner-eyebrow mb-1 block">{t.examTitle}</span>
-                <input
-                  required
-                  type="text"
-                  value={examTitle}
-                  onChange={(event) => setExamTitle(event.target.value)}
-                  className="planner-input"
-                />
-              </label>
+            <section className="planner-card-soft objectives-section-card space-y-3">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1.35fr)_repeat(3,minmax(0,0.8fr))]">
+                <label className="planner-field md:col-span-2 xl:col-span-1">
+                  <span className="planner-eyebrow mb-1 block">{t.examTitle}</span>
+                  <input
+                    required
+                    type="text"
+                    value={examTitle}
+                    onChange={(event) => setExamTitle(event.target.value)}
+                    className="planner-input"
+                  />
+                </label>
 
-              <label className="planner-field">
-                <span className="planner-eyebrow mb-1 block">{t.examDate}</span>
-                <input
-                  required={assessmentType !== "SELF_STUDY"}
-                  type="date"
-                  value={examDate}
-                  onChange={(event) => setExamDate(event.target.value)}
-                  className="planner-input"
-                />
-              </label>
+                <label className="planner-field">
+                  <span className="planner-eyebrow mb-1 block">{t.examDate}</span>
+                  <input
+                    required={assessmentType !== "SELF_STUDY"}
+                    type="date"
+                    value={examDate}
+                    onChange={(event) => setExamDate(event.target.value)}
+                    className="planner-input"
+                  />
+                </label>
 
-              <label className="planner-field">
-                <span className="planner-eyebrow mb-1 block">{t.goalType}</span>
-                <select
-                  value={assessmentType}
-                  onChange={(event) =>
-                    setAssessmentType(event.target.value as AssessmentType)
-                  }
-                  className="planner-input"
-                >
-                  <option value="EXAM">{language === "it" ? "Esame" : "Exam"}</option>
-                  <option value="TEST">{language === "it" ? "Verifica" : "Test"}</option>
-                  <option value="ORAL">{language === "it" ? "Interrogazione" : "Oral"}</option>
-                  <option value="SELF_STUDY">
-                    {language === "it" ? "Studio autonomo" : "Self study"}
-                  </option>
-                </select>
-              </label>
+                <label className="planner-field">
+                  <span className="planner-eyebrow mb-1 block">{t.goalType}</span>
+                  <select
+                    value={assessmentType}
+                    onChange={(event) =>
+                      setAssessmentType(event.target.value as AssessmentType)
+                    }
+                    className="planner-input"
+                  >
+                    <option value="EXAM">{language === "it" ? "Esame" : "Exam"}</option>
+                    <option value="TEST">{language === "it" ? "Verifica" : "Test"}</option>
+                    <option value="ORAL">{language === "it" ? "Interrogazione" : "Oral"}</option>
+                    <option value="SELF_STUDY">
+                      {language === "it" ? "Studio autonomo" : "Self study"}
+                    </option>
+                  </select>
+                </label>
+
+                <label className="planner-field">
+                  <span className="planner-eyebrow mb-1 block">{t.targetGrade}</span>
+                  <input
+                    type="text"
+                    value={targetGrade}
+                    onChange={(event) => setTargetGrade(event.target.value)}
+                    className="planner-input"
+                  />
+                </label>
+              </div>
 
               <div className="planner-field">
                 <span className="planner-eyebrow mb-1 block">{t.planSettings}</span>
                 <p className="text-xs text-slate-500">{t.planIntensity}</p>
-                <div className="mt-2 grid gap-2">
+                <div className="mt-2 grid gap-2 lg:grid-cols-3">
                   {studyRhythmOptions(t).map((option) => {
                     const isActive = importance === option.value;
                     return (
@@ -1217,19 +1230,9 @@ export default function PlannerExamsPage() {
                   })}
                 </div>
               </div>
-
-              <label className="planner-field">
-                <span className="planner-eyebrow mb-1 block">{t.targetGrade}</span>
-                <input
-                  type="text"
-                  value={targetGrade}
-                  onChange={(event) => setTargetGrade(event.target.value)}
-                  className="planner-input"
-                />
-              </label>
             </section>
 
-            <section className="planner-card">
+            <section className="planner-card objectives-section-card">
               <p className="planner-eyebrow">{t.workloadSection}</p>
               <p className="mt-1 text-sm text-slate-600">{t.workloadHelp}</p>
 
@@ -1269,7 +1272,7 @@ export default function PlannerExamsPage() {
                 </label>
               </div>
 
-              <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+              <div className="objective-subcard mt-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
                   {t.notebookTitle}
                 </p>
@@ -1305,7 +1308,7 @@ export default function PlannerExamsPage() {
                   })}
                 </div>
 
-                <div className="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-2">
+                <div className="objective-subcard-inner mt-3">
                   <p className="text-xs font-semibold text-slate-800">{activeNotebook.title}</p>
                   <p className="mt-1 text-xs text-slate-600">{activeNotebook.body}</p>
                   <p className="mt-1 text-xs text-slate-500">{t.notebookScopeHint}</p>
@@ -1358,7 +1361,7 @@ export default function PlannerExamsPage() {
                 </div>
               ) : null}
 
-              <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+              <div className="objective-subcard mt-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
                   {t.scopePlanner}
                 </p>
@@ -1494,13 +1497,16 @@ export default function PlannerExamsPage() {
               </label>
             </section>
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="planner-btn planner-btn-accent w-full rounded-full"
-            >
-              {t.addExam}
-            </button>
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="planner-btn planner-btn-accent w-full rounded-full sm:w-auto sm:min-w-52"
+              >
+                {t.addExam}
+              </button>
+            </div>
+            </div>
           </form>
         )}
       </section>

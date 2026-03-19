@@ -1,6 +1,12 @@
 import { Prisma } from "@/generated/prisma/client";
 import { requireSession } from "@/server/auth/require-session";
 import { isLocalDevSession } from "@/server/auth/local-dev";
+import {
+  createLocalDevSubject,
+  deleteLocalDevSubject,
+  getLocalDevSubjectDeletePreview,
+  listLocalDevSubjects,
+} from "@/server/auth/local-dev-store";
 import { prisma } from "@/server/db/client";
 import { apiError, apiSuccess, getErrorDetails } from "@/server/http/response";
 import { createSubjectSchema } from "@/server/validation/subject";
@@ -11,6 +17,10 @@ export async function GET() {
   const session = await requireSession();
   if (!session) {
     return apiError("Unauthorized", 401);
+  }
+
+  if (isLocalDevSession(session)) {
+    return apiSuccess(listLocalDevSubjects(session.email));
   }
 
   try {
@@ -50,6 +60,17 @@ export async function POST(request: Request) {
       undefined,
       parsed.error.flatten().fieldErrors,
     );
+  }
+
+  if (isLocalDevSession(session)) {
+    const result = createLocalDevSubject(session.email, {
+      name: parsed.data.name,
+      color: parsed.data.color,
+    });
+    if (result.duplicate) {
+      return apiError("A subject with this name already exists for the student.", 409);
+    }
+    return apiSuccess(result.subject, 201);
   }
 
   try {
@@ -105,6 +126,23 @@ export async function DELETE(request: Request) {
   }
 
   const confirmCascade = confirmCascadeValue === "true";
+
+  if (isLocalDevSession(session)) {
+    const localPreview = getLocalDevSubjectDeletePreview(session.email, id);
+    if (!localPreview) {
+      return apiError("Subject not found", 404);
+    }
+
+    if (localPreview.relationCounts.exams > 0 && !confirmCascade) {
+      return apiError("Subject has linked data", 409, {
+        id: localPreview.id,
+        relationCounts: localPreview.relationCounts,
+        requiresConfirmCascade: true,
+      });
+    }
+
+    return apiSuccess(deleteLocalDevSubject(session.email, id));
+  }
 
   try {
     const subject = await prisma.subject.findFirst({
