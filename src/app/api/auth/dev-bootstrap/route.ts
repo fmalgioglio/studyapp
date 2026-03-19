@@ -54,6 +54,21 @@ async function upsertDevBootstrapStudent(options: {
   includeProfileFields: boolean;
 }) {
   const { includePasswordHash, includeProfileFields } = options;
+  const select = includeProfileFields
+    ? {
+        id: true,
+        email: true,
+        fullName: true,
+        weeklyHours: true,
+        educationLevel: true,
+        schoolProfile: true,
+      }
+    : {
+        id: true,
+        email: true,
+        fullName: true,
+        weeklyHours: true,
+      };
 
   return prisma.student.upsert({
     where: { email: DEV_BOOTSTRAP_EMAIL },
@@ -84,14 +99,7 @@ async function upsertDevBootstrapStudent(options: {
         ? { passwordHash: hashPassword(DEV_BOOTSTRAP_PASSWORD) }
         : {}),
     },
-    select: {
-      id: true,
-      email: true,
-      fullName: true,
-      weeklyHours: true,
-      educationLevel: true,
-      schoolProfile: true,
-    },
+    select,
   });
 }
 
