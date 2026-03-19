@@ -34,15 +34,15 @@ type SubjectDeleteConflictDetails = {
 const COPY = {
   en: {
     title: "Subjects",
-    subtitle: "Keep subjects tidy so targets and materials stay easy to manage.",
+    subtitle: "Keep subjects tidy so goals and materials stay easy to manage.",
     addTitle: "Add subject",
     name: "Subject name",
     color: "Color",
     add: "Add subject",
     noSubjects: "No subjects yet.",
-    linkedExams: "Linked exams",
-    studyDirection: "Current study direction",
-    openExams: "Open targets",
+    linkedExams: "Linked goals",
+    studyDirection: "Connected study rhythm",
+    openExams: "Open goals",
     delete: "Delete",
     created: "Subject created",
     deleted: "Subject deleted",
@@ -50,32 +50,32 @@ const COPY = {
     loadError: "Failed to load subjects",
     noAccount: "Your session is missing or expired.",
     loading: "Loading subjects...",
-    noDirection: "No exam plan yet for this subject.",
+    noDirection: "No linked goal yet for this subject.",
     confirmDelete: "Delete subject?",
     confirmCascade: "This subject has linked records. Confirm to remove them too.",
     whyTitle: "Why subjects matter",
-    whyBody: "Use each subject as the home for related targets, materials, and study fit.",
+    whyBody: "Use each subject as the home for related goals, materials, and study fit.",
     statsSubjects: "Subjects",
-    statsTargets: "Targets",
+    statsTargets: "Goals",
     statsNext: "Ready next",
     statsNextEmpty: "Create one",
-    statsNextReady: "Link targets",
-    noAccountBody: "Sign in again to manage subjects and keep them linked to the right targets.",
+    statsNextReady: "Link goals",
+    noAccountBody: "Sign in again to manage subjects and keep them linked to the right goals.",
     login: "Go to login",
     createAccount: "Create account",
-    emptyBody: "Create the first subject now so targets and materials have a clear home.",
+    emptyBody: "Create the first subject now so goals and materials have a clear home.",
   },
   it: {
     title: "Materie",
-    subtitle: "Tieni ordinate le materie cosi target e materiali restano facili da gestire.",
+    subtitle: "Tieni ordinate le materie cosi obiettivi e materiali restano facili da gestire.",
     addTitle: "Aggiungi materia",
     name: "Nome materia",
     color: "Colore",
     add: "Aggiungi materia",
     noSubjects: "Nessuna materia per ora.",
-    linkedExams: "Esami collegati",
-    studyDirection: "Direzione di studio attuale",
-    openExams: "Apri target",
+    linkedExams: "Obiettivi collegati",
+    studyDirection: "Ritmo collegato",
+    openExams: "Apri obiettivi",
     delete: "Elimina",
     created: "Materia creata",
     deleted: "Materia eliminata",
@@ -83,22 +83,28 @@ const COPY = {
     loadError: "Impossibile caricare le materie",
     noAccount: "La sessione manca o e scaduta.",
     loading: "Caricamento materie...",
-    noDirection: "Nessun piano esame disponibile per questa materia.",
+    noDirection: "Nessun obiettivo collegato per questa materia.",
     confirmDelete: "Eliminare la materia?",
     confirmCascade: "Questa materia ha record collegati. Conferma per eliminarli.",
     whyTitle: "Perche le materie aiutano",
-    whyBody: "Usa ogni materia come casa per target collegati, materiali e ritmo di studio.",
+    whyBody: "Usa ogni materia come casa per obiettivi collegati, materiali e ritmo di studio.",
     statsSubjects: "Materie",
-    statsTargets: "Target",
+    statsTargets: "Obiettivi",
     statsNext: "Prossimo passo",
     statsNextEmpty: "Creane una",
-    statsNextReady: "Collega i target",
-    noAccountBody: "Accedi di nuovo per gestire le materie e tenerle collegate ai target giusti.",
+    statsNextReady: "Collega gli obiettivi",
+    noAccountBody: "Accedi di nuovo per gestire le materie e tenerle collegate agli obiettivi giusti.",
     login: "Vai al login",
     createAccount: "Crea account",
-    emptyBody: "Crea ora la prima materia cosi target e materiali hanno una base chiara.",
+    emptyBody: "Crea ora la prima materia cosi obiettivi e materiali hanno una base chiara.",
   },
 } as const;
+
+function studyRhythmLabel(value: string | null | undefined, language: "en" | "it") {
+  if (value === "LOW") return language === "it" ? "Leggero" : "Gentle";
+  if (value === "HIGH") return language === "it" ? "Spinto" : "Push";
+  return language === "it" ? "Bilanciato" : "Balanced";
+}
 
 export default function PlannerSubjectsPage() {
   const { student, loading } = useAuthStudent();
@@ -116,7 +122,9 @@ export default function PlannerSubjectsPage() {
   const subjectCards = useMemo(
     () =>
       subjects.map((subject) => {
-        const linkedExams = exams.filter((exam) => exam.subject.id === subject.id);
+        const linkedExams = exams
+          .filter((exam) => exam.subject.id === subject.id)
+          .sort((left, right) => left.examDate.localeCompare(right.examDate));
         const linkedRecommendation = linkedExams
           .map((exam) => exam.planState?.lastRecommendationSnapshot)
           .find(Boolean) as ExamPaceRecommendation | undefined;
@@ -124,6 +132,7 @@ export default function PlannerSubjectsPage() {
         return {
           subject,
           linkedExams,
+          nextGoal: linkedExams[0] ?? null,
           linkedRecommendation,
         };
       }),
@@ -202,10 +211,10 @@ export default function PlannerSubjectsPage() {
           </h1>
           <p className="mt-2 text-sm text-slate-600">{t.noAccountBody}</p>
           <div className="mt-4 flex flex-wrap gap-3">
-            <Link href="/login" className="planner-btn planner-btn-accent">
+            <Link href="/login" className="planner-btn planner-btn-accent rounded-full">
               {t.login}
             </Link>
-            <Link href="/signup" className="planner-btn planner-btn-secondary">
+            <Link href="/signup" className="planner-btn planner-btn-secondary rounded-full">
               {t.createAccount}
             </Link>
           </div>
@@ -247,7 +256,7 @@ export default function PlannerSubjectsPage() {
                   placeholder="#0ea5e9"
                 />
               </label>
-              <button type="submit" className="planner-btn planner-btn-accent">
+              <button type="submit" className="planner-btn planner-btn-accent rounded-full">
                 {t.add}
               </button>
             </form>
@@ -283,7 +292,7 @@ export default function PlannerSubjectsPage() {
             <p className="mt-2 text-sm text-slate-600">{t.emptyBody}</p>
           </article>
         ) : (
-          subjectCards.map(({ subject, linkedExams, linkedRecommendation }) => (
+          subjectCards.map(({ subject, linkedExams, nextGoal, linkedRecommendation }) => (
             <article key={subject.id} className="planner-card border border-slate-200 bg-white">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -295,7 +304,7 @@ export default function PlannerSubjectsPage() {
                 <button
                   type="button"
                   onClick={() => void deleteSubject(subject.id, subject.name)}
-                  className="planner-btn planner-btn-secondary"
+                  className="planner-btn planner-btn-secondary rounded-full"
                 >
                   {t.delete}
                 </button>
@@ -317,6 +326,25 @@ export default function PlannerSubjectsPage() {
                 )}
               </div>
 
+              {nextGoal ? (
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                  <p className="planner-eyebrow">
+                    {language === "it" ? "Prossimo obiettivo" : "Next goal"}
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="font-semibold text-slate-900">{nextGoal.title}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {new Date(nextGoal.examDate).toLocaleDateString(language === "it" ? "it-IT" : "en-US")}
+                      </p>
+                    </div>
+                    <span className="planner-chip bg-slate-100 text-slate-700">
+                      {studyRhythmLabel(nextGoal.importance, language)}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
+
               {linkedExams.length > 0 ? (
                 <div className="mt-4 space-y-2">
                   {linkedExams.map((exam) => {
@@ -329,11 +357,21 @@ export default function PlannerSubjectsPage() {
                         key={exam.id}
                         className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
                       >
-                        <p className="font-semibold text-slate-900">{exam.title}</p>
-                        <p className="mt-1 text-sm text-slate-600">
-                          {recommendation?.dailyTargetPages ?? 0}{" "}
-                          {language === "it" ? "pagine/giorno" : "pages/day"} |{" "}
-                          {recommendation?.weeklyAllocationHours ?? 0}h/week
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-slate-900">{exam.title}</p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {new Date(exam.examDate).toLocaleDateString(language === "it" ? "it-IT" : "en-US")}
+                              {" · "}
+                              {studyRhythmLabel(exam.importance, language)}
+                            </p>
+                          </div>
+                          <span className="planner-chip bg-white text-slate-700">
+                            {recommendation?.weeklyAllocationHours ?? 0}h
+                          </span>
+                        </div>
+                        <p className="mt-2 text-sm text-slate-600">
+                          {recommendation?.paceDescription ?? t.noDirection}
                         </p>
                       </div>
                     );
@@ -343,7 +381,7 @@ export default function PlannerSubjectsPage() {
 
               <Link
                 href="/planner/exams"
-                className="planner-btn planner-btn-secondary mt-4 inline-flex"
+                className="planner-btn planner-btn-secondary mt-4 inline-flex rounded-full"
               >
                 {t.openExams}
               </Link>

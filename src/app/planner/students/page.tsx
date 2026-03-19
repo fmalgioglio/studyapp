@@ -52,18 +52,6 @@ const SUBJECT_AFFINITY_OPTIONS = [
 const AFFINITY_LIMIT = 3;
 const SUBJECT_AFFINITY_SET = new Set<string>(SUBJECT_AFFINITY_OPTIONS);
 
-const STUDY_CONTEXT_OPTIONS = [
-  "University",
-  "High school",
-  "Middle school",
-  "Primary school",
-  "Personal study",
-] as const;
-
-type StudyContext = (typeof STUDY_CONTEXT_OPTIONS)[number];
-
-const STUDY_CONTEXT_STORAGE_KEY = "studyapp_profile_context_v1";
-
 type SubjectAffinityOption = (typeof SUBJECT_AFFINITY_OPTIONS)[number];
 
 function normalizeAffinityList(values: string[] | null | undefined): SubjectAffinityOption[] {
@@ -106,17 +94,6 @@ export default function PlannerStudentsPage() {
   const [preferencesExpanded, setPreferencesExpanded] = useState(false);
   const [educationLevelDraft, setEducationLevelDraft] = useState<EducationLevel | null>(null);
   const [schoolProfileDraft, setSchoolProfileDraft] = useState<SchoolProfile | null>(null);
-  const [studyContext, setStudyContext] = useState<StudyContext | null>(() => {
-    try {
-      const stored = localStorage.getItem(STUDY_CONTEXT_STORAGE_KEY);
-      if (stored && (STUDY_CONTEXT_OPTIONS as readonly string[]).includes(stored)) {
-        return stored as StudyContext;
-      }
-    } catch {
-      // storage unavailable
-    }
-    return null;
-  });
 
   useEffect(() => {
     if (!feedback || feedback.kind !== "success") return;
@@ -132,15 +109,6 @@ export default function PlannerStudentsPage() {
 
   function showSuccess(text: string) {
     setFeedback({ kind: "success", text });
-  }
-
-  function handleContextChange(ctx: StudyContext) {
-    setStudyContext(ctx);
-    try {
-      localStorage.setItem(STUDY_CONTEXT_STORAGE_KEY, ctx);
-    } catch {
-      // storage unavailable
-    }
   }
 
   async function saveProfile(event: FormEvent) {
@@ -286,7 +254,7 @@ export default function PlannerStudentsPage() {
   return (
     <main className="space-y-5 sm:space-y-6">
       <section className="planner-panel planner-hero">
-        <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Study profile</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Profile</h1>
         <p className="mt-1 text-sm text-slate-600">
           Keep only the details that help the planner suggest a better weekly rhythm.
         </p>
@@ -295,10 +263,8 @@ export default function PlannerStudentsPage() {
       <section className="planner-panel">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-base font-semibold text-slate-900">Planner profile</h2>
-            <p className="mt-0.5 text-sm text-slate-500">
-              {studyContext ?? "No context selected"} | {profileScore}% ready
-            </p>
+            <h2 className="text-base font-semibold text-slate-900">Profile overview</h2>
+            <p className="mt-0.5 text-sm text-slate-500">{profileScore}% ready</p>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="h-2 w-32 overflow-hidden rounded-full bg-slate-100">
@@ -322,25 +288,6 @@ export default function PlannerStudentsPage() {
           </ul>
         ) : null}
 
-        <div className="mt-4">
-          <p className="planner-eyebrow mb-2 block text-xs">Study context</p>
-          <div className="flex flex-wrap gap-2">
-            {STUDY_CONTEXT_OPTIONS.map((ctx) => (
-              <button
-                key={ctx}
-                type="button"
-                onClick={() => handleContextChange(ctx)}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                  studyContext === ctx
-                    ? "border-sky-300 bg-sky-50 text-sky-800"
-                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-                }`}
-              >
-                {ctx}
-              </button>
-            ))}
-          </div>
-        </div>
       </section>
 
       <section className="planner-panel">
@@ -348,19 +295,19 @@ export default function PlannerStudentsPage() {
           <div>
             <h2 className="text-lg font-bold text-slate-900">Profile details</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Name, weekly time, and school path are enough for the planner to start well.
+              Name, weekly time, education level, and school profile are enough for the planner to start well.
             </p>
           </div>
           <button
             type="button"
             onClick={() => setProfileExpanded((current) => !current)}
-            className="planner-btn planner-btn-secondary"
+            className="planner-btn planner-btn-secondary rounded-full"
           >
             {profileExpanded ? "Hide editor" : "Edit profile"}
           </button>
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-4">
+        <div className="mt-4 grid gap-3 md:grid-cols-5">
           <article className="planner-card bg-slate-50/80">
             <p className="planner-eyebrow">Name</p>
             <p className="mt-1 text-base font-semibold text-slate-900">
@@ -380,11 +327,14 @@ export default function PlannerStudentsPage() {
             </p>
           </article>
           <article className="planner-card bg-slate-50/80">
-            <p className="planner-eyebrow">Study path</p>
+            <p className="planner-eyebrow">Education level</p>
             <p className="mt-1 text-base font-semibold text-slate-900">
               {resolvedEducationLevel.toLowerCase().replace(/_/g, " ")}
             </p>
-            <p className="mt-1 text-xs text-slate-500">
+          </article>
+          <article className="planner-card bg-slate-50/80">
+            <p className="planner-eyebrow">School profile</p>
+            <p className="mt-1 text-base font-semibold text-slate-900">
               {resolvedSchoolProfile.toLowerCase().replace(/_/g, " ")}
             </p>
           </article>
@@ -463,7 +413,7 @@ export default function PlannerStudentsPage() {
               </label>
               <button
                 type="submit"
-                className="planner-btn planner-btn-accent w-full md:col-span-4"
+                className="planner-btn planner-btn-accent w-full rounded-full md:col-span-4"
               >
                 Save profile
               </button>
@@ -483,14 +433,14 @@ export default function PlannerStudentsPage() {
           <button
             type="button"
             onClick={() => setPreferencesExpanded((current) => !current)}
-            className="planner-btn planner-btn-secondary"
+            className="planner-btn planner-btn-secondary rounded-full"
           >
             {preferencesExpanded ? "Collapse editor" : "Edit preferences"}
           </button>
         </div>
 
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
-          <article className="planner-card bg-emerald-50/70">
+          <article className="planner-card rounded-3xl bg-emerald-50/70">
             <p className="planner-eyebrow text-emerald-700">Feels easier</p>
             <p className="mt-1 text-sm text-slate-700">
               {affinity.easiestSubjects.length > 0
@@ -501,7 +451,7 @@ export default function PlannerStudentsPage() {
               {easiestCount}/{AFFINITY_LIMIT} selected
             </p>
           </article>
-          <article className="planner-card bg-amber-50/70">
+          <article className="planner-card rounded-3xl bg-amber-50/70">
             <p className="planner-eyebrow text-amber-700">Needs more effort</p>
             <p className="mt-1 text-sm text-slate-700">
               {affinity.effortSubjects.length > 0
@@ -566,7 +516,7 @@ export default function PlannerStudentsPage() {
               <button
                 type="button"
                 onClick={() => void saveAffinity()}
-                className="planner-btn planner-btn-accent"
+                className="planner-btn planner-btn-accent rounded-full"
               >
                 Save preferences
               </button>

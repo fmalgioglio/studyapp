@@ -54,8 +54,8 @@ const MS_PER_DAY = 86_400_000;
 
 const COPY = {
   en: {
-    title: "Targets",
-    subtitle: "Create, adjust, and study every target from one practical workspace.",
+    title: "Goals",
+    subtitle: "Create, adjust, and study every goal from one practical workspace.",
     subjectSection: "1. Subject",
     subjectSectionHint: "Pick one subject and continue.",
     subjectModeExisting: "Use existing subject",
@@ -65,10 +65,11 @@ const COPY = {
     newSubjectName: "New subject name",
     newSubjectColor: "Subject color (optional)",
     createSubjectHint: "Create a subject inline and continue in one step.",
-    basicsSection: "2. Target basics",
-    examTitle: "Target title",
-    examDate: "Target date",
-    targetGrade: "Target grade (optional)",
+    basicsSection: "2. Goal basics",
+    examTitle: "Goal title",
+    examDate: "Goal date",
+    targetGrade: "Goal grade (optional)",
+    goalType: "Goal type",
     workloadSection: "Study workload",
     workloadHelp: "Set workload now, or mark it unknown and refine later.",
     workloadStatus: "Workload status",
@@ -80,7 +81,7 @@ const COPY = {
     materialNotes: "Notes",
     materialMixed: "Mixed",
     notebookTitle: "Material guide",
-    notebookIntro: "Use this to classify the target material before entering workload details.",
+    notebookIntro: "Use this to classify the study material before entering workload details.",
     notebookBookTitle: "Book case",
     notebookBookBody: "Choose this when most of your preparation is from one main textbook.",
     notebookNotesTitle: "Notes case",
@@ -88,9 +89,9 @@ const COPY = {
     notebookMixedTitle: "Mixed case",
     notebookMixedBody: "Use this when the workload is split between a textbook and notes.",
     notebookFocusTitle: "Interpretation",
-    notebookFocusBody: "The app currently interprets this target as",
+    notebookFocusBody: "The app currently interprets this goal as",
     notebookScopeHint:
-      "In Material scope, enter the exact chapters, units, or note sets included in this target.",
+      "In Material scope, enter the exact chapters, units, or note sets included in this goal.",
     totalPages: "Total pages (optional)",
     bookLookupLabel: "Book lookup",
     bookLookupHint: "Search title + author for better matches",
@@ -125,25 +126,28 @@ const COPY = {
     unitHandouts: "Handouts",
     unitItems: "Items",
     mixedRecommendation:
-      "For mixed targets, keep the main text range precise and add an approximate size for notes or slides.",
+      "For mixed goals, keep the main text range precise and add an approximate size for notes or slides.",
     notesRecommendation:
-      "For notes-heavy targets, describe the material type and estimate the size of the pack you need to cover.",
+      "For notes-heavy goals, describe the material type and estimate the size of the pack you need to cover.",
     bookRecommendation:
       "If only part of the book matters, use a page range so the planner reflects the real study scope.",
-    addExam: "Add target",
-    editWorkload: "Edit target",
-    planSettings: "Plan settings",
-    planIntensity: "Study rhythm",
+    addExam: "Add goal",
+    editWorkload: "Edit goal",
+    planSettings: "Study rhythm",
+    planIntensity: "Choose a pace before saving",
     planSummary: "Summary support",
-    planLighter: "Lighter",
+    planLighter: "Gentle",
     planBalanced: "Balanced",
-    planStronger: "Stronger",
+    planStronger: "Push",
+    planLighterBody: "More space to recover and study with less pressure.",
+    planBalancedBody: "A steady rhythm that keeps the week realistic.",
+    planStrongerBody: "Higher intensity for dense material or close dates.",
     planLocked: "Keep this pace fixed",
-    savePlan: "Save plan",
-    saveWorkload: "Save target",
+    savePlan: "Save rhythm",
+    saveWorkload: "Save goal",
     cancelEdit: "Cancel",
-    list: "Target list",
-    none: "No targets yet.",
+    list: "Goal list",
+    none: "No goals yet.",
     refresh: "Refresh",
     openTimeline: "Open planner view",
     delete: "Delete",
@@ -156,13 +160,13 @@ const COPY = {
     noAccount: "Your session is missing or expired.",
     subjectRequired: "Select a subject or create a new one.",
     subjectCreateError: "Failed to create subject",
-    noDate: "Choose a target date.",
-    created: "Target created",
-    deleted: "Target deleted.",
+    noDate: "Choose a goal date.",
+    created: "Goal created",
+    deleted: "Goal deleted.",
     loadSubjectsError: "Failed to load subjects",
-    loadExamsError: "Failed to load targets",
-    createError: "Failed to save target",
-    deleteError: "Failed to delete target",
+    loadExamsError: "Failed to load goals",
+    createError: "Failed to save goal",
+    deleteError: "Failed to delete goal",
     statusNotStarted: "Not started",
     statusWarmingUp: "Warming up",
     statusSteady: "Steady",
@@ -182,22 +186,22 @@ const COPY = {
     sourceOpenLibrary: "Open Library",
     sourceLocal: "Local catalog",
     daysLeft: "days left",
-    sessionHelp: "Sign in again to manage your targets and keep planner data in sync.",
+    sessionHelp: "Sign in again to manage your goals and keep planner data in sync.",
     login: "Go to login",
     createAccount: "Create account",
-    listHint: "Keep the active targets clean. Update dates, postpone when needed, and link material here.",
-    emptyBody: "Create the first target now so the planner can suggest a realistic daily next step.",
-    emptyAction: "Build first target",
+    listHint: "Keep the active goals clean. Update dates, postpone when needed, and link material here.",
+    emptyBody: "Create the first goal now so the planner can suggest a realistic daily next step.",
+    emptyAction: "Build first goal",
     saveTitleFirst: "Add a title before saving.",
-    saveDateFirst: "Choose a target date before saving.",
-    postponed7: "Target postponed by 7 days.",
-    postponed14: "Target postponed by 14 days.",
-    completedTarget: "Target completed.",
+    saveDateFirst: "Choose a goal date before saving.",
+    postponed7: "Goal postponed by 7 days.",
+    postponed14: "Goal postponed by 14 days.",
+    completedTarget: "Goal completed.",
     noPages: "-",
   },
   it: {
-    title: "Target",
-    subtitle: "Crea, aggiorna e studia ogni target da uno spazio unico e pratico.",
+    title: "Obiettivi",
+    subtitle: "Crea, aggiorna e studia ogni obiettivo da uno spazio unico e pratico.",
     subjectSection: "1. Materia",
     subjectSectionHint: "Seleziona una materia e continua.",
     subjectModeExisting: "Usa materia esistente",
@@ -207,10 +211,11 @@ const COPY = {
     newSubjectName: "Nome nuova materia",
     newSubjectColor: "Colore materia (opzionale)",
     createSubjectHint: "Crea una materia inline e continua in un unico passaggio.",
-    basicsSection: "2. Dettagli target",
-    examTitle: "Titolo target",
-    examDate: "Data target",
-    targetGrade: "Voto target (opzionale)",
+    basicsSection: "2. Dettagli obiettivo",
+    examTitle: "Titolo obiettivo",
+    examDate: "Data obiettivo",
+    targetGrade: "Voto obiettivo (opzionale)",
+    goalType: "Tipo obiettivo",
     workloadSection: "Carico di studio",
     workloadHelp: "Imposta il carico ora oppure lascialo provvisorio e rifiniscilo dopo.",
     workloadStatus: "Stato del carico",
@@ -230,7 +235,7 @@ const COPY = {
     notebookMixedTitle: "Caso misto",
     notebookMixedBody: "Sceglilo quando il carico è distribuito tra libro e appunti.",
     notebookFocusTitle: "Interpretazione",
-    notebookFocusBody: "L'app interpreta questo esame come",
+    notebookFocusBody: "L'app interpreta questo obiettivo come",
     notebookScopeHint:
       "In Perimetro materiale, indica i capitoli, le unità o i blocchi di appunti inclusi.",
     totalPages: "Pagine totali (opzionale)",
@@ -267,25 +272,28 @@ const COPY = {
     unitHandouts: "Dispense",
     unitItems: "Elementi",
     mixedRecommendation:
-      "Per gli esami misti, mantieni preciso il range del testo principale e aggiungi una stima di appunti o slide.",
+      "Per gli obiettivi misti, mantieni preciso il range del testo principale e aggiungi una stima di appunti o slide.",
     notesRecommendation:
-      "Per gli esami basati su appunti, descrivi il tipo di materiale e stima la dimensione del pacchetto da coprire.",
+      "Per gli obiettivi basati su appunti, descrivi il tipo di materiale e stima la dimensione del pacchetto da coprire.",
     bookRecommendation:
       "Se conta solo una parte del libro, usa un intervallo di pagine per riflettere il perimetro reale.",
-    addExam: "Aggiungi target",
-    editWorkload: "Modifica target",
-    planSettings: "Impostazioni piano",
-    planIntensity: "Ritmo di studio",
+    addExam: "Aggiungi obiettivo",
+    editWorkload: "Modifica obiettivo",
+    planSettings: "Ritmo di studio",
+    planIntensity: "Scegli il ritmo prima di salvare",
     planSummary: "Supporto riassunti",
-    planLighter: "Più leggero",
+    planLighter: "Leggero",
     planBalanced: "Bilanciato",
-    planStronger: "Più spinto",
+    planStronger: "Spinto",
+    planLighterBody: "Più spazio per riprendere fiato e studiare con meno pressione.",
+    planBalancedBody: "Un ritmo costante che tiene la settimana realistica.",
+    planStrongerBody: "Più intensità quando il materiale è denso o la data è vicina.",
     planLocked: "Mantieni fisso questo ritmo",
-    savePlan: "Salva piano",
-    saveWorkload: "Salva target",
+    savePlan: "Salva ritmo",
+    saveWorkload: "Salva obiettivo",
     cancelEdit: "Annulla",
-    list: "Lista target",
-    none: "Nessun target.",
+    list: "Lista obiettivi",
+    none: "Nessun obiettivo.",
     refresh: "Aggiorna",
     openTimeline: "Apri planner",
     delete: "Elimina",
@@ -298,13 +306,13 @@ const COPY = {
     noAccount: "La sessione manca o e scaduta.",
     subjectRequired: "Seleziona una materia o creane una nuova.",
     subjectCreateError: "Impossibile creare la materia",
-    noDate: "Scegli una data per il target.",
-    created: "Target creato",
-    deleted: "Target eliminato.",
+    noDate: "Scegli una data per l'obiettivo.",
+    created: "Obiettivo creato",
+    deleted: "Obiettivo eliminato.",
     loadSubjectsError: "Impossibile caricare le materie",
-    loadExamsError: "Impossibile caricare i target",
-    createError: "Impossibile salvare il target",
-    deleteError: "Impossibile eliminare il target",
+    loadExamsError: "Impossibile caricare gli obiettivi",
+    createError: "Impossibile salvare l'obiettivo",
+    deleteError: "Impossibile eliminare l'obiettivo",
     statusNotStarted: "Non iniziato",
     statusWarmingUp: "In avvio",
     statusSteady: "Costante",
@@ -325,18 +333,18 @@ const COPY = {
     sourceLocal: "Catalogo locale",
     daysLeft: "giorni rimasti",
     noPages: "-",
-    sessionHelp: "Accedi di nuovo per gestire i target e mantenere il planner sincronizzato.",
+    sessionHelp: "Accedi di nuovo per gestire gli obiettivi e mantenere il planner sincronizzato.",
     login: "Vai al login",
     createAccount: "Crea account",
     listHint:
-      "Tieni puliti i target attivi. Aggiorna le date, rinvia quando serve e collega qui i materiali.",
-    emptyBody: "Crea ora il primo target cosi il planner puo suggerire un prossimo passo realistico.",
-    emptyAction: "Crea il primo target",
+      "Tieni puliti gli obiettivi attivi. Aggiorna le date, rinvia quando serve e collega qui i materiali.",
+    emptyBody: "Crea ora il primo obiettivo cosi il planner puo suggerire un prossimo passo realistico.",
+    emptyAction: "Crea il primo obiettivo",
     saveTitleFirst: "Aggiungi un titolo prima di salvare.",
-    saveDateFirst: "Scegli una data target prima di salvare.",
-    postponed7: "Target rinviato di 7 giorni.",
-    postponed14: "Target rinviato di 14 giorni.",
-    completedTarget: "Target completato.",
+    saveDateFirst: "Scegli una data obiettivo prima di salvare.",
+    postponed7: "Obiettivo rinviato di 7 giorni.",
+    postponed14: "Obiettivo rinviato di 14 giorni.",
+    completedTarget: "Obiettivo completato.",
   },
 } as const;
 
@@ -416,6 +424,20 @@ function workloadRecommendation(materialType: MaterialType, t: ExamsCopy) {
   if (materialType === "mixed") return t.mixedRecommendation;
   if (materialType === "notes") return t.notesRecommendation;
   return t.bookRecommendation;
+}
+
+type StudyRhythmValue = StudyTargetImportance;
+
+function studyRhythmOptions(t: ExamsCopy) {
+  return [
+    { value: "LOW" as const, label: t.planLighter, body: t.planLighterBody },
+    { value: "MEDIUM" as const, label: t.planBalanced, body: t.planBalancedBody },
+    { value: "HIGH" as const, label: t.planStronger, body: t.planStrongerBody },
+  ] satisfies Array<{ value: StudyRhythmValue; label: string; body: string }>;
+}
+
+function studyRhythmLabel(value: StudyRhythmValue | null | undefined, t: ExamsCopy) {
+  return studyRhythmOptions(t).find((option) => option.value === value)?.label ?? t.planBalanced;
 }
 
 function truncateText(value: string, maxLength: number) {
@@ -1008,7 +1030,7 @@ export default function PlannerExamsPage() {
                 <button
                   type="button"
                   onClick={() => setSubjectMode("existing")}
-                  className={`planner-btn ${
+                  className={`planner-btn rounded-full ${
                     subjectMode === "existing" ? "planner-btn-primary" : "planner-btn-secondary"
                   }`}
                 >
@@ -1017,7 +1039,7 @@ export default function PlannerExamsPage() {
                 <button
                   type="button"
                   onClick={() => setSubjectMode("new")}
-                  className={`planner-btn ${
+                  className={`planner-btn rounded-full ${
                     subjectMode === "new" ? "planner-btn-primary" : "planner-btn-secondary"
                   }`}
                 >
@@ -1097,7 +1119,7 @@ export default function PlannerExamsPage() {
               </label>
 
               <label className="planner-field">
-                <span className="planner-eyebrow mb-1 block">Target type</span>
+                <span className="planner-eyebrow mb-1 block">{t.goalType}</span>
                 <select
                   value={assessmentType}
                   onChange={(event) =>
@@ -1105,27 +1127,46 @@ export default function PlannerExamsPage() {
                   }
                   className="planner-input"
                 >
-                  <option value="EXAM">Exam</option>
-                  <option value="TEST">Test</option>
-                  <option value="ORAL">Oral</option>
-                  <option value="SELF_STUDY">Self study</option>
+                  <option value="EXAM">{language === "it" ? "Esame" : "Exam"}</option>
+                  <option value="TEST">{language === "it" ? "Verifica" : "Test"}</option>
+                  <option value="ORAL">{language === "it" ? "Interrogazione" : "Oral"}</option>
+                  <option value="SELF_STUDY">
+                    {language === "it" ? "Studio autonomo" : "Self study"}
+                  </option>
                 </select>
               </label>
 
-              <label className="planner-field">
-                <span className="planner-eyebrow mb-1 block">Importance</span>
-                <select
-                  value={importance}
-                  onChange={(event) =>
-                    setImportance(event.target.value as StudyTargetImportance)
-                  }
-                  className="planner-input"
-                >
-                  <option value="LOW">Low</option>
-                  <option value="MEDIUM">Medium</option>
-                  <option value="HIGH">High</option>
-                </select>
-              </label>
+              <div className="planner-field">
+                <span className="planner-eyebrow mb-1 block">{t.planSettings}</span>
+                <p className="text-xs text-slate-500">{t.planIntensity}</p>
+                <div className="mt-2 grid gap-2">
+                  {studyRhythmOptions(t).map((option) => {
+                    const isActive = importance === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setImportance(option.value)}
+                        className={`rounded-2xl border px-3 py-2 text-left transition ${
+                          isActive
+                            ? "border-slate-900 bg-slate-900 text-white shadow-sm"
+                            : "border-slate-200 bg-white text-slate-800 hover:border-slate-300"
+                        }`}
+                        aria-pressed={isActive}
+                      >
+                        <p className="text-sm font-semibold">{option.label}</p>
+                        <p
+                          className={`mt-1 text-xs leading-5 ${
+                            isActive ? "text-slate-100" : "text-slate-500"
+                          }`}
+                        >
+                          {option.body}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
               <label className="planner-field">
                 <span className="planner-eyebrow mb-1 block">{t.targetGrade}</span>
@@ -1258,7 +1299,7 @@ export default function PlannerExamsPage() {
                 <div className="mt-3 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-slate-700">
                   <p className="font-semibold text-slate-900">{t.selectedBook}: {selectedBook.title}</p>
                   <p className="mt-1 text-xs text-slate-600">
-                    {t.verifiedPages}: <strong>{selectedBook.verified_page_count ?? "-"}</strong>
+                    {t.verifiedPages}: <strong>{selectedBook.verified_page_count ?? "—"}</strong>
                     {" | "}
                     {t.confidence}: <strong>{pct(selectedBook.confidence_score)}</strong>
                     {" | "}
@@ -1406,7 +1447,7 @@ export default function PlannerExamsPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="planner-btn planner-btn-accent w-full"
+              className="planner-btn planner-btn-accent w-full rounded-full"
             >
               {t.addExam}
             </button>
@@ -1426,7 +1467,7 @@ export default function PlannerExamsPage() {
             type="button"
             onClick={() => void handleRefresh()}
             disabled={refreshing}
-            className="planner-btn planner-btn-secondary"
+            className="planner-btn planner-btn-secondary rounded-full"
           >
             {t.refresh}
           </button>
@@ -1506,7 +1547,7 @@ export default function PlannerExamsPage() {
                           {formatEnumLabel(examMeta?.status)}
                         </span>
                         <span className="planner-chip bg-white text-slate-700">
-                          {formatEnumLabel(examMeta?.importance)}
+                          {studyRhythmLabel(examMeta?.importance as StudyRhythmValue, t)}
                         </span>
                         <span className="planner-chip bg-white text-slate-700">
                           {examMeta?.workloadReadiness === "known"
@@ -1620,7 +1661,7 @@ export default function PlannerExamsPage() {
                                   intensityPreference: option.value,
                                 })
                               }
-                              className={`planner-btn min-h-0 py-1.5 ${
+                              className={`planner-btn min-h-0 rounded-full py-1.5 ${
                                 examMeta?.planState?.intensityPreference === option.value
                                   ? "planner-btn-primary"
                                   : "planner-btn-secondary"
@@ -1671,7 +1712,7 @@ export default function PlannerExamsPage() {
                             t.postponed7,
                           )
                         }
-                        className="planner-btn planner-btn-secondary min-h-0 py-1.5"
+                        className="planner-btn planner-btn-secondary min-h-0 rounded-full py-1.5"
                       >
                         +7d
                       </button>
@@ -1684,7 +1725,7 @@ export default function PlannerExamsPage() {
                             t.postponed14,
                           )
                         }
-                        className="planner-btn planner-btn-secondary min-h-0 py-1.5"
+                        className="planner-btn planner-btn-secondary min-h-0 rounded-full py-1.5"
                       >
                         +14d
                       </button>
@@ -1693,27 +1734,27 @@ export default function PlannerExamsPage() {
                         onClick={() =>
                           void patchExam(track.examId, { status: "COMPLETED" }, t.completedTarget)
                         }
-                        className="planner-btn planner-btn-secondary min-h-0 py-1.5"
+                        className="planner-btn planner-btn-secondary min-h-0 rounded-full py-1.5"
                       >
-                        Complete
+                        {t.completedTarget}
                       </button>
                       <button
                         type="button"
                         onClick={() => openEditWorkload(track.examId)}
-                        className="planner-btn planner-btn-secondary min-h-0 py-1.5"
+                        className="planner-btn planner-btn-secondary min-h-0 rounded-full py-1.5"
                       >
                         {t.editWorkload}
                       </button>
                       <Link
                         href={`/planner?exam=${track.examId}`}
-                        className="planner-btn planner-btn-secondary min-h-0 py-1.5"
+                        className="planner-btn planner-btn-secondary min-h-0 rounded-full py-1.5"
                       >
                         {t.openTimeline}
                       </Link>
                       <button
                         type="button"
                         onClick={() => void deleteExam(track.examId)}
-                        className="planner-btn planner-btn-danger min-h-0 py-1.5"
+                        className="planner-btn planner-btn-danger min-h-0 rounded-full py-1.5"
                         aria-label={`${t.delete} ${track.examTitle}`}
                       >
                         {t.delete} x
@@ -1722,10 +1763,12 @@ export default function PlannerExamsPage() {
                   </div>
                   {editingExamId === track.examId ? (
                     <div className="mt-3 w-full space-y-3 border-t border-slate-200 pt-3">
-                      <p className="planner-eyebrow">Target details and workload</p>
+                      <p className="planner-eyebrow">
+                        {language === "it" ? "Dettagli obiettivo e carico" : "Goal details and workload"}
+                      </p>
                       <div className="grid gap-3 md:grid-cols-3">
                         <label className="planner-field md:col-span-3">
-                          <span className="planner-eyebrow mb-1 block">Title</span>
+                          <span className="planner-eyebrow mb-1 block">{t.examTitle}</span>
                           <input
                             type="text"
                             value={editTitle}
@@ -1734,7 +1777,7 @@ export default function PlannerExamsPage() {
                           />
                         </label>
                         <label className="planner-field">
-                          <span className="planner-eyebrow mb-1 block">Target date</span>
+                          <span className="planner-eyebrow mb-1 block">{t.examDate}</span>
                           <input
                             type="date"
                             value={editAssessmentType === "SELF_STUDY" ? "" : editExamDate}
@@ -1744,7 +1787,7 @@ export default function PlannerExamsPage() {
                           />
                         </label>
                         <label className="planner-field">
-                          <span className="planner-eyebrow mb-1 block">Target type</span>
+                          <span className="planner-eyebrow mb-1 block">{t.goalType}</span>
                           <select
                             value={editAssessmentType}
                             onChange={(event) =>
@@ -1752,14 +1795,20 @@ export default function PlannerExamsPage() {
                             }
                             className="planner-input"
                           >
-                            <option value="EXAM">Exam</option>
-                            <option value="TEST">Test</option>
-                            <option value="ORAL">Oral</option>
-                            <option value="SELF_STUDY">Self study</option>
+                            <option value="EXAM">{language === "it" ? "Esame" : "Exam"}</option>
+                            <option value="TEST">{language === "it" ? "Verifica" : "Test"}</option>
+                            <option value="ORAL">
+                              {language === "it" ? "Interrogazione" : "Oral"}
+                            </option>
+                            <option value="SELF_STUDY">
+                              {language === "it" ? "Studio autonomo" : "Self study"}
+                            </option>
                           </select>
                         </label>
                         <label className="planner-field">
-                          <span className="planner-eyebrow mb-1 block">Status</span>
+                          <span className="planner-eyebrow mb-1 block">
+                            {language === "it" ? "Stato" : "Status"}
+                          </span>
                           <select
                             value={editStatus}
                             onChange={(event) =>
@@ -1767,26 +1816,49 @@ export default function PlannerExamsPage() {
                             }
                             className="planner-input"
                           >
-                            <option value="ACTIVE">Active</option>
-                            <option value="POSTPONED">Postponed</option>
-                            <option value="COMPLETED">Completed</option>
-                            <option value="CANCELLED">Cancelled</option>
+                            <option value="ACTIVE">{language === "it" ? "Attivo" : "Active"}</option>
+                            <option value="POSTPONED">
+                              {language === "it" ? "Rinviato" : "Postponed"}
+                            </option>
+                            <option value="COMPLETED">
+                              {language === "it" ? "Completato" : "Completed"}
+                            </option>
+                            <option value="CANCELLED">
+                              {language === "it" ? "Annullato" : "Cancelled"}
+                            </option>
                           </select>
                         </label>
-                        <label className="planner-field">
-                          <span className="planner-eyebrow mb-1 block">Importance</span>
-                          <select
-                            value={editImportance}
-                            onChange={(event) =>
-                              setEditImportance(event.target.value as StudyTargetImportance)
-                            }
-                            className="planner-input"
-                          >
-                            <option value="LOW">Low</option>
-                            <option value="MEDIUM">Medium</option>
-                            <option value="HIGH">High</option>
-                          </select>
-                        </label>
+                        <div className="planner-field md:col-span-3">
+                          <span className="planner-eyebrow mb-1 block">{t.planSettings}</span>
+                          <p className="text-xs text-slate-500">{t.planIntensity}</p>
+                          <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                            {studyRhythmOptions(t).map((option) => {
+                              const isActive = editImportance === option.value;
+                              return (
+                                <button
+                                  key={option.value}
+                                  type="button"
+                                  onClick={() => setEditImportance(option.value)}
+                                  className={`rounded-2xl border px-3 py-2 text-left transition ${
+                                    isActive
+                                      ? "border-slate-900 bg-slate-900 text-white shadow-sm"
+                                      : "border-slate-200 bg-white text-slate-800 hover:border-slate-300"
+                                  }`}
+                                  aria-pressed={isActive}
+                                >
+                                  <p className="text-sm font-semibold">{option.label}</p>
+                                  <p
+                                    className={`mt-1 text-xs leading-5 ${
+                                      isActive ? "text-slate-100" : "text-slate-500"
+                                    }`}
+                                  >
+                                    {option.body}
+                                  </p>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
                         <label className="planner-field">
                           <span className="planner-eyebrow mb-1 block">{t.targetGrade}</span>
                           <input
