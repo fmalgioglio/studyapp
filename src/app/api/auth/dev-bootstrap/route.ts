@@ -52,8 +52,9 @@ function isSchemaMismatchError(error: unknown) {
 async function upsertDevBootstrapStudent(options: {
   includePasswordHash: boolean;
   includeProfileFields: boolean;
+  includeCoreFields: boolean;
 }) {
-  const { includePasswordHash, includeProfileFields } = options;
+  const { includePasswordHash, includeProfileFields, includeCoreFields } = options;
   const select = includeProfileFields
     ? {
         id: true,
@@ -63,18 +64,28 @@ async function upsertDevBootstrapStudent(options: {
         educationLevel: true,
         schoolProfile: true,
       }
-    : {
+    : includeCoreFields
+      ? {
+          id: true,
+          email: true,
+          fullName: true,
+          weeklyHours: true,
+        }
+      : {
         id: true,
         email: true,
-        fullName: true,
-        weeklyHours: true,
       };
+  const coreFields = includeCoreFields
+    ? {
+        fullName: DEV_BOOTSTRAP_FULL_NAME,
+        weeklyHours: DEV_BOOTSTRAP_WEEKLY_HOURS,
+      }
+    : {};
 
   return prisma.student.upsert({
     where: { email: DEV_BOOTSTRAP_EMAIL },
     update: {
-      fullName: DEV_BOOTSTRAP_FULL_NAME,
-      weeklyHours: DEV_BOOTSTRAP_WEEKLY_HOURS,
+      ...coreFields,
       ...(includeProfileFields
         ? {
             educationLevel: DEV_BOOTSTRAP_EDUCATION_LEVEL,
@@ -87,8 +98,7 @@ async function upsertDevBootstrapStudent(options: {
     },
     create: {
       email: DEV_BOOTSTRAP_EMAIL,
-      fullName: DEV_BOOTSTRAP_FULL_NAME,
-      weeklyHours: DEV_BOOTSTRAP_WEEKLY_HOURS,
+      ...coreFields,
       ...(includeProfileFields
         ? {
             educationLevel: DEV_BOOTSTRAP_EDUCATION_LEVEL,
@@ -113,9 +123,10 @@ export async function POST() {
     let usedCompatibilityFallback = false;
 
     const strategies = [
-      { includePasswordHash: true, includeProfileFields: true },
-      { includePasswordHash: true, includeProfileFields: false },
-      { includePasswordHash: false, includeProfileFields: false },
+      { includePasswordHash: true, includeProfileFields: true, includeCoreFields: true },
+      { includePasswordHash: true, includeProfileFields: false, includeCoreFields: true },
+      { includePasswordHash: false, includeProfileFields: false, includeCoreFields: true },
+      { includePasswordHash: false, includeProfileFields: false, includeCoreFields: false },
     ] as const;
 
     let lastError: unknown;
