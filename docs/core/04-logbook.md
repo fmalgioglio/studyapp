@@ -5374,3 +5374,49 @@ pm run lint\ ? 0 errors, 0 warnings.
 
 - First command/file: continue with `PHASE-7-OBJECTIVES-001` to finish the objective setup flow and study rhythm UI.
 - Next owner: Product/UI track.
+
+---
+
+## Entry - PHASE-7-MATERIAL-INTELLIGENCE-001 Live Material Inspector Wiring
+
+- Date: 2026-03-19
+- Task ID: PHASE-7-MATERIAL-INTELLIGENCE-001
+- Role: Builder + Reviewer
+- Owner: Codex
+
+### Decisions Taken
+
+- Wired link inspection at the API boundary instead of in UI so materials stay the single source of truth for planner-facing enrichment.
+- Reused the existing `StudyMaterial` fields for derived scope and extraction hints to avoid a schema migration in this slice.
+- Blocked non-public links early while allowing public links to save even when remote inspection cannot fetch full content.
+
+### What Was Done
+
+- Added the governing slice spec:
+  - `docs/specs/PHASE-7-MATERIAL-INTELLIGENCE-001.md`
+- Wired the material-link inspector into live create/update flows:
+  - `src/app/api/materials/route.ts`
+- Added API coverage for the blocked-link and enrichment paths:
+  - `tests/api/materials.route.test.ts`
+
+### Evidence
+
+- Lint: `npm run lint` passed.
+- Tests:
+  - `npx vitest run tests/api/materials.route.test.ts --config vitest.config.ts` passed
+  - `npm run test:unit` passed
+
+### Residual Risks
+
+- Existing `StudyMaterial` fields are still a lossy destination for extraction metadata, so richer planner context may still need a schema follow-up.
+- Link inspection currently runs inline during material create/update and can add latency for slow public hosts.
+
+### Assumptions
+
+- `estimatedScopePages`, `availabilityHint`, and `notes` are acceptable short-term storage targets for derived material context.
+- Only public `http/https` links should ever reach the live material create/update path.
+
+### Next Action (Concrete)
+
+- First command/file: expose the derived material hints more clearly in the objective materials UI once the next UI slice opens.
+- Next owner: Material/UX track.

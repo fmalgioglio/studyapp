@@ -1,3 +1,8 @@
+import type {
+  StudyMaterialOrigin,
+  StudyMaterialVerificationLevel,
+} from "@/lib/study-domain";
+
 type FetchLike = typeof fetch;
 
 export type MaterialLinkKind = "pdf" | "html" | "unknown";
@@ -21,6 +26,24 @@ export type MaterialLinkAnalysis = {
   extractionSummary: string;
   scopeHints: string[];
   notes: string[];
+};
+
+export type MaterialLinkEnrichmentInput = {
+  title: string;
+  url?: string | null;
+  origin: StudyMaterialOrigin;
+  notes?: string | null;
+  availabilityHint?: string | null;
+  verificationLevel?: StudyMaterialVerificationLevel | null;
+  estimatedScopePages?: number | null;
+};
+
+export type MaterialLinkEnrichmentResult = {
+  availabilityHint: string | null;
+  verificationLevel: StudyMaterialVerificationLevel | null;
+  estimatedScopePages: number | null;
+  notes: string | null;
+  analysis: MaterialLinkAnalysis | null;
 };
 
 const PRIVATE_HOST_PATTERNS = [
@@ -339,4 +362,63 @@ export async function inspectPublicMaterialLink(
       "Binary or unsupported formats stay metadata-only for now.",
     ],
   };
+}
+
+function buildPlannerNote(kind: MaterialLinkKind) {
+  if (kind === "pdf") {
+    return "Planner scope estimate added from the linked public PDF.";
+  }
+
+  if (kind === "html") {
+    return "Planner scope estimate added from the linked public page.";
+  }
+
+  return "Planner scope estimate added from the linked material.";
+}
+
+export async function enrichMaterialFromLink(
+  input: MaterialLinkEnrichmentInput,
+  fetchImpl: FetchLike = fetch,
+): Promise<MaterialLinkEnrichmentResult> {
+  const baseResult: MaterialLinkEnrichmentResult = {
+    availabilityHint: input.availabilityHint ?? null,
+    verificationLevel: input.verificationLevel ?? null,
+    estimatedScopePages: input.estimatedScopePages ?? null,
+    notes: input.notes ?? null,
+    analysis: null,
+  };
+
+  if (!input.url?.trim()) {
+    return baseResult;
+  }
+
+  try {
+    const analysis = await inspectPublicMaterialLink(
+      {
+        url: input.url.trim(),
+        titleHint: input.title,
+      },
+      fetchImpl,
+    );
+
+    if (analysis.status === "blocked" || analysis.status === "unsupported") {
+      return {
+        ...baseResult,
+        analysis,
+      };
+    }
+
+    return {
+      availabilityHint: input.availabilityHint?.trim() || analysis.extractionSummary,
+      verificationLevel:
+        input.verificationLevel ??
+        (input.origin === "USER_LINK" ? "DISCOVERED" : "OFFICIAL"),
+      estimatedScopePages:
+        input.estimatedScopePages ?? analysis.estimatedScopePages ?? null,
+      notes: input.notes?.trim() || buildPlannerNote(analysis.kind),
+      analysis,
+    };
+  } catch {
+    return baseResult;
+  }
 }

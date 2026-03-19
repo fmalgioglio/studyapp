@@ -4,6 +4,10 @@ import { requireSession } from "@/server/auth/require-session";
 import { prisma } from "@/server/db/client";
 import { apiError, apiSuccess, getErrorDetails } from "@/server/http/response";
 import {
+  inspectPublicMaterialLink,
+  isSupportedMaterialLink,
+} from "@/server/services/material-link-inspector";
+import {
   createStudyMaterialSchema,
   updateStudyMaterialSchema,
 } from "@/server/validation/material";
@@ -11,6 +15,16 @@ import {
 export const dynamic = "force-dynamic";
 
 const MAX_UPLOAD_BYTES = 5_000_000;
+
+type LinkedMaterialEnrichment =
+  | {
+      estimatedScopePages: number | null | undefined;
+      availabilityHint: string | null | undefined;
+      notes: string | null | undefined;
+    }
+  | {
+      error: string;
+    };
 
 function buildFileKey(materialId: string, fileName: string) {
   const safeName = fileName
@@ -32,6 +46,54 @@ async function readOwnedExam(studentId: string, examId?: string | null) {
       subjectId: true,
     },
   });
+}
+
+async function enrichLinkedMaterial(input: {
+  origin: string;
+  url?: string | null;
+  title: string;
+  estimatedScopePages?: number | null;
+  availabilityHint?: string | null;
+  notes?: string | null;
+}): Promise<LinkedMaterialEnrichment> {
+  if (!input.url || input.origin === "USER_UPLOAD") {
+    return {
+      estimatedScopePages: input.estimatedScopePages ?? null,
+      availabilityHint: input.availabilityHint ?? null,
+      notes: input.notes ?? null,
+    };
+  }
+
+  if (!isSupportedMaterialLink(input.url)) {
+    return {
+      error: "Only public http/https links are supported for linked materials.",
+    } as const;
+  }
+
+  try {
+    const analysis = await inspectPublicMaterialLink({
+      url: input.url,
+      titleHint: input.title,
+    });
+
+    const generatedNotes = [analysis.extractionSummary, ...analysis.scopeHints]
+      .filter(Boolean)
+      .slice(0, 2)
+      .join(" | ");
+
+    return {
+      estimatedScopePages:
+        input.estimatedScopePages ?? analysis.estimatedScopePages ?? null,
+      availabilityHint: input.availabilityHint ?? analysis.extractionSummary,
+      notes: input.notes ?? (generatedNotes || null),
+    };
+  } catch {
+    return {
+      estimatedScopePages: input.estimatedScopePages ?? null,
+      availabilityHint: input.availabilityHint ?? null,
+      notes: input.notes ?? null,
+    };
+  }
 }
 
 export async function GET(request: Request) {
@@ -205,6 +267,18 @@ export async function POST(request: Request) {
     }
 
     const linkedExam = await readOwnedExam(session.uid, parsed.data.examId ?? null);
+    const enriched = await enrichLinkedMaterial({
+      origin: parsed.data.origin,
+      url: parsed.data.url ?? null,
+      title: parsed.data.title,
+      estimatedScopePages: parsed.data.estimatedScopePages ?? null,
+      availabilityHint: parsed.data.availabilityHint ?? null,
+      notes: parsed.data.notes ?? null,
+    });
+
+    if ("error" in enriched) {
+      return apiError(enriched.error, 400);
+    }
 
     const item = await prisma.studyMaterial.create({
       data: {
@@ -219,7 +293,7 @@ export async function POST(request: Request) {
         fileMimeType: parsed.data.fileMimeType ?? null,
         fileSizeBytes: parsed.data.fileSizeBytes ?? null,
         licenseHint: parsed.data.licenseHint ?? null,
-        availabilityHint: parsed.data.availabilityHint ?? null,
+        availabilityHint: enriched.availabilityHint,
         verificationLevel:
           parsed.data.verificationLevel ??
           (parsed.data.origin === "OPEN_VERIFIED"
@@ -227,8 +301,8 @@ export async function POST(request: Request) {
             : parsed.data.origin === "OFFICIAL_SOURCE"
               ? "OFFICIAL"
               : "USER_PROVIDED"),
-        estimatedScopePages: parsed.data.estimatedScopePages ?? null,
-        notes: parsed.data.notes ?? null,
+        estimatedScopePages: enriched.estimatedScopePages,
+        notes: enriched.notes,
       },
       select: {
         id: true,
@@ -301,6 +375,9 @@ export async function PATCH(request: Request) {
       },
       select: {
         id: true,
+        origin: true,
+        url: true,
+        title: true,
       },
     });
 
@@ -309,6 +386,24 @@ export async function PATCH(request: Request) {
     }
 
     const linkedExam = await readOwnedExam(session.uid, parsed.data.examId ?? null);
+    const enriched = await enrichLinkedMaterial({
+      origin: parsed.data.origin ?? existing.origin,
+      url: parsed.data.url ?? existing.url ?? null,
+      title: parsed.data.title ?? existing.title,
+      estimatedScopePages:
+        parsed.data.estimatedScopePages === undefined
+          ? undefined
+          : parsed.data.estimatedScopePages ?? null,
+      availabilityHint:
+        parsed.data.availabilityHint === undefined
+          ? undefined
+          : parsed.data.availabilityHint ?? null,
+      notes: parsed.data.notes === undefined ? undefined : parsed.data.notes ?? null,
+    });
+
+    if ("error" in enriched) {
+      return apiError(enriched.error, 400);
+    }
 
     const item = await prisma.studyMaterial.update({
       where: { id: materialId },
@@ -324,12 +419,24 @@ export async function PATCH(request: Request) {
         type: parsed.data.type,
         origin: parsed.data.origin,
         title: parsed.data.title,
-        url: parsed.data.url ?? null,
-        licenseHint: parsed.data.licenseHint ?? null,
-        availabilityHint: parsed.data.availabilityHint ?? null,
+        url:
+          parsed.data.url === undefined
+            ? undefined
+            : parsed.data.url ?? null,
+        licenseHint:
+          parsed.data.licenseHint === undefined
+            ? undefined
+            : parsed.data.licenseHint ?? null,
+        availabilityHint:
+          parsed.data.availabilityHint === undefined
+            ? undefined
+            : enriched.availabilityHint,
         verificationLevel: parsed.data.verificationLevel,
-        estimatedScopePages: parsed.data.estimatedScopePages ?? null,
-        notes: parsed.data.notes ?? null,
+        estimatedScopePages:
+          parsed.data.estimatedScopePages === undefined
+            ? undefined
+            : enriched.estimatedScopePages,
+        notes: parsed.data.notes === undefined ? undefined : enriched.notes,
       },
       select: {
         id: true,
